@@ -34,6 +34,12 @@ POST /orders
 
 Creates order.
 
+Request body includes:
+- order_type (pickup | delivery)
+- delivery_address (required when order_type = delivery)
+- notes (optional)
+- items
+
 ---
 
 GET /orders/{id}

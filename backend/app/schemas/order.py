@@ -19,6 +19,7 @@ class OrderItemCreate(AppBaseModel):
 
 class OrderCreateRequest(AppBaseModel):
     order_type: str = Field(pattern='^(pickup|delivery)$')
+    delivery_address: str | None = Field(default=None, max_length=255)
     notes: str | None = None
     items: list[OrderItemCreate] = Field(min_length=1)
 
@@ -42,6 +43,9 @@ class OrderRead(AppBaseModel):
     id: UUID
     order_number: int
     user_id: UUID
+    customer_name: str | None = None
+    customer_phone: str | None = None
+    delivery_address: str | None = None
     status: str
     order_type: str
     created_at: datetime

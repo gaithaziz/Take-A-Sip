@@ -26,16 +26,23 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
   useEffect(() => {
     const run = async () => {
-      const [savedToken, savedUser] = await Promise.all([
-        AsyncStorage.getItem(TOKEN_KEY),
-        AsyncStorage.getItem(USER_KEY),
-      ]);
-      if (savedToken) {
-        setToken(savedToken);
-        setAuthToken(savedToken);
-      }
-      if (savedUser) {
-        setUser(JSON.parse(savedUser) as AuthUser);
+      try {
+        const [savedToken, savedUser] = await Promise.all([
+          AsyncStorage.getItem(TOKEN_KEY),
+          AsyncStorage.getItem(USER_KEY),
+        ]);
+        if (savedToken) {
+          setToken(savedToken);
+          setAuthToken(savedToken);
+        }
+        if (savedUser) {
+          setUser(JSON.parse(savedUser) as AuthUser);
+        }
+      } catch {
+        // Continue without persisted auth if local storage is unavailable/corrupt.
+        setToken(null);
+        setUser(null);
+        setAuthToken(null);
       }
       setIsLoading(false);
     };
@@ -54,17 +61,25 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setToken(response.access_token);
     setUser(response.user);
     setAuthToken(response.access_token);
-    await Promise.all([
-      AsyncStorage.setItem(TOKEN_KEY, response.access_token),
-      AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user)),
-    ]);
+    try {
+      await Promise.all([
+        AsyncStorage.setItem(TOKEN_KEY, response.access_token),
+        AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user)),
+      ]);
+    } catch {
+      // Keep the user signed in memory even if persistence fails.
+    }
   };
 
   const logout = async () => {
     setToken(null);
     setUser(null);
     setAuthToken(null);
-    await Promise.all([AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
+    try {
+      await Promise.all([AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
+    } catch {
+      // Ignore storage cleanup failures to avoid logout crashes.
+    }
   };
 
   const value = useMemo(

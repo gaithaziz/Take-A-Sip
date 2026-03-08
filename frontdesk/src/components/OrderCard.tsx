@@ -6,6 +6,7 @@ type Props = {
   order: OrderRead;
   onPress: () => void;
   onAccept: () => void;
+  isRTL: boolean;
   labels: {
     order: string;
     type: string;
@@ -22,23 +23,23 @@ const formatTime = (iso: string) =>
     minute: '2-digit',
   });
 
-export const OrderCard = ({ order, onPress, onAccept, labels }: Props) => {
+export const OrderCard = ({ order, onPress, onAccept, isRTL, labels }: Props) => {
   const itemsSummary = order.items.map((item) => `${item.quantity}x ${item.item_name_snapshot}`).join(', ');
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <Text style={styles.orderNo}>
+      <Text style={[styles.orderNo, isRTL ? styles.rtlText : styles.ltrText]}>
         {labels.order} #{order.order_number}
       </Text>
-      <Text style={styles.meta}>
+      <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
         {labels.type}: {order.order_type}
       </Text>
-      <Text style={styles.meta}>
+      <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
         {labels.items}: {itemsSummary || '-'}
       </Text>
-      <Text style={styles.meta}>
+      <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
         {labels.phone}: {order.customer_phone || '-'}
       </Text>
-      <Text style={styles.meta}>
+      <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
         {labels.time}: {formatTime(order.created_at)}
       </Text>
       <Pressable style={styles.acceptButton} onPress={onAccept}>
@@ -80,5 +81,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 19,
     fontWeight: '700',
+  },
+  rtlText: {
+    textAlign: 'right',
+  },
+  ltrText: {
+    textAlign: 'left',
   },
 });

@@ -1,11 +1,23 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/state/AuthContext';
 
 export const AuthScreen = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.dir() === 'rtl';
   const { sendOtp, verifyOtp } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -14,27 +26,53 @@ export const AuthScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const safeSetError = (value: string | null) => {
+    if (isMountedRef.current) {
+      setError(value);
+    }
+  };
+
+  const safeSetIsLoading = (value: boolean) => {
+    if (isMountedRef.current) {
+      setIsLoading(value);
+    }
+  };
+
+  const safeSetOtpSent = (value: boolean) => {
+    if (isMountedRef.current) {
+      setOtpSent(value);
+    }
+  };
 
   const onSendOtp = async () => {
-    setError(null);
-    setIsLoading(true);
+    safeSetError(null);
+    safeSetIsLoading(true);
     try {
       await sendOtp({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone_number: phone.trim(),
       });
-      setOtpSent(true);
+      safeSetOtpSent(true);
     } catch {
-      setError(t('auth.sendFailed'));
+      safeSetError(t('auth.sendFailed'));
     } finally {
-      setIsLoading(false);
+      safeSetIsLoading(false);
     }
   };
 
   const onVerify = async () => {
-    setError(null);
-    setIsLoading(true);
+    safeSetError(null);
+    safeSetIsLoading(true);
     try {
       await verifyOtp({
         phone_number: phone.trim(),
@@ -44,63 +82,110 @@ export const AuthScreen = () => {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : t('auth.verifyFailed');
-      setError(message);
+      safeSetError(message);
     } finally {
-      setIsLoading(false);
+      safeSetIsLoading(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{t('auth.title')}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.firstName')}
-        value={firstName}
-        onChangeText={setFirstName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.lastName')}
-        value={lastName}
-        onChangeText={setLastName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.phone')}
-        keyboardType="phone-pad"
-        value={phone}
-        onChangeText={setPhone}
-      />
-      {otpSent ? (
-        <TextInput
-          style={styles.input}
-          placeholder={t('auth.otp')}
-          keyboardType="number-pad"
-          value={otp}
-          onChangeText={setOtp}
-        />
-      ) : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {!otpSent ? (
-        <Pressable style={styles.button} disabled={isLoading} onPress={onSendOtp}>
-          <Text style={styles.buttonText}>{t('auth.sendOtp')}</Text>
-        </Pressable>
-      ) : (
-        <Pressable style={styles.button} disabled={isLoading} onPress={onVerify}>
-          <Text style={styles.buttonText}>{t('auth.verifyOtp')}</Text>
-        </Pressable>
-      )}
-    </ScrollView>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        >
+          <View style={[styles.topActions, isRTL ? styles.topActionsRtl : null]}>
+            <Pressable
+              style={styles.actionButton}
+              onPress={() => void i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en')}
+            >
+              <Text style={[styles.actionText, isRTL ? styles.rtlText : styles.ltrText]}>
+                {t('orders.language')}: {i18n.language.toUpperCase()}
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={[styles.title, isRTL ? styles.rtlText : styles.ltrText]}>{t('auth.title')}</Text>
+          <TextInput
+            style={[styles.input, isRTL ? styles.rtlText : styles.ltrText]}
+            placeholder={t('auth.firstName')}
+            value={firstName}
+            onChangeText={setFirstName}
+            returnKeyType="next"
+          />
+          <TextInput
+            style={[styles.input, isRTL ? styles.rtlText : styles.ltrText]}
+            placeholder={t('auth.lastName')}
+            value={lastName}
+            onChangeText={setLastName}
+            returnKeyType="next"
+          />
+          <TextInput
+            style={[styles.input, isRTL ? styles.rtlText : styles.ltrText]}
+            placeholder={t('auth.phone')}
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={setPhone}
+            returnKeyType={otpSent ? 'next' : 'done'}
+          />
+          {otpSent ? (
+            <TextInput
+              style={[styles.input, isRTL ? styles.rtlText : styles.ltrText]}
+              placeholder={t('auth.otp')}
+              keyboardType="number-pad"
+              value={otp}
+              onChangeText={setOtp}
+              returnKeyType="done"
+            />
+          ) : null}
+          {error ? <Text style={[styles.error, isRTL ? styles.rtlText : styles.ltrText]}>{error}</Text> : null}
+          {!otpSent ? (
+            <Pressable style={styles.button} disabled={isLoading} onPress={onSendOtp}>
+              <Text style={styles.buttonText}>{t('auth.sendOtp')}</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.button} disabled={isLoading} onPress={onVerify}>
+              <Text style={styles.buttonText}>{t('auth.verifyOtp')}</Text>
+            </Pressable>
+          )}
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   container: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
+    paddingBottom: 28,
     backgroundColor: '#F4F7FC',
+  },
+  topActions: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  topActionsRtl: {
+    flexDirection: 'row-reverse',
+  },
+  actionButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  actionText: {
+    fontWeight: '700',
+    color: '#0C2340',
   },
   title: {
     fontSize: 28,
@@ -134,5 +219,11 @@ const styles = StyleSheet.create({
   error: {
     color: '#C62828',
     marginBottom: 8,
+  },
+  rtlText: {
+    textAlign: 'right',
+  },
+  ltrText: {
+    textAlign: 'left',
   },
 });

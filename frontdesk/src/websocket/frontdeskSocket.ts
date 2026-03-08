@@ -9,8 +9,10 @@ type SocketHandlers = {
 
 export class FrontdeskSocket {
   private ws: WebSocket | null = null;
+  private shouldReconnect = true;
 
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 
   private reconnectAttempt = 0;
 
@@ -21,13 +23,19 @@ export class FrontdeskSocket {
   ) {}
 
   connect() {
+    this.shouldReconnect = true;
     this.cleanupTimer();
+    this.cleanupKeepAlive();
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
     const wsBase = this.baseHttpUrl.replace(/^http/, 'ws').replace(/\/$/, '');
     const url = `${wsBase}/ws/frontdesk?token=${encodeURIComponent(this.token)}`;
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
       this.reconnectAttempt = 0;
+      this.startKeepAlive();
       this.handlers.onOpen();
     };
 
@@ -45,13 +53,17 @@ export class FrontdeskSocket {
     };
 
     this.ws.onclose = () => {
+      this.cleanupKeepAlive();
       this.handlers.onClose();
       this.scheduleReconnect();
+      this.ws = null;
     };
   }
 
   disconnect() {
+    this.shouldReconnect = false;
     this.cleanupTimer();
+    this.cleanupKeepAlive();
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.close();
@@ -60,6 +72,9 @@ export class FrontdeskSocket {
   }
 
   private scheduleReconnect() {
+    if (!this.shouldReconnect) {
+      return;
+    }
     this.cleanupTimer();
     const delayMs = Math.min(30000, 1000 * 2 ** this.reconnectAttempt);
     this.reconnectAttempt += 1;
@@ -72,6 +87,32 @@ export class FrontdeskSocket {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  private startKeepAlive() {
+    this.cleanupKeepAlive();
+    this.keepAliveTimer = setInterval(() => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      try {
+        // Keep the connection active through idle network devices.
+        this.ws.send('ping');
+      } catch {
+        try {
+          this.ws.close();
+        } catch {
+          // Ignore close errors; reconnect scheduler will handle retry.
+        }
+      }
+    }, 15000);
+  }
+
+  private cleanupKeepAlive() {
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
     }
   }
 }

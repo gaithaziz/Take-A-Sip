@@ -33,11 +33,24 @@ class Order(UUIDPrimaryKeyMixin, TimestampCreatedMixin, Base):
     order_type: Mapped[OrderType] = mapped_column(
         Enum(OrderType, name='order_type', native_enum=False), nullable=False
     )
+    delivery_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user = relationship('User', back_populates='orders')
     items = relationship('OrderItem', back_populates='order', cascade='all, delete-orphan')
     events = relationship('OrderEvent', back_populates='order', cascade='all, delete-orphan')
+
+    @property
+    def customer_name(self) -> str | None:
+        if not self.user:
+            return None
+        return f'{self.user.first_name} {self.user.last_name}'.strip()
+
+    @property
+    def customer_phone(self) -> str | None:
+        if not self.user:
+            return None
+        return self.user.phone_number
 
 
 class OrderItem(UUIDPrimaryKeyMixin, Base):

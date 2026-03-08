@@ -1,11 +1,10 @@
 # Implementation Tasks for Codex
 
-## Phase 1 – Backend
+## Phase 1 - Backend
 
-Create FastAPI project
+Status: Complete
 
-Implement:
-
+Scope:
 - authentication (OTP)
 - menu APIs
 - order creation
@@ -15,12 +14,11 @@ Implement:
 
 ---
 
-## Phase 2 – Mobile App
+## Phase 2 - Mobile App
 
-React Native app
+Status: Complete
 
-Screens:
-
+Scope:
 - Authentication (signup/login with OTP)
 - Home (menu)
 - Product Details
@@ -28,35 +26,38 @@ Screens:
 - Checkout
 - Past Orders
 - Profile
-
-Features:
-
-- OTP login
 - language toggle (English / Arabic)
 - offers ribbon (rotating promotions)
 
 ---
 
-## Phase 3 – Frontdesk App
+## Phase 3 - Frontdesk App (Sunmi)
 
-Sunmi Android app
+Status: Complete (implementation)
 
-Features:
-
+Delivered:
 - websocket connection
 - incoming order list
+- order details
 - order accept button
-- print receipt
+- receipt printing (Sunmi SDK)
 - alert sound/vibration when new order arrives
+- reconnect handling and missed-order reload
+- printing failure safety (failed-print queue + reprint)
+- language toggle and RTL support
+
+Remaining non-blocking operational checks:
+1. End-to-end live order flow test with seeded menu/order data.
+2. Live printer failure/reprint drill on device.
+3. Optional full lock-task kiosk lockdown.
 
 ---
 
-## Phase 4 – Admin Dashboard
+## Phase 4 - Admin Dashboard
 
-Next.js dashboard
+Status: Not started
 
-Features:
-
+Planned scope:
 - menu editor
 - promotion manager
 - loyalty rules

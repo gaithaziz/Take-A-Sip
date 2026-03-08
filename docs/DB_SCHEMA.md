@@ -103,6 +103,7 @@ order_number
 user_id
 status
 order_type (pickup | delivery)
+delivery_address
 created_at
 notes
 

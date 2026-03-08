@@ -101,6 +101,7 @@ export type ActivePromotionsResponse = {
 
 export type CreateOrderPayload = {
   order_type: 'pickup' | 'delivery';
+  delivery_address?: string;
   notes?: string;
   items: Array<{
     size_id: string;
@@ -128,6 +129,9 @@ export type OrderRead = {
   id: string;
   order_number: number;
   user_id: string;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  delivery_address?: string | null;
   status: 'NEW' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
   order_type: 'pickup' | 'delivery';
   created_at: string;

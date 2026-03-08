@@ -6,14 +6,14 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import woyou.aidlservice.jiuiv5.IWoyouService
 import com.sunmi.peripheral.printer.InnerPrinterCallback
 import com.sunmi.peripheral.printer.InnerPrinterManager
+import com.sunmi.peripheral.printer.SunmiPrinterService
 
 class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
 
-  private var printerService: IWoyouService? = null
+  private var printerService: SunmiPrinterService? = null
 
   override fun getName(): String = "SunmiPrinterModule"
 
@@ -21,7 +21,7 @@ class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
   fun initPrinter(promise: Promise) {
     try {
       InnerPrinterManager.getInstance().bindService(reactContext, object : InnerPrinterCallback() {
-        override fun onConnected(service: IWoyouService) {
+        override fun onConnected(service: SunmiPrinterService) {
           printerService = service
           promise.resolve(null)
         }

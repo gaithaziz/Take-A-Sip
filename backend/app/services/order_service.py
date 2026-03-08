@@ -23,6 +23,16 @@ def _normalize_order_type(value: str) -> OrderType:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid order_type')
 
 
+def _normalize_delivery_address(order_type: OrderType, value: str | None) -> str | None:
+    normalized = value.strip() if value else None
+    if order_type == OrderType.DELIVERY and not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='delivery_address is required for delivery orders',
+        )
+    return normalized
+
+
 async def _next_order_number(db: AsyncSession) -> int:
     result = await db.execute(select(func.coalesce(func.max(Order.order_number), 0) + 1))
     return int(result.scalar_one())
@@ -47,6 +57,9 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
     if user.is_banned:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is banned')
 
+    order_type = _normalize_order_type(payload.order_type)
+    delivery_address = _normalize_delivery_address(order_type, payload.delivery_address)
+
     size_ids = [line.size_id for line in payload.items]
     sizes_by_id = await _load_sizes(db, size_ids)
     now = datetime.now(timezone.utc)
@@ -60,7 +73,8 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
         order_number=await _next_order_number(db),
         user_id=user.id,
         status=OrderStatus.NEW,
-        order_type=_normalize_order_type(payload.order_type),
+        order_type=order_type,
+        delivery_address=delivery_address,
         notes=payload.notes,
     )
     db.add(order)
@@ -123,7 +137,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
     result = await db.execute(
         select(Order)
         .where(Order.id == order.id)
-        .options(selectinload(Order.items).selectinload(OrderItem.addons))
+        .options(selectinload(Order.user), selectinload(Order.items).selectinload(OrderItem.addons))
     )
     return result.scalar_one()
 
@@ -144,6 +158,7 @@ async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> 
         user_id=user.id,
         status=OrderStatus.NEW,
         order_type=source_order.order_type,
+        delivery_address=source_order.delivery_address,
         notes=source_order.notes,
     )
     db.add(order)
@@ -176,7 +191,7 @@ async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> 
     result = await db.execute(
         select(Order)
         .where(Order.id == order.id)
-        .options(selectinload(Order.items).selectinload(OrderItem.addons))
+        .options(selectinload(Order.user), selectinload(Order.items).selectinload(OrderItem.addons))
     )
     return result.scalar_one()
 
@@ -185,7 +200,7 @@ async def get_order_by_id(db: AsyncSession, order_id: UUID) -> Order | None:
     result = await db.execute(
         select(Order)
         .where(Order.id == order_id)
-        .options(selectinload(Order.items).selectinload(OrderItem.addons))
+        .options(selectinload(Order.user), selectinload(Order.items).selectinload(OrderItem.addons))
     )
     return result.scalar_one_or_none()
 
@@ -195,7 +210,7 @@ async def get_user_orders(db: AsyncSession, user_id: UUID) -> list[Order]:
         select(Order)
         .where(Order.user_id == user_id)
         .order_by(Order.created_at.desc())
-        .options(selectinload(Order.items).selectinload(OrderItem.addons))
+        .options(selectinload(Order.user), selectinload(Order.items).selectinload(OrderItem.addons))
     )
     return list(result.scalars().unique().all())
 
@@ -204,7 +219,7 @@ async def list_orders(db: AsyncSession, status_filter: str | None = None) -> lis
     query: Select[tuple[Order]] = (
         select(Order)
         .order_by(Order.created_at.desc())
-        .options(selectinload(Order.items).selectinload(OrderItem.addons))
+        .options(selectinload(Order.user), selectinload(Order.items).selectinload(OrderItem.addons))
     )
     if status_filter:
         try:

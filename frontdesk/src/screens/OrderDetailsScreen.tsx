@@ -9,34 +9,43 @@ type Props = {
 };
 
 export const OrderDetailsScreen = ({ order, onAccept }: Props) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.dir() === 'rtl';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.orderNumber}>
+      <Text style={[styles.orderNumber, isRTL ? styles.rtlText : styles.ltrText]}>
         {t('details.order')} #{order.order_number}
       </Text>
       <View style={styles.infoBlock}>
-        <Text style={styles.line}>Customer: {order.customer_name || '-'}</Text>
-        <Text style={styles.line}>{t('details.phone')}: {order.customer_phone || '-'}</Text>
-        <Text style={styles.line}>
+        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
+          {t('details.customer')}: {order.customer_name || '-'}
+        </Text>
+        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
+          {t('details.phone')}: {order.customer_phone || '-'}
+        </Text>
+        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
           {t('details.type')}: {order.order_type}
         </Text>
-        <Text style={styles.line}>Address: {order.order_type === 'delivery' ? order.delivery_address || '-' : '-'}</Text>
-        <Text style={styles.line}>
+        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
+          {t('details.address')}: {order.order_type === 'delivery' ? order.delivery_address || '-' : '-'}
+        </Text>
+        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
           {t('details.notes')}: {order.notes || '-'}
         </Text>
       </View>
 
-      <Text style={styles.sectionTitle}>{t('details.items')}</Text>
+      <Text style={[styles.sectionTitle, isRTL ? styles.rtlText : styles.ltrText]}>{t('details.items')}</Text>
       {order.items.map((item) => (
         <View style={styles.itemCard} key={item.id}>
-          <Text style={styles.itemTitle}>
+          <Text style={[styles.itemTitle, isRTL ? styles.rtlText : styles.ltrText]}>
             {item.quantity}x {item.item_name_snapshot}
           </Text>
-          <Text style={styles.itemLine}>Size: {item.size_snapshot}</Text>
+          <Text style={[styles.itemLine, isRTL ? styles.rtlText : styles.ltrText]}>
+            {t('details.size')}: {item.size_snapshot}
+          </Text>
           {item.addons.map((addon) => (
-            <Text key={addon.id} style={styles.itemLine}>
+            <Text key={addon.id} style={[styles.itemLine, isRTL ? styles.rtlText : styles.ltrText]}>
               + {addon.addon_name_snapshot}
             </Text>
           ))}
@@ -114,5 +123,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: '700',
+  },
+  rtlText: {
+    textAlign: 'right',
+  },
+  ltrText: {
+    textAlign: 'left',
   },
 });

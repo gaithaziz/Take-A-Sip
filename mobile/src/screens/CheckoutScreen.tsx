@@ -25,12 +25,15 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const { items, subtotal, clearCart } = useCart();
   const { discount, total } = useCartPricing(subtotal);
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
   const payload = useMemo(
     () => ({
       order_type: orderType,
+      delivery_address:
+        orderType === 'delivery' && deliveryAddress.trim() ? deliveryAddress.trim() : undefined,
       notes: notes.trim() ? notes.trim() : undefined,
       items: items.map((item) => ({
         size_id: item.size.id,
@@ -38,11 +41,15 @@ export const CheckoutScreen = ({ navigation }: Props) => {
         addon_ids: item.addons.map((addon) => addon.id),
       })),
     }),
-    [items, notes, orderType],
+    [deliveryAddress, items, notes, orderType],
   );
 
   const placeOrder = async () => {
     if (!user || items.length === 0) {
+      return;
+    }
+    if (orderType === 'delivery' && !deliveryAddress.trim()) {
+      Alert.alert(t('common.appName'), t('checkout.deliveryAddressRequired'));
       return;
     }
     try {
@@ -78,6 +85,13 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       </AppCard>
 
       <AppCard>
+        {orderType === 'delivery' ? (
+          <AppInput
+            label={t('checkout.deliveryAddress')}
+            value={deliveryAddress}
+            onChangeText={setDeliveryAddress}
+          />
+        ) : null}
         <AppInput
           label={t('common.notes')}
           multiline
