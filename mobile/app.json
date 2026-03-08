@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Take A Sip",
+    "slug": "take-a-sip-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f5f1eb"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
