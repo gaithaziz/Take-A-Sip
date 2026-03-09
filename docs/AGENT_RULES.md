@@ -72,11 +72,11 @@ That means:
 - i18next
 
 ## Admin
-- Next.js
+- React Native
+- Expo
 - TypeScript
-- Tailwind CSS
-- shadcn/ui
-- SWR
+- React Navigation
+- Axios
 
 The agent must not introduce alternative frameworks unless explicitly instructed.
 

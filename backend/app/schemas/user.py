@@ -16,6 +16,7 @@ class UserRead(AppBaseModel):
     is_banned: bool
     banned_at: datetime | None
     banned_reason: str | None
+    order_count: int = 0
     created_at: datetime
 
 

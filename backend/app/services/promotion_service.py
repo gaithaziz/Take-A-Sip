@@ -2,9 +2,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.models.promotion import Promotion
+from app.models.promotion import LoyaltyRule, Promotion
 
 
 async def get_active_promotions(db: AsyncSession) -> list[Promotion]:
@@ -18,4 +17,14 @@ async def get_active_promotions(db: AsyncSession) -> list[Promotion]:
             )
         )
     )
+    return list(result.scalars().all())
+
+
+async def list_promotions(db: AsyncSession) -> list[Promotion]:
+    result = await db.execute(select(Promotion).order_by(Promotion.starts_at.desc()))
+    return list(result.scalars().all())
+
+
+async def list_loyalty_rules(db: AsyncSession) -> list[LoyaltyRule]:
+    result = await db.execute(select(LoyaltyRule).order_by(LoyaltyRule.required_orders.asc()))
     return list(result.scalars().all())

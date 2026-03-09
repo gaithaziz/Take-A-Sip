@@ -7,7 +7,7 @@ The system consists of:
 
 - Client Mobile App (iOS/Android)
 - Frontdesk App (Sunmi V2 Pro Android device)
-- Admin Dashboard (Web)
+- Admin App (iOS/Android)
 - Backend API (FastAPI)
 
 No online payment system is required. Payment and delivery are handled by the shop manually.
@@ -45,7 +45,7 @@ Frontdesk cannot modify menu or inventory.
 ---
 
 ## Admin (Owner)
-Full management access via web dashboard.
+Full management access via admin mobile app.
 
 Capabilities:
 - Manage menu hierarchy

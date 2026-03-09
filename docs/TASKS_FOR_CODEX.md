@@ -53,7 +53,7 @@ Remaining non-blocking operational checks:
 
 ---
 
-## Phase 4 - Admin Dashboard
+## Phase 4 - Admin Mobile App
 
 Status: Not started
 

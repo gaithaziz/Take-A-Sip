@@ -2,7 +2,6 @@ import { PropsWithChildren } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 
 type AppShellProps = PropsWithChildren<{
@@ -13,11 +12,10 @@ type AppShellProps = PropsWithChildren<{
 
 export const AppShell = ({ children, scroll = true, refreshing, onRefresh }: AppShellProps) => {
   const insets = useSafeAreaInsets();
-  const { isRTL } = useLanguage();
 
   if (!scroll) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + theme.spacing.md, direction: isRTL ? 'rtl' : 'ltr' }]}>
+      <View style={[styles.container, { paddingTop: insets.top + theme.spacing.md }]}>
         {children}
       </View>
     );
@@ -30,7 +28,6 @@ export const AppShell = ({ children, scroll = true, refreshing, onRefresh }: App
         {
           paddingTop: insets.top + theme.spacing.md,
           paddingBottom: insets.bottom + theme.spacing.xl,
-          direction: isRTL ? 'rtl' : 'ltr',
         },
       ]}
       showsVerticalScrollIndicator={false}

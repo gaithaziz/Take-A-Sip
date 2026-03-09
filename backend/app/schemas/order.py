@@ -60,3 +60,12 @@ class OrderListResponse(AppBaseModel):
 class AcceptOrderResponse(AppBaseModel):
     id: UUID
     status: str
+
+
+class RevenueSummaryResponse(AppBaseModel):
+    today_revenue: Decimal
+    week_revenue: Decimal
+    month_revenue: Decimal
+    today_orders: int
+    week_orders: int
+    month_orders: int

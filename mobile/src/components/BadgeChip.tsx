@@ -12,7 +12,7 @@ type BadgeChipProps = {
 export const BadgeChip = ({ label, tone = 'default' }: BadgeChipProps) => {
   return (
     <View style={[styles.chip, toneStyles[tone]]}>
-      <AppText variant="caption" style={styles.label}>
+      <AppText variant="caption" style={styles.label} numberOfLines={1}>
         {label}
       </AppText>
     </View>
@@ -22,10 +22,14 @@ export const BadgeChip = ({ label, tone = 'default' }: BadgeChipProps) => {
 const styles = StyleSheet.create({
   chip: {
     alignSelf: 'flex-start',
+    minHeight: 26,
+    minWidth: 72,
+    maxWidth: '100%',
     borderRadius: theme.radius.pill,
     paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
     borderWidth: 1,
+    justifyContent: 'center',
   },
   label: {
     fontWeight: '600',

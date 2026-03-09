@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.order import Order
 from app.models.user import User
 from app.models.user_event import UserEvent
 
@@ -13,8 +14,14 @@ async def list_users(
     db: AsyncSession,
     search: str | None = None,
     banned: bool | None = None,
-) -> list[User]:
-    query = select(User).order_by(User.created_at.desc())
+) -> list[tuple[User, int]]:
+    order_count = func.count(Order.id).label('order_count')
+    query = (
+        select(User, order_count)
+        .outerjoin(Order, Order.user_id == User.id)
+        .group_by(User.id)
+        .order_by(User.created_at.desc())
+    )
 
     if search:
         token = f'%{search.strip()}%'
@@ -30,7 +37,7 @@ async def list_users(
         query = query.where(User.is_banned.is_(banned))
 
     result = await db.execute(query)
-    return list(result.scalars().all())
+    return [(row[0], int(row[1])) for row in result.all()]
 
 
 async def ban_user(

@@ -32,6 +32,7 @@ class Item(UUIDPrimaryKeyMixin, Base):
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     description_ar: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     section = relationship('Section', back_populates='items')
@@ -47,6 +48,7 @@ class ItemType(UUIDPrimaryKeyMixin, Base):
     name_en: Mapped[str] = mapped_column(String(120), nullable=False)
     name_ar: Mapped[str] = mapped_column(String(120), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     item = relationship('Item', back_populates='item_types')
@@ -63,6 +65,7 @@ class Size(UUIDPrimaryKeyMixin, Base):
     name_ar: Mapped[str] = mapped_column(String(120), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     item_type = relationship('ItemType', back_populates='sizes')
@@ -79,6 +82,7 @@ class Addon(UUIDPrimaryKeyMixin, Base):
     name_ar: Mapped[str] = mapped_column(String(120), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     size = relationship('Size', back_populates='addons')

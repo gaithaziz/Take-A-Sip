@@ -5,8 +5,8 @@
 Mobile App
 React Native + Expo
 
-Admin Dashboard
-Next.js
+Admin App
+React Native + Expo
 
 Backend API
 FastAPI
@@ -34,7 +34,7 @@ Backend (FastAPI)
      |
 Frontdesk Sunmi Device
 
-Admin Dashboard
+Admin App
      |
      | REST API
      |

@@ -34,6 +34,30 @@ uvicorn app.main:app --reload
 
 API will be available at `http://localhost:8000`.
 
+## Create an Admin User (for mobile admin login)
+
+```bash
+cd backend
+python -m scripts.create_admin --phone 0790000000 --first-name Admin --last-name Owner
+```
+
+Then login from the mobile app using that phone number and the configured OTP test code (default: `123456` when using mock OTP provider).
+
+## Seed Full Demo Data (entire app)
+
+Run this to seed users, full menu hierarchy, schedules, promotions, loyalty rules, and sample orders:
+
+```bash
+cd backend
+python -m scripts.seed_full --reset
+```
+
+Use without `--reset` to append/update without clearing existing seeded entities:
+
+```bash
+python -m scripts.seed_full
+```
+
 ## Run tests
 
 ```bash
@@ -81,6 +105,7 @@ This starts:
 - `GET /admin/users`
 - `POST /admin/users/{id}/ban`
 - `POST /admin/users/{id}/unban`
+- `GET /admin/analytics/revenue-summary`
 - `WS /ws/frontdesk?token=<JWT>`
 
 ## Notes
@@ -91,3 +116,8 @@ This starts:
 - OTP delivery uses a provider abstraction:
   - `otp_provider=mock` (default, no external SMS call)
   - `otp_provider=twilio` with Twilio credentials in `.env`
+- Admin revenue summary endpoint returns gross revenue and order counts for:
+  - today
+  - last 7 days
+  - last 30 days
+  using orders in status `ACCEPTED` and `COMPLETED`.

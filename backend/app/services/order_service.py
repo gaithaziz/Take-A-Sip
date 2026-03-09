@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -244,3 +244,54 @@ async def accept_order(db: AsyncSession, order_id: UUID, actor: User) -> Order:
     await db.commit()
     await db.refresh(order)
     return order
+
+
+async def get_revenue_summary(db: AsyncSession) -> dict[str, Decimal | int]:
+    now = datetime.now(timezone.utc)
+    month_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc) - timedelta(days=29)
+    week_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc) - timedelta(days=6)
+    today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+
+    result = await db.execute(
+        select(Order)
+        .where(
+            Order.status.in_([OrderStatus.ACCEPTED, OrderStatus.COMPLETED]),
+            Order.created_at >= month_start,
+        )
+        .options(selectinload(Order.items).selectinload(OrderItem.addons))
+    )
+    orders = list(result.scalars().unique().all())
+
+    def _order_total(order: Order) -> Decimal:
+        total = Decimal('0')
+        for item in order.items:
+            base = Decimal(item.price_snapshot)
+            addons = sum((Decimal(addon.price_snapshot) for addon in item.addons), start=Decimal('0'))
+            total += (base + addons) * item.quantity
+        return total
+
+    today_revenue = Decimal('0')
+    week_revenue = Decimal('0')
+    month_revenue = Decimal('0')
+    today_orders = 0
+    week_orders = 0
+    month_orders = len(orders)
+
+    for order in orders:
+        total = _order_total(order)
+        month_revenue += total
+        if order.created_at >= week_start:
+            week_revenue += total
+            week_orders += 1
+        if order.created_at >= today_start:
+            today_revenue += total
+            today_orders += 1
+
+    return {
+        'today_revenue': today_revenue,
+        'week_revenue': week_revenue,
+        'month_revenue': month_revenue,
+        'today_orders': today_orders,
+        'week_orders': week_orders,
+        'month_orders': month_orders,
+    }

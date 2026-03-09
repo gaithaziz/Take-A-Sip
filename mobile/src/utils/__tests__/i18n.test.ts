@@ -1,4 +1,4 @@
-import { getLocalizedValue } from '@/utils/i18n';
+﻿import { getLocalizedValue } from '@/utils/i18n';
 
 describe('getLocalizedValue', () => {
   const source = {

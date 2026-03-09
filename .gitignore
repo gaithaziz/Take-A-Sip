@@ -9,3 +9,12 @@ backend/.env
 # OS
 .DS_Store
 Thumbs.db
+
+# Node / Expo
+**/node_modules/
+**/.expo/
+**/android/build/
+**/.gradle/
+**/.cxx/
+tmp_*.zip
+tmp_*/

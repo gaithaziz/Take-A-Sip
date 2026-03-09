@@ -14,11 +14,20 @@ import { HomeScreen } from '@/screens/HomeScreen';
 import { PastOrdersScreen } from '@/screens/PastOrdersScreen';
 import { ProductDetailsScreen } from '@/screens/ProductDetailsScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
+import { AdminDashboardScreen } from '@/screens/admin/AdminDashboardScreen';
+import { AdminMenuEditorScreen } from '@/screens/admin/AdminMenuEditorScreen';
+import { AdminPromotionsScreen } from '@/screens/admin/AdminPromotionsScreen';
+import { AdminLoyaltyRulesScreen } from '@/screens/admin/AdminLoyaltyRulesScreen';
+import { AdminSchedulingScreen } from '@/screens/admin/AdminSchedulingScreen';
+import { AdminUsersScreen } from '@/screens/admin/AdminUsersScreen';
+import { AdminProfileScreen } from '@/screens/admin/AdminProfileScreen';
+import { AdminUserDetailsScreen } from '@/screens/admin/AdminUserDetailsScreen';
 
-import { MainTabParamList, RootStackParamList } from './types';
+import { AdminTabParamList, MainTabParamList, RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
+const AdminTabsNavigator = createBottomTabNavigator<AdminTabParamList>();
 
 const navTheme: Theme = {
   dark: false,
@@ -63,8 +72,53 @@ const MainTabs = () => {
   );
 };
 
+const AdminTabs = () => {
+  const { t } = useAppTranslation();
+  return (
+    <AdminTabsNavigator.Navigator
+      tabBar={(props) => <BottomTabBar {...props} />}
+      screenOptions={{ headerShown: false, lazy: true }}>
+      <AdminTabsNavigator.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{ title: t('tabs.adminDashboard') }}
+      />
+      <AdminTabsNavigator.Screen
+        name="AdminMenu"
+        component={AdminMenuEditorScreen}
+        options={{ title: t('tabs.adminMenu') }}
+      />
+      <AdminTabsNavigator.Screen
+        name="AdminPromotions"
+        component={AdminPromotionsScreen}
+        options={{ title: t('tabs.adminPromotions') }}
+      />
+      <AdminTabsNavigator.Screen
+        name="AdminLoyalty"
+        component={AdminLoyaltyRulesScreen}
+        options={{ title: t('tabs.adminLoyalty') }}
+      />
+      <AdminTabsNavigator.Screen
+        name="AdminScheduling"
+        component={AdminSchedulingScreen}
+        options={{ title: t('tabs.adminScheduling') }}
+      />
+      <AdminTabsNavigator.Screen
+        name="AdminUsers"
+        component={AdminUsersScreen}
+        options={{ title: t('tabs.adminUsers') }}
+      />
+      <AdminTabsNavigator.Screen
+        name="AdminProfile"
+        component={AdminProfileScreen}
+        options={{ title: t('tabs.adminProfile') }}
+      />
+    </AdminTabsNavigator.Navigator>
+  );
+};
+
 export const AppNavigator = () => {
-  const { token, isLoading } = useAuth();
+  const { token, user, isLoading } = useAuth();
 
   if (isLoading) {
     return null;
@@ -75,6 +129,11 @@ export const AppNavigator = () => {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!token ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
+        ) : user?.role === 'ADMIN' ? (
+          <>
+            <Stack.Screen name="AdminTabs" component={AdminTabs} />
+            <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />

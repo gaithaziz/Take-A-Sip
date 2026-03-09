@@ -72,25 +72,28 @@ i18next
 
 ---
 
-# 3. Admin Dashboard
+# 3. Admin App
 
 Framework
-Next.js (App Router)
+React Native
+
+Runtime
+Expo
 
 Language
 TypeScript
 
-Styling
-Tailwind CSS
+Navigation
+React Navigation
+
+Networking
+Axios
 
 UI Components
-shadcn/ui
+React Native Paper or custom components
 
-Charts
-Recharts
-
-Data Fetching
-SWR
+Internationalization
+i18next
 
 ---
 
@@ -191,9 +194,10 @@ mobile/
         i18n/
 
 admin/
-    app/
+    src/
+        screens/
     components/
-    lib/
+    services/
 
 docs/
     PRD.md

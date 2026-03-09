@@ -13,6 +13,7 @@ class AddonRead(AppBaseModel):
     name_ar: str
     image_url: str | None = None
     price: Decimal
+    sort_order: int = 0
     is_active: bool
 
 
@@ -23,6 +24,7 @@ class SizeRead(AppBaseModel):
     name_ar: str
     image_url: str | None = None
     price: Decimal
+    sort_order: int = 0
     is_active: bool
     addons: list[AddonRead] = Field(default_factory=list)
 
@@ -33,6 +35,7 @@ class ItemTypeRead(AppBaseModel):
     name_en: str
     name_ar: str
     image_url: str | None = None
+    sort_order: int = 0
     is_active: bool
     sizes: list[SizeRead] = Field(default_factory=list)
 
@@ -45,6 +48,7 @@ class ItemRead(AppBaseModel):
     image_url: str | None = None
     description_en: str | None
     description_ar: str | None
+    sort_order: int = 0
     is_active: bool
     item_types: list[ItemTypeRead] = Field(default_factory=list)
 
@@ -77,6 +81,7 @@ class ItemCreate(AppBaseModel):
     image_url: str | None = Field(default=None, max_length=500)
     description_en: str | None = None
     description_ar: str | None = None
+    sort_order: int = 0
 
 
 class ItemTypeCreate(AppBaseModel):
@@ -84,6 +89,7 @@ class ItemTypeCreate(AppBaseModel):
     name_en: str = Field(min_length=1, max_length=120)
     name_ar: str = Field(min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
+    sort_order: int = 0
 
 
 class SizeCreate(AppBaseModel):
@@ -92,6 +98,7 @@ class SizeCreate(AppBaseModel):
     name_ar: str = Field(min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
     price: Decimal
+    sort_order: int = 0
 
 
 class AddonCreate(AppBaseModel):
@@ -100,6 +107,7 @@ class AddonCreate(AppBaseModel):
     name_ar: str = Field(min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
     price: Decimal
+    sort_order: int = 0
 
 
 class ToggleResponse(AppBaseModel):
@@ -118,3 +126,68 @@ class ScheduleMenuRequest(AppBaseModel):
 class ScheduleMenuResponse(AppBaseModel):
     message: str
     schedule_id: UUID | None = None
+
+
+class ScheduleRead(AppBaseModel):
+    id: UUID
+    entity_type: str
+    entity_id: UUID
+    start_time: str
+    end_time: str
+    days_of_week: list[int]
+    is_active: bool
+
+
+class ScheduleListResponse(AppBaseModel):
+    schedules: list[ScheduleRead]
+
+
+class ScheduleUpdateRequest(AppBaseModel):
+    start_time: str | None = Field(default=None, description='HH:MM')
+    end_time: str | None = Field(default=None, description='HH:MM')
+    days_of_week: list[int] | None = Field(default=None, description='0=Monday..6=Sunday')
+    is_active: bool | None = None
+
+
+class SectionUpdate(AppBaseModel):
+    name_en: str | None = Field(default=None, min_length=1, max_length=120)
+    name_ar: str | None = Field(default=None, min_length=1, max_length=120)
+    image_url: str | None = Field(default=None, max_length=500)
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class ItemUpdate(AppBaseModel):
+    name_en: str | None = Field(default=None, min_length=1, max_length=120)
+    name_ar: str | None = Field(default=None, min_length=1, max_length=120)
+    image_url: str | None = Field(default=None, max_length=500)
+    description_en: str | None = None
+    description_ar: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class ItemTypeUpdate(AppBaseModel):
+    name_en: str | None = Field(default=None, min_length=1, max_length=120)
+    name_ar: str | None = Field(default=None, min_length=1, max_length=120)
+    image_url: str | None = Field(default=None, max_length=500)
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class SizeUpdate(AppBaseModel):
+    name_en: str | None = Field(default=None, min_length=1, max_length=120)
+    name_ar: str | None = Field(default=None, min_length=1, max_length=120)
+    image_url: str | None = Field(default=None, max_length=500)
+    price: Decimal | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class AddonUpdate(AppBaseModel):
+    name_en: str | None = Field(default=None, min_length=1, max_length=120)
+    name_ar: str | None = Field(default=None, min_length=1, max_length=120)
+    image_url: str | None = Field(default=None, max_length=500)
+    price: Decimal | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
