@@ -1,10 +1,10 @@
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
-import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
@@ -13,11 +13,11 @@ import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { MainTabParamList } from '@/navigation/types';
 import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
-import { useAuth } from '@/state/AuthContext';
 import { useCart } from '@/state/CartContext';
 import { theme } from '@/theme';
 import { OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/format';
 
 const statusToneMap = {
   NEW: 'warning',
@@ -29,29 +29,26 @@ const statusToneMap = {
 type Props = BottomTabScreenProps<MainTabParamList, 'PastOrders'>;
 
 export const PastOrdersScreen = ({ navigation }: Props) => {
-  const { t } = useAppTranslation();
-  const { user } = useAuth();
+  const { t, language } = useAppTranslation();
   const { clearCart, addItem } = useCart();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<OrderRead[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   const loadOrders = useCallback(async () => {
-    if (!user) {
-      return;
-    }
     try {
       setLoading(true);
       setError(null);
-      const data = await orderService.getUserOrders(user.id);
+      const data = await orderService.getMyOrders();
       setOrders(data.orders);
     } catch (e) {
       setError(getApiErrorMessage(e, t));
     } finally {
       setLoading(false);
     }
-  }, [t, user]);
+  }, [t]);
 
   useEffect(() => {
     void loadOrders();
@@ -128,43 +125,62 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
     }
   };
 
-  return (
-    <AppShell refreshing={loading} onRefresh={loadOrders}>
-      <AppText variant="h1">{t('orders.title')}</AppText>
-      {loading ? <LoadingState label={t('common.loading')} /> : null}
-      {!loading && error ? (
-        <EmptyState title={t('common.retry')} subtitle={error} actionLabel={t('common.retry')} onAction={loadOrders} />
-      ) : null}
-      {!loading && !error && orders.length === 0 ? (
-        <EmptyState title={t('orders.emptyTitle')} subtitle={t('orders.emptySubtitle')} />
-      ) : null}
-      {!loading &&
-        !error &&
-        orders.map((order) => (
-          <AppCard key={order.id}>
-            <View style={styles.top}>
-              <AppText variant="h3">#{order.order_number}</AppText>
-              <BadgeChip label={t(`status.${order.status}`)} tone={statusToneMap[order.status]} />
-            </View>
-            <AppText variant="caption" color={theme.colors.textSecondary}>
-              {new Date(order.created_at).toLocaleString()}
-            </AppText>
-            <View style={styles.items}>
-              {order.items.slice(0, 3).map((item) => (
-                <AppText key={item.id} variant="bodySmall">
-                  {item.quantity}x {item.item_name_snapshot} ({item.size_snapshot})
-                </AppText>
-              ))}
-            </View>
-            <AppButton
-              title={t('orders.reorder')}
-              variant="secondary"
-              loading={reorderingId === order.id}
-              onPress={() => void onReorder(order)}
-            />
-          </AppCard>
+  const renderOrder = ({ item: order }: { item: OrderRead }) => (
+    <AppCard>
+      <View style={styles.top}>
+        <AppText variant="h3">#{order.order_number}</AppText>
+        <BadgeChip label={t(`status.${order.status}`)} tone={statusToneMap[order.status]} />
+      </View>
+      <AppText variant="caption" color={theme.colors.textSecondary}>
+        {formatDateTime(order.created_at, language)}
+      </AppText>
+      <View style={styles.items}>
+        {order.items.slice(0, 3).map((orderItem) => (
+          <AppText key={orderItem.id} variant="bodySmall">
+            {orderItem.quantity}x {orderItem.item_name_snapshot} ({orderItem.size_snapshot})
+          </AppText>
         ))}
-    </AppShell>
+      </View>
+      <AppButton
+        title={t('orders.reorder')}
+        variant="secondary"
+        loading={reorderingId === order.id}
+        onPress={() => void onReorder(order)}
+      />
+    </AppCard>
+  );
+
+  return (
+    <FlatList
+      data={loading || error ? [] : orders}
+      keyExtractor={(order) => order.id}
+      renderItem={renderOrder}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <AppText variant="h1">{t('orders.title')}</AppText>
+        </View>
+      }
+      ListEmptyComponent={
+        loading ? (
+          <LoadingState label={t('common.loading')} />
+        ) : error ? (
+          <EmptyState title={t('common.retry')} subtitle={error} actionLabel={t('common.retry')} onAction={loadOrders} />
+        ) : (
+          <EmptyState title={t('orders.emptyTitle')} subtitle={t('orders.emptySubtitle')} />
+        )
+      }
+      refreshing={loading}
+      onRefresh={loadOrders}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + theme.spacing.md,
+          paddingBottom: insets.bottom + theme.spacing.xl,
+        },
+      ]}
+    />
   );
 };
 
@@ -178,5 +194,15 @@ const styles = StyleSheet.create({
   items: {
     marginVertical: theme.spacing.sm,
     gap: theme.spacing.xs,
+  },
+  content: {
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  header: {
+    marginBottom: theme.spacing.lg,
+  },
+  separator: {
+    height: theme.spacing.md,
   },
 });

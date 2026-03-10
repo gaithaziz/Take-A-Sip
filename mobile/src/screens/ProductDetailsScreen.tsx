@@ -5,9 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
-import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { QuantitySelector } from '@/components/QuantitySelector';
+import { TopAppBar } from '@/components/TopAppBar';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
 import { useCart } from '@/state/CartContext';
@@ -81,13 +81,14 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
   };
 
   return (
-    <AppShell scroll={false}>
+    <View style={styles.page}>
+      <TopAppBar title={getLocalizedValue(item, language, 'name')} onBack={() => navigation.goBack()} />
       <View style={styles.container}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: theme.spacing.xxxl }]}>
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <AppText variant="h1">{getLocalizedValue(item, language, 'name')}</AppText>
             <AppText variant="bodySmall" color={theme.colors.textSecondary}>
               {getLocalizedValue(item, language, 'description')}
             </AppText>
@@ -102,7 +103,11 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                   <Pressable
                     key={itemType.id}
                     onPress={() => handleTypeSelect(itemType.id)}
-                    style={[styles.choice, itemType.id === selectedType?.id ? styles.choiceActive : null]}>
+                    style={[styles.choice, itemType.id === selectedType?.id ? styles.choiceActive : null]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: itemType.id === selectedType?.id }}
+                    accessibilityLabel={getLocalizedValue(itemType, language, 'name')}
+                    hitSlop={6}>
                     <AppText>{getLocalizedValue(itemType, language, 'name')}</AppText>
                   </Pressable>
                 ))}
@@ -118,7 +123,11 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                   <Pressable
                     key={size.id}
                     onPress={() => handleSizeSelect(size.id)}
-                    style={[styles.choice, size.id === selectedSize?.id ? styles.choiceActive : null]}>
+                    style={[styles.choice, size.id === selectedSize?.id ? styles.choiceActive : null]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: size.id === selectedSize?.id }}
+                    accessibilityLabel={`${getLocalizedValue(size, language, 'name')} ${formatCurrency(toNumber(size.price), language)}`}
+                    hitSlop={6}>
                     <AppText>{getLocalizedValue(size, language, 'name')}</AppText>
                     <AppText variant="caption" color={theme.colors.textSecondary}>
                       {formatCurrency(toNumber(size.price), language)}
@@ -137,7 +146,11 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                   <Pressable
                     key={addon.id}
                     onPress={() => toggleAddon(addon)}
-                    style={[styles.choice, selected ? styles.choiceActive : null]}>
+                    style={[styles.choice, selected ? styles.choiceActive : null]}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: selected }}
+                    accessibilityLabel={`${getLocalizedValue(addon, language, 'name')} +${formatCurrency(toNumber(addon.price), language)}`}
+                    hitSlop={6}>
                     <AppText>{getLocalizedValue(addon, language, 'name')}</AppText>
                     <AppText variant="caption" color={theme.colors.textSecondary}>
                       +{formatCurrency(toNumber(addon.price), language)}
@@ -159,16 +172,23 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
           <AppButton title={t('product.addToCart')} onPress={addToCart} style={styles.addButton} />
         </AppCard>
       </View>
-    </AppShell>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
+    paddingHorizontal: theme.spacing.lg,
   },
   scrollContent: {
     gap: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxxl,
   },
   header: {
     gap: theme.spacing.sm,

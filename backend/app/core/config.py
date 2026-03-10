@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_from_number: str | None = None
+    upload_dir: str = 'uploads'
+    max_upload_size_mb: int = 10
 
     @field_validator('debug', mode='before')
     @classmethod

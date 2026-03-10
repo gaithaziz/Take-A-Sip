@@ -1,8 +1,10 @@
 import { NavigationContainer, Theme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StyleSheet, View } from 'react-native';
 
 import { BottomTabBar } from '@/components/BottomTabBar';
+import { LoadingState } from '@/components/LoadingState';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { useAuth } from '@/state/AuthContext';
 import { theme } from '@/theme';
@@ -94,11 +96,6 @@ const AdminTabs = () => {
         options={{ title: t('tabs.adminPromotions') }}
       />
       <AdminTabsNavigator.Screen
-        name="AdminLoyalty"
-        component={AdminLoyaltyRulesScreen}
-        options={{ title: t('tabs.adminLoyalty') }}
-      />
-      <AdminTabsNavigator.Screen
         name="AdminScheduling"
         component={AdminSchedulingScreen}
         options={{ title: t('tabs.adminScheduling') }}
@@ -108,11 +105,6 @@ const AdminTabs = () => {
         component={AdminUsersScreen}
         options={{ title: t('tabs.adminUsers') }}
       />
-      <AdminTabsNavigator.Screen
-        name="AdminProfile"
-        component={AdminProfileScreen}
-        options={{ title: t('tabs.adminProfile') }}
-      />
     </AdminTabsNavigator.Navigator>
   );
 };
@@ -121,7 +113,11 @@ export const AppNavigator = () => {
   const { token, user, isLoading } = useAuth();
 
   if (isLoading) {
-    return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <LoadingState label="Take A Sip" />
+      </View>
+    );
   }
 
   return (
@@ -132,6 +128,8 @@ export const AppNavigator = () => {
         ) : user?.role === 'ADMIN' ? (
           <>
             <Stack.Screen name="AdminTabs" component={AdminTabs} />
+            <Stack.Screen name="AdminLoyalty" component={AdminLoyaltyRulesScreen} />
+            <Stack.Screen name="AdminProfile" component={AdminProfileScreen} />
             <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
           </>
         ) : (
@@ -146,3 +144,12 @@ export const AppNavigator = () => {
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.lg,
+  },
+});

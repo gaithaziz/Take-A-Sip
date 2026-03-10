@@ -1,6 +1,7 @@
 import {
   LoyaltyRuleListResponse,
   MenuEntityType,
+  MenuResponse,
   MenuScheduleListResponse,
   OrderListResponse,
   PromotionListResponse,
@@ -12,6 +13,22 @@ import {
 import { http } from './http';
 
 export const adminService = {
+  async getMenuTree(): Promise<MenuResponse> {
+    const { data } = await http.get('/admin/menu/tree');
+    return data;
+  },
+
+  async uploadImage(fileUri: string, fileName: string, mimeType: string): Promise<{ url: string }> {
+    const form = new FormData();
+    form.append('file', {
+      uri: fileUri,
+      name: fileName,
+      type: mimeType,
+    } as any);
+    const { data } = await http.post('/admin/uploads/image', form);
+    return data;
+  },
+
   async createSection(payload: { name_en: string; name_ar: string; image_url?: string; sort_order: number }) {
     const { data } = await http.post('/admin/menu/section', payload);
     return data;

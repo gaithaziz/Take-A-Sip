@@ -127,6 +127,31 @@ async def get_menu_tree(db: AsyncSession, now: datetime | None = None) -> list[S
     return filtered_sections
 
 
+async def get_admin_menu_tree(db: AsyncSession) -> list[Section]:
+    result = await db.execute(
+        select(Section)
+        .order_by(Section.sort_order, Section.name_en)
+        .options(
+            selectinload(Section.items)
+            .selectinload(Item.item_types)
+            .selectinload(ItemType.sizes)
+            .selectinload(Size.addons)
+        )
+    )
+    sections = list(result.scalars().unique().all())
+
+    for section in sections:
+        section.items = sorted(section.items, key=lambda item: (item.sort_order, item.name_en))
+        for item in section.items:
+            item.item_types = sorted(item.item_types, key=lambda item_type: (item_type.sort_order, item_type.name_en))
+            for item_type in item.item_types:
+                item_type.sizes = sorted(item_type.sizes, key=lambda size: (size.sort_order, size.name_en))
+                for size in item_type.sizes:
+                    size.addons = sorted(size.addons, key=lambda addon: (addon.sort_order, addon.name_en))
+
+    return sections
+
+
 async def create_menu_schedule(
     db: AsyncSession,
     entity_type: str,

@@ -31,11 +31,20 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         AsyncStorage.getItem(USER_KEY),
       ]);
       if (savedToken) {
-        setToken(savedToken);
         setAuthToken(savedToken);
-      }
-      if (savedUser) {
-        setUser(JSON.parse(savedUser) as AuthUser);
+        try {
+          const profile = await authService.me();
+          setToken(savedToken);
+          setUser(profile);
+          await AsyncStorage.setItem(USER_KEY, JSON.stringify(profile));
+        } catch {
+          setToken(null);
+          setUser(null);
+          setAuthToken(null);
+          await Promise.all([AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
+        }
+      } else if (savedUser) {
+        await AsyncStorage.removeItem(USER_KEY);
       }
       setIsLoading(false);
     };

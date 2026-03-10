@@ -16,7 +16,12 @@ type ProfileRowProps = {
 export const ProfileRow = ({ label, value, onPress }: ProfileRowProps) => {
   const { isRTL } = useLanguage();
   return (
-    <Pressable onPress={onPress} disabled={!onPress}>
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={value ? `${label} ${value}` : label}
+      hitSlop={6}>
       <AppCard>
         <View style={[styles.row, mirroredRow(isRTL)]}>
           <AppText>{label}</AppText>

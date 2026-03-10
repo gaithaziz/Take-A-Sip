@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -47,6 +48,7 @@ export const AdminLoyaltyRulesScreen = () => {
   const { t } = useAppTranslation();
   const { isRTL } = useLanguage();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isCompact = width < 390;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,6 +56,8 @@ export const AdminLoyaltyRulesScreen = () => {
   const [rules, setRules] = useState<LoyaltyRule[]>([]);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [form, setForm] = useState<RuleForm>(defaultForm);
+  const [formErrors, setFormErrors] = useState<{ required_orders?: string; reward_value?: string }>({});
+  const [mutatingRuleId, setMutatingRuleId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -85,16 +89,23 @@ export const AdminLoyaltyRulesScreen = () => {
       reward_value: rule.reward_value,
       is_active: rule.is_active,
     });
+    setFormErrors({});
+  };
+
+  const validateForm = () => {
+    const nextErrors: { required_orders?: string; reward_value?: string } = {};
+    if (!form.required_orders || Number(form.required_orders) < 1) {
+      nextErrors.required_orders = t('admin.invalidRequiredOrders');
+    }
+    if (!form.reward_value.trim()) {
+      nextErrors.reward_value = t('validation.requiredFields');
+    }
+    setFormErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const save = async () => {
-    if (!form.required_orders || !form.reward_type.trim() || !form.reward_value.trim()) {
-      Alert.alert(t('common.error'), t('validation.requiredFields'));
-      return;
-    }
-
-    if (Number(form.required_orders) < 1) {
-      Alert.alert(t('common.error'), t('admin.invalidRequiredOrders'));
+    if (!validateForm()) {
       return;
     }
 
@@ -124,101 +135,165 @@ export const AdminLoyaltyRulesScreen = () => {
 
   const toggleRule = async (rule: LoyaltyRule) => {
     try {
+      setMutatingRuleId(rule.id);
       await adminService.toggleLoyaltyRule(rule.id);
       await load();
     } catch (e) {
       Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+    } finally {
+      setMutatingRuleId(null);
     }
   };
 
   const sortedRules = useMemo(() => [...rules].sort((a, b) => a.required_orders - b.required_orders), [rules]);
 
-  if (loading) {
-    return <LoadingState label={t('common.loading')} />;
-  }
+  const canSave = !saving && Boolean(form.reward_value.trim()) && Number(form.required_orders) >= 1;
 
-  if (error) {
-    return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
-  }
+  const renderRule = ({ item: rule }: { item: LoyaltyRule }) => (
+    <AppCard>
+      <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
+        <Pressable onPress={() => Alert.alert('', rule.reward_value)} style={styles.grow} accessibilityRole="button" accessibilityLabel={`${rule.required_orders} ${t('admin.ordersThreshold')}`}>
+          <ExpandableText value={`${rule.required_orders} ${t('admin.ordersThreshold')}`} variant="h3" numberOfLines={2} />
+        </Pressable>
+        <BadgeChip label={rule.is_active ? t('admin.active') : t('admin.inactive')} tone={rule.is_active ? 'success' : 'default'} />
+      </View>
+      <InfoLine label={t('admin.rewardType')} value={rewardTypeLabel(rule.reward_type, t)} numberOfLines={2} />
+      <InfoLine label={t('admin.rewardValue')} value={rule.reward_value} numberOfLines={2} />
+
+      <ActionRow compact={isCompact}>
+        <AppButton title={t('admin.edit')} variant="secondary" onPress={() => startEdit(rule)} style={styles.flexButton} disabled={mutatingRuleId === rule.id} />
+        <AppButton
+          title={rule.is_active ? t('admin.disable') : t('admin.enable')}
+          variant="ghost"
+          onPress={() => void toggleRule(rule)}
+          fullWidth={false}
+          loading={mutatingRuleId === rule.id}
+          disabled={Boolean(mutatingRuleId && mutatingRuleId !== rule.id)}
+        />
+      </ActionRow>
+    </AppCard>
+  );
 
   return (
-    <AppShell refreshing={loading} onRefresh={load}>
-      <AppText variant="h1">{t('admin.loyaltyTitle')}</AppText>
+    <FlatList
+      data={loading || error ? [] : sortedRules}
+      renderItem={renderRule}
+      keyExtractor={(rule) => rule.id}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ListHeaderComponent={
+        <View style={styles.headerBlock}>
+          <AppText variant="h1">{t('admin.loyaltyTitle')}</AppText>
 
-      <AdminPageSection title={editingRuleId ? t('admin.editLoyaltyRule') : t('admin.createLoyaltyRule')}>
-        <View style={styles.formStack}>
-          <AppInput
-            label={t('admin.requiredOrders')}
-            value={form.required_orders}
-            keyboardType="number-pad"
-            onChangeText={(value) => setForm((prev) => ({ ...prev, required_orders: value }))}
-          />
+          <AdminPageSection title={editingRuleId ? t('admin.editLoyaltyRule') : t('admin.createLoyaltyRule')}>
+            <View style={styles.formStack}>
+              <AppInput
+                label={t('admin.requiredOrders')}
+                value={form.required_orders}
+                keyboardType="number-pad"
+                error={formErrors.required_orders}
+                onChangeText={(value) => {
+                  setForm((prev) => ({ ...prev, required_orders: value }));
+                  setFormErrors((prev) => ({ ...prev, required_orders: undefined }));
+                }}
+              />
 
-          <View>
-            <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.rewardType')}</AppText>
-            <View style={[styles.segmentRow, mirroredRow(isRTL)]}>
-              {rewardTypeOptions.map((option) => (
-                <Pressable key={option} style={[styles.segmentChip, form.reward_type === option ? styles.segmentChipActive : null]} onPress={() => setForm((prev) => ({ ...prev, reward_type: option }))}>
-                  <AppText variant="caption">{rewardTypeLabel(option, t)}</AppText>
-                </Pressable>
-              ))}
+              <View>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.rewardType')}</AppText>
+                <View style={[styles.segmentRow, mirroredRow(isRTL)]}>
+                  {rewardTypeOptions.map((option) => (
+                    <Pressable
+                      key={option}
+                      style={[styles.segmentChip, form.reward_type === option ? styles.segmentChipActive : null]}
+                      onPress={() => setForm((prev) => ({ ...prev, reward_type: option }))}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: form.reward_type === option }}
+                      accessibilityLabel={`${t('admin.rewardType')}: ${rewardTypeLabel(option, t)}`}>
+                      <AppText variant="caption">{rewardTypeLabel(option, t)}</AppText>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <AppInput
+                label={t('admin.rewardValue')}
+                value={form.reward_value}
+                error={formErrors.reward_value}
+                onChangeText={(value) => {
+                  setForm((prev) => ({ ...prev, reward_value: value }));
+                  setFormErrors((prev) => ({ ...prev, reward_value: undefined }));
+                }}
+              />
+
+              <View>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
+                <View style={[styles.segmentRow, mirroredRow(isRTL)]}>
+                  <Pressable
+                    style={[styles.segmentChip, form.is_active ? styles.segmentChipActive : null]}
+                    onPress={() => setForm((prev) => ({ ...prev, is_active: true }))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: form.is_active }}
+                    accessibilityLabel={t('admin.active')}>
+                    <AppText variant="caption">{t('admin.active')}</AppText>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.segmentChip, !form.is_active ? styles.segmentChipActive : null]}
+                    onPress={() => setForm((prev) => ({ ...prev, is_active: false }))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: !form.is_active }}
+                    accessibilityLabel={t('admin.inactive')}>
+                    <AppText variant="caption">{t('admin.inactive')}</AppText>
+                  </Pressable>
+                </View>
+              </View>
+
+              <ActionRow compact={isCompact}>
+                <AppButton
+                  title={editingRuleId ? t('admin.saveChanges') : t('admin.createLoyaltyRule')}
+                  loading={saving}
+                  disabled={!canSave}
+                  onPress={() => void save()}
+                  style={styles.flexButton}
+                />
+                {editingRuleId ? <AppButton title={t('common.cancel')} variant="ghost" onPress={resetForm} fullWidth={false} /> : null}
+              </ActionRow>
             </View>
-          </View>
-
-          <AppInput
-            label={t('admin.rewardValue')}
-            value={form.reward_value}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, reward_value: value }))}
-          />
-
-          <View>
-            <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
-            <View style={[styles.segmentRow, mirroredRow(isRTL)]}>
-              <Pressable style={[styles.segmentChip, form.is_active ? styles.segmentChipActive : null]} onPress={() => setForm((prev) => ({ ...prev, is_active: true }))}>
-                <AppText variant="caption">{t('admin.active')}</AppText>
-              </Pressable>
-              <Pressable style={[styles.segmentChip, !form.is_active ? styles.segmentChipActive : null]} onPress={() => setForm((prev) => ({ ...prev, is_active: false }))}>
-                <AppText variant="caption">{t('admin.inactive')}</AppText>
-              </Pressable>
-            </View>
-          </View>
-
-          <ActionRow compact={isCompact}>
-            <AppButton title={editingRuleId ? t('admin.saveChanges') : t('admin.createLoyaltyRule')} loading={saving} onPress={() => void save()} style={styles.flexButton} />
-            {editingRuleId ? <AppButton title={t('common.cancel')} variant="ghost" onPress={resetForm} fullWidth={false} /> : null}
-          </ActionRow>
+          </AdminPageSection>
         </View>
-      </AdminPageSection>
-
-      {sortedRules.length === 0 ? (
-        <EmptyState title={t('admin.noLoyaltyTitle')} subtitle={t('admin.noLoyaltySubtitle')} />
-      ) : (
-        sortedRules.map((rule) => (
-          <AppCard key={rule.id}>
-            <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
-              <Pressable onPress={() => Alert.alert('', rule.reward_value)} style={styles.grow}>
-                <ExpandableText value={`${rule.required_orders} ${t('admin.ordersThreshold')}`} variant="h3" numberOfLines={2} />
-              </Pressable>
-              <BadgeChip label={rule.is_active ? t('admin.active') : t('admin.inactive')} tone={rule.is_active ? 'success' : 'default'} />
-            </View>
-            <InfoLine label={t('admin.rewardType')} value={rewardTypeLabel(rule.reward_type, t)} numberOfLines={2} />
-            <InfoLine label={t('admin.rewardValue')} value={rule.reward_value} numberOfLines={2} />
-
-            <ActionRow compact={isCompact}>
-              <AppButton title={t('admin.edit')} variant="secondary" onPress={() => startEdit(rule)} style={styles.flexButton} />
-              <AppButton title={rule.is_active ? t('admin.disable') : t('admin.enable')} variant="ghost" onPress={() => void toggleRule(rule)} fullWidth={false} />
-            </ActionRow>
-          </AppCard>
-        ))
-      )}
-    </AppShell>
+      }
+      ListEmptyComponent={
+        loading ? (
+          <LoadingState label={t('common.loading')} />
+        ) : error ? (
+          <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />
+        ) : (
+          <EmptyState title={t('admin.noLoyaltyTitle')} subtitle={t('admin.noLoyaltySubtitle')} />
+        )
+      }
+      refreshing={loading}
+      onRefresh={load}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + theme.spacing.md,
+          paddingBottom: insets.bottom + theme.spacing.xl,
+        },
+      ]}
+    />
   );
 };
 
 const styles = StyleSheet.create({
+  content: {
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  headerBlock: {
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.lg,
+  },
   formStack: {
     gap: theme.spacing.md,
-    marginTop: theme.spacing.md,
   },
   itemHeader: {
     flexDirection: 'row',
@@ -249,5 +324,8 @@ const styles = StyleSheet.create({
   segmentChipActive: {
     borderColor: theme.colors.primary300,
     backgroundColor: theme.colors.secondaryCream,
+  },
+  separator: {
+    height: theme.spacing.md,
   },
 });

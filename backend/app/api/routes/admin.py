@@ -1,9 +1,12 @@
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.deps import require_roles
 from app.models.menu import Addon, Item, ItemType, Section, Size
@@ -19,6 +22,7 @@ from app.schemas.menu import (
     ItemTypeRead,
     ItemTypeUpdate,
     ItemUpdate,
+    MenuResponse,
     ScheduleListResponse,
     ScheduleMenuRequest,
     ScheduleMenuResponse,
@@ -47,6 +51,7 @@ from app.schemas.user import BanUserRequest, UserModerationResponse, UserRead, U
 from app.services.menu_service import (
     create_menu_schedule,
     delete_menu_schedule,
+    get_admin_menu_tree,
     list_menu_schedules,
     update_menu_schedule,
 )
@@ -147,6 +152,50 @@ def _menu_models():
         'size': Size,
         'addon': Addon,
     }
+
+
+@router.post('/uploads/image')
+async def upload_menu_image(
+    request: Request,
+    file: UploadFile = File(...),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> dict[str, str]:
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail='Only image files are allowed')
+
+    settings = get_settings()
+    uploads_dir = Path(settings.upload_dir)
+    if not uploads_dir.is_absolute():
+        uploads_dir = Path.cwd() / uploads_dir
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    content = await file.read()
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f'Image must be <= {settings.max_upload_size_mb}MB',
+        )
+
+    extension = Path(file.filename or '').suffix.lower()
+    if extension not in {'.jpg', '.jpeg', '.png', '.webp'}:
+        extension = '.jpg'
+
+    filename = f'{uuid4().hex}{extension}'
+    file_path = uploads_dir / filename
+    file_path.write_bytes(content)
+
+    base_url = str(request.base_url).rstrip('/')
+    return {'url': f'{base_url}/uploads/{filename}'}
+
+
+@router.get('/menu/tree', response_model=MenuResponse)
+async def get_admin_menu_tree_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> MenuResponse:
+    sections = await get_admin_menu_tree(db)
+    return MenuResponse(sections=sections)
 
 
 @router.post('/menu/section', response_model=SectionRead)

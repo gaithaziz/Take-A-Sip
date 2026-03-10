@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { ActivityIndicator, AccessibilityState, Insets, Pressable, StyleSheet, ViewStyle } from 'react-native';
 
 import { theme } from '@/theme';
 
@@ -12,6 +12,11 @@ type AppButtonProps = {
   loading?: boolean;
   fullWidth?: boolean;
   style?: ViewStyle;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityState?: AccessibilityState;
+  hitSlop?: Insets | number;
+  testID?: string;
 };
 
 export const AppButton = ({
@@ -22,12 +27,23 @@ export const AppButton = ({
   loading,
   fullWidth = true,
   style,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityState,
+  hitSlop = 6,
+  testID,
 }: AppButtonProps) => {
   const isDisabled = disabled || loading;
   return (
     <Pressable
       disabled={isDisabled}
       onPress={onPress}
+      testID={testID}
+      hitSlop={hitSlop}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={accessibilityState}
       style={({ pressed }) => [
         styles.base,
         variantStyles[variant],

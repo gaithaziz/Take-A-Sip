@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -15,7 +16,6 @@ import { BilingualFieldGroup } from '@/components/admin/BilingualFieldGroup';
 import { ExpandableText } from '@/components/admin/ExpandableText';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { adminService } from '@/services/adminService';
-import { menuService } from '@/services/menuService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 import { Addon, Item, ItemType, Section, Size } from '@/types/api';
@@ -29,6 +29,7 @@ type EditTarget =
   | { kind: 'type'; data: ItemType }
   | { kind: 'size'; data: Size }
   | { kind: 'addon'; data: Addon };
+type WorkflowStep = 'browse' | 'section' | 'item' | 'type' | 'size' | 'addon';
 
 const ImageThumbnail = ({ uri }: { uri?: string | null }) => {
   return uri ? (
@@ -57,6 +58,7 @@ export const AdminMenuEditorScreen = () => {
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('browse');
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -68,12 +70,62 @@ export const AdminMenuEditorScreen = () => {
 
   const [editForm, setEditForm] = useState({ name_en: '', name_ar: '', image_url: '', description_en: '', description_ar: '', price: '', sort_order: '0' });
   const missingName = (nameEn: string, nameAr: string) => (!nameEn.trim() || !nameAr.trim() ? t('admin.missingTranslation') : undefined);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [mutatingEntityId, setMutatingEntityId] = useState<string | null>(null);
+
+  const pickAndUploadImage = async (fieldKey: string, onUploaded: (url: string) => void) => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(t('common.error'), t('admin.photoPermissionRequired'));
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (result.canceled || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const fileName = asset.fileName ?? `menu-image-${Date.now()}.jpg`;
+      const mimeType = asset.mimeType ?? 'image/jpeg';
+      setUploadingField(fieldKey);
+      const uploaded = await adminService.uploadImage(asset.uri, fileName, mimeType);
+      onUploaded(uploaded.url);
+    } catch (e) {
+      Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+    } finally {
+      setUploadingField(null);
+    }
+  };
+
+  const renderImageField = (fieldKey: string, value: string, onChange: (next: string) => void) => (
+    <View style={styles.imageField}>
+      <AppInput
+        label={t('admin.photo')}
+        value={value}
+        onChangeText={onChange}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <AppButton
+        title={t('admin.uploadPhoto')}
+        variant="secondary"
+        onPress={() => void pickAndUploadImage(fieldKey, onChange)}
+        loading={uploadingField === fieldKey}
+      />
+    </View>
+  );
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const menu = await menuService.getMenu();
+      const menu = await adminService.getMenuTree();
       setSections(menu.sections);
     } catch (e) {
       setError(getApiErrorMessage(e, t));
@@ -135,13 +187,24 @@ export const AdminMenuEditorScreen = () => {
     }
   };
 
-  const toggleEntity = async (id: string) => {
-    try {
-      await adminService.toggleMenuEntity(id);
-      await load();
-    } catch (e) {
-      Alert.alert(t('common.error'), getApiErrorMessage(e, t));
-    }
+  const toggleEntity = async (id: string, isActive: boolean, label: string) => {
+    Alert.alert(t('common.appName'), `${isActive ? t('admin.disable') : t('admin.enable')}: ${label}`, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.confirm'),
+        onPress: async () => {
+          try {
+            setMutatingEntityId(id);
+            await adminService.toggleMenuEntity(id);
+            await load();
+          } catch (e) {
+            Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+          } finally {
+            setMutatingEntityId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const createSection = async () => {
@@ -230,12 +293,63 @@ export const AdminMenuEditorScreen = () => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const renderHierarchyActions = (
+    id: string,
+    isActive: boolean,
+    label: string,
+    onEdit: () => void,
+  ) => (
+    <View style={[styles.rowActions, isCompact ? styles.rowActionsCompact : null]}>
+      <AppButton
+        title={t('admin.edit')}
+        variant="ghost"
+        fullWidth={!isCompact}
+        style={isCompact ? styles.compactActionFill : actionButtonStyle}
+        onPress={onEdit}
+        disabled={Boolean(mutatingEntityId && mutatingEntityId !== id)}
+      />
+      <AppButton
+        title={t('admin.toggle')}
+        variant="secondary"
+        fullWidth={!isCompact}
+        style={isCompact ? styles.compactActionFill : actionButtonStyle}
+        loading={mutatingEntityId === id}
+        disabled={Boolean(mutatingEntityId && mutatingEntityId !== id)}
+        onPress={() => void toggleEntity(id, isActive, label)}
+      />
+    </View>
+  );
+
   if (loading) return <LoadingState label={t('common.loading')} />;
   if (error) return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
 
   return (
     <AppShell refreshing={loading} onRefresh={load}>
       <AppText variant="h1">{t('admin.menuEditorTitle')}</AppText>
+
+      <AppCard>
+        <AppText variant="h3">{t('admin.quickActions')}</AppText>
+        <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
+          {([
+            { key: 'browse', label: t('admin.menuHierarchy') },
+            { key: 'section', label: t('admin.createSection') },
+            { key: 'item', label: t('admin.createItem') },
+            { key: 'type', label: t('admin.createType') },
+            { key: 'size', label: t('admin.createSize') },
+            { key: 'addon', label: t('admin.createAddon') },
+          ] as const).map((step) => (
+            <Pressable
+              key={step.key}
+              style={[styles.selectorChip, workflowStep === step.key ? styles.selectorChipActive : null]}
+              onPress={() => setWorkflowStep(step.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: workflowStep === step.key }}
+              accessibilityLabel={step.label}>
+              <AppText variant="caption" numberOfLines={1}>{step.label}</AppText>
+            </Pressable>
+          ))}
+        </View>
+      </AppCard>
 
       <AppCard>
         <AppText variant="h3">{t('admin.currentContext')}</AppText>
@@ -256,12 +370,12 @@ export const AdminMenuEditorScreen = () => {
             return (
               <View key={section.id}>
                 <View style={[styles.row, mirroredRow(isRTL)]}>
-                  <Pressable onPress={() => toggleExpanded(sectionKey)}>
+                  <Pressable onPress={() => toggleExpanded(sectionKey)} accessibilityRole="button" accessibilityLabel={sectionOpen ? t('admin.disable') : t('admin.enable')}>
                     <AppText variant="h3">{sectionOpen ? '-' : '+'}</AppText>
                   </Pressable>
                   <ImageThumbnail uri={section.image_url} />
                   <Pressable
-                    style={{ flex: 1 }}
+                    style={styles.rowLabelPressable}
                     onPress={() => {
                       setSelectedSectionId(section.id);
                       setSelectedItemId(null);
@@ -271,8 +385,12 @@ export const AdminMenuEditorScreen = () => {
                     <ExpandableText value={`${t('admin.section')}: ${getLocalizedValue(section, language, 'name')} (${section.sort_order})`} />
                   </Pressable>
                   <BadgeChip label={section.is_active ? t('admin.active') : t('admin.inactive')} tone={section.is_active ? 'success' : 'default'} />
-                  <AppButton title={t('admin.edit')} variant="ghost" fullWidth={false} style={actionButtonStyle} onPress={() => beginEdit({ kind: 'section', data: section })} />
-                  <AppButton title={t('admin.toggle')} variant="secondary" fullWidth={false} style={actionButtonStyle} onPress={() => void toggleEntity(section.id)} />
+                  {renderHierarchyActions(
+                    section.id,
+                    section.is_active,
+                    `${t('admin.section')} ${getLocalizedValue(section, language, 'name')}`,
+                    () => beginEdit({ kind: 'section', data: section }),
+                  )}
                 </View>
 
                 {sectionOpen
@@ -280,14 +398,14 @@ export const AdminMenuEditorScreen = () => {
                       const itemKey = `i-${item.id}`;
                       const itemOpen = expanded[itemKey] ?? false;
                       return (
-                        <View key={item.id} style={styles.level1}>
+                        <View key={item.id} style={[styles.level1, isCompact ? styles.level1Compact : null]}>
                           <View style={[styles.row, mirroredRow(isRTL)]}>
-                            <Pressable onPress={() => toggleExpanded(itemKey)}>
+                            <Pressable onPress={() => toggleExpanded(itemKey)} accessibilityRole="button" accessibilityLabel={itemOpen ? t('admin.disable') : t('admin.enable')}>
                               <AppText variant="h3">{itemOpen ? '-' : '+'}</AppText>
                             </Pressable>
                             <ImageThumbnail uri={item.image_url} />
                             <Pressable
-                              style={{ flex: 1 }}
+                              style={styles.rowLabelPressable}
                               onPress={() => {
                                 setSelectedSectionId(section.id);
                                 setSelectedItemId(item.id);
@@ -297,8 +415,12 @@ export const AdminMenuEditorScreen = () => {
                               <ExpandableText value={`${t('admin.item')}: ${getLocalizedValue(item, language, 'name')} (${item.sort_order})`} />
                             </Pressable>
                             <BadgeChip label={item.is_active ? t('admin.active') : t('admin.inactive')} tone={item.is_active ? 'success' : 'default'} />
-                            <AppButton title={t('admin.edit')} variant="ghost" fullWidth={false} style={actionButtonStyle} onPress={() => beginEdit({ kind: 'item', data: item })} />
-                            <AppButton title={t('admin.toggle')} variant="secondary" fullWidth={false} style={actionButtonStyle} onPress={() => void toggleEntity(item.id)} />
+                            {renderHierarchyActions(
+                              item.id,
+                              item.is_active,
+                              `${t('admin.item')} ${getLocalizedValue(item, language, 'name')}`,
+                              () => beginEdit({ kind: 'item', data: item }),
+                            )}
                           </View>
 
                           {itemOpen
@@ -306,14 +428,14 @@ export const AdminMenuEditorScreen = () => {
                                 const typeKey = `t-${itemType.id}`;
                                 const typeOpen = expanded[typeKey] ?? false;
                                 return (
-                                  <View key={itemType.id} style={styles.level2}>
+                                  <View key={itemType.id} style={[styles.level2, isCompact ? styles.level2Compact : null]}>
                                     <View style={[styles.row, mirroredRow(isRTL)]}>
-                                      <Pressable onPress={() => toggleExpanded(typeKey)}>
+                                      <Pressable onPress={() => toggleExpanded(typeKey)} accessibilityRole="button" accessibilityLabel={typeOpen ? t('admin.disable') : t('admin.enable')}>
                                         <AppText variant="h3">{typeOpen ? '-' : '+'}</AppText>
                                       </Pressable>
                                       <ImageThumbnail uri={itemType.image_url} />
                                       <Pressable
-                                        style={{ flex: 1 }}
+                                        style={styles.rowLabelPressable}
                                         onPress={() => {
                                           setSelectedSectionId(section.id);
                                           setSelectedItemId(item.id);
@@ -323,8 +445,12 @@ export const AdminMenuEditorScreen = () => {
                                         <ExpandableText value={`${t('admin.type')}: ${getLocalizedValue(itemType, language, 'name')} (${itemType.sort_order})`} />
                                       </Pressable>
                                       <BadgeChip label={itemType.is_active ? t('admin.active') : t('admin.inactive')} tone={itemType.is_active ? 'success' : 'default'} />
-                                      <AppButton title={t('admin.edit')} variant="ghost" fullWidth={false} style={actionButtonStyle} onPress={() => beginEdit({ kind: 'type', data: itemType })} />
-                                      <AppButton title={t('admin.toggle')} variant="secondary" fullWidth={false} style={actionButtonStyle} onPress={() => void toggleEntity(itemType.id)} />
+                                      {renderHierarchyActions(
+                                        itemType.id,
+                                        itemType.is_active,
+                                        `${t('admin.type')} ${getLocalizedValue(itemType, language, 'name')}`,
+                                        () => beginEdit({ kind: 'type', data: itemType }),
+                                      )}
                                     </View>
 
                                     {typeOpen
@@ -332,14 +458,14 @@ export const AdminMenuEditorScreen = () => {
                                           const sizeKey = `z-${size.id}`;
                                           const sizeOpen = expanded[sizeKey] ?? false;
                                           return (
-                                            <View key={size.id} style={styles.level3}>
+                                            <View key={size.id} style={[styles.level3, isCompact ? styles.level3Compact : null]}>
                                               <View style={[styles.row, mirroredRow(isRTL)]}>
-                                                <Pressable onPress={() => toggleExpanded(sizeKey)}>
+                                                <Pressable onPress={() => toggleExpanded(sizeKey)} accessibilityRole="button" accessibilityLabel={sizeOpen ? t('admin.disable') : t('admin.enable')}>
                                                   <AppText variant="h3">{sizeOpen ? '-' : '+'}</AppText>
                                                 </Pressable>
                                                 <ImageThumbnail uri={size.image_url} />
                                                 <Pressable
-                                                  style={{ flex: 1 }}
+                                                  style={styles.rowLabelPressable}
                                                   onPress={() => {
                                                     setSelectedSectionId(section.id);
                                                     setSelectedItemId(item.id);
@@ -349,20 +475,28 @@ export const AdminMenuEditorScreen = () => {
                                                   <ExpandableText value={`${t('admin.size')}: ${getLocalizedValue(size, language, 'name')} (${size.sort_order})`} />
                                                 </Pressable>
                                                 <BadgeChip label={size.is_active ? t('admin.active') : t('admin.inactive')} tone={size.is_active ? 'success' : 'default'} />
-                                                <AppButton title={t('admin.edit')} variant="ghost" fullWidth={false} style={actionButtonStyle} onPress={() => beginEdit({ kind: 'size', data: size })} />
-                                                <AppButton title={t('admin.toggle')} variant="secondary" fullWidth={false} style={actionButtonStyle} onPress={() => void toggleEntity(size.id)} />
+                                                {renderHierarchyActions(
+                                                  size.id,
+                                                  size.is_active,
+                                                  `${t('admin.size')} ${getLocalizedValue(size, language, 'name')}`,
+                                                  () => beginEdit({ kind: 'size', data: size }),
+                                                )}
                                               </View>
                                               {sizeOpen
                                                 ? size.addons.map((addon) => (
-                                                    <View key={addon.id} style={styles.level4}>
+                                                    <View key={addon.id} style={[styles.level4, isCompact ? styles.level4Compact : null]}>
                                                       <View style={[styles.row, mirroredRow(isRTL)]}>
                                                         <ImageThumbnail uri={addon.image_url} />
-                                                        <Pressable style={{ flex: 1 }} onPress={() => setSelectedSizeId(size.id)}>
+                                                        <Pressable style={styles.rowLabelPressable} onPress={() => setSelectedSizeId(size.id)}>
                                                           <ExpandableText value={`${t('admin.addon')}: ${getLocalizedValue(addon, language, 'name')} (${addon.sort_order})`} />
                                                         </Pressable>
                                                         <BadgeChip label={addon.is_active ? t('admin.active') : t('admin.inactive')} tone={addon.is_active ? 'success' : 'default'} />
-                                                        <AppButton title={t('admin.edit')} variant="ghost" fullWidth={false} style={actionButtonStyle} onPress={() => beginEdit({ kind: 'addon', data: addon })} />
-                                                        <AppButton title={t('admin.toggle')} variant="secondary" fullWidth={false} style={actionButtonStyle} onPress={() => void toggleEntity(addon.id)} />
+                                                        {renderHierarchyActions(
+                                                          addon.id,
+                                                          addon.is_active,
+                                                          `${t('admin.addon')} ${getLocalizedValue(addon, language, 'name')}`,
+                                                          () => beginEdit({ kind: 'addon', data: addon }),
+                                                        )}
                                                       </View>
                                                     </View>
                                                   ))
@@ -385,6 +519,7 @@ export const AdminMenuEditorScreen = () => {
         </View>
       </AppCard>
 
+      {workflowStep === 'section' ? (
       <AdminPageSection title={t('admin.createSection')}>
         <BilingualFieldGroup
           labelEn={t('admin.nameEn')}
@@ -395,7 +530,7 @@ export const AdminMenuEditorScreen = () => {
           onChangeAr={(v) => setSectionForm((p) => ({ ...p, name_ar: v }))}
           helperText={missingName(sectionForm.name_en, sectionForm.name_ar)}
         />
-        <AppInput label={t('admin.imageUrl')} value={sectionForm.image_url} onChangeText={(v) => setSectionForm((p) => ({ ...p, image_url: v }))} />
+        {renderImageField('sectionForm', sectionForm.image_url, (v) => setSectionForm((p) => ({ ...p, image_url: v })))}
         <AppInput label={t('admin.sortOrder')} value={sectionForm.sort_order} onChangeText={(v) => setSectionForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
         <AppButton
           title={t('admin.createSection')}
@@ -403,14 +538,19 @@ export const AdminMenuEditorScreen = () => {
           disabled={!sectionForm.name_en.trim() || !sectionForm.name_ar.trim()}
         />
       </AdminPageSection>
+      ) : null}
 
+      {workflowStep === 'item' ? (
       <AdminPageSection title={t('admin.createItem')}>
         <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
           {sections.map((section) => (
             <Pressable
               key={section.id}
               style={[styles.selectorChip, selectedSectionId === section.id ? styles.selectorChipActive : null]}
-              onPress={() => setSelectedSectionId(section.id)}>
+              onPress={() => setSelectedSectionId(section.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedSectionId === section.id }}
+              accessibilityLabel={getLocalizedValue(section, language, 'name')}>
               <AppText variant="caption" numberOfLines={1}>{getLocalizedValue(section, language, 'name')}</AppText>
             </Pressable>
           ))}
@@ -426,7 +566,7 @@ export const AdminMenuEditorScreen = () => {
         />
         <AppInput label={t('admin.descriptionEn')} value={itemForm.description_en} onChangeText={(v) => setItemForm((p) => ({ ...p, description_en: v }))} />
         <AppInput label={t('admin.descriptionAr')} value={itemForm.description_ar} onChangeText={(v) => setItemForm((p) => ({ ...p, description_ar: v }))} />
-        <AppInput label={t('admin.imageUrl')} value={itemForm.image_url} onChangeText={(v) => setItemForm((p) => ({ ...p, image_url: v }))} />
+        {renderImageField('itemForm', itemForm.image_url, (v) => setItemForm((p) => ({ ...p, image_url: v })))}
         <AppInput label={t('admin.sortOrder')} value={itemForm.sort_order} onChangeText={(v) => setItemForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
         <AppButton
           title={t('admin.createItem')}
@@ -434,14 +574,19 @@ export const AdminMenuEditorScreen = () => {
           disabled={!selectedSectionId || !itemForm.name_en.trim() || !itemForm.name_ar.trim()}
         />
       </AdminPageSection>
+      ) : null}
 
+      {workflowStep === 'type' ? (
       <AdminPageSection title={t('admin.createType')}>
         <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
           {items.map((item) => (
             <Pressable
               key={item.id}
               style={[styles.selectorChip, selectedItemId === item.id ? styles.selectorChipActive : null]}
-              onPress={() => setSelectedItemId(item.id)}>
+              onPress={() => setSelectedItemId(item.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedItemId === item.id }}
+              accessibilityLabel={getLocalizedValue(item, language, 'name')}>
               <AppText variant="caption" numberOfLines={1}>{getLocalizedValue(item, language, 'name')}</AppText>
             </Pressable>
           ))}
@@ -455,7 +600,7 @@ export const AdminMenuEditorScreen = () => {
           onChangeAr={(v) => setTypeForm((p) => ({ ...p, name_ar: v }))}
           helperText={missingName(typeForm.name_en, typeForm.name_ar)}
         />
-        <AppInput label={t('admin.imageUrl')} value={typeForm.image_url} onChangeText={(v) => setTypeForm((p) => ({ ...p, image_url: v }))} />
+        {renderImageField('typeForm', typeForm.image_url, (v) => setTypeForm((p) => ({ ...p, image_url: v })))}
         <AppInput label={t('admin.sortOrder')} value={typeForm.sort_order} onChangeText={(v) => setTypeForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
         <AppButton
           title={t('admin.createType')}
@@ -463,14 +608,19 @@ export const AdminMenuEditorScreen = () => {
           disabled={!selectedItemId || !typeForm.name_en.trim() || !typeForm.name_ar.trim()}
         />
       </AdminPageSection>
+      ) : null}
 
+      {workflowStep === 'size' ? (
       <AdminPageSection title={t('admin.createSize')}>
         <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
           {itemTypes.map((itemType) => (
             <Pressable
               key={itemType.id}
               style={[styles.selectorChip, selectedTypeId === itemType.id ? styles.selectorChipActive : null]}
-              onPress={() => setSelectedTypeId(itemType.id)}>
+              onPress={() => setSelectedTypeId(itemType.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedTypeId === itemType.id }}
+              accessibilityLabel={getLocalizedValue(itemType, language, 'name')}>
               <AppText variant="caption" numberOfLines={1}>{getLocalizedValue(itemType, language, 'name')}</AppText>
             </Pressable>
           ))}
@@ -484,7 +634,7 @@ export const AdminMenuEditorScreen = () => {
           onChangeAr={(v) => setSizeForm((p) => ({ ...p, name_ar: v }))}
           helperText={missingName(sizeForm.name_en, sizeForm.name_ar)}
         />
-        <AppInput label={t('admin.imageUrl')} value={sizeForm.image_url} onChangeText={(v) => setSizeForm((p) => ({ ...p, image_url: v }))} />
+        {renderImageField('sizeForm', sizeForm.image_url, (v) => setSizeForm((p) => ({ ...p, image_url: v })))}
         <AppInput label={t('admin.price')} value={sizeForm.price} onChangeText={(v) => setSizeForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
         <AppInput label={t('admin.sortOrder')} value={sizeForm.sort_order} onChangeText={(v) => setSizeForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
         <AppButton
@@ -493,14 +643,19 @@ export const AdminMenuEditorScreen = () => {
           disabled={!selectedTypeId || !sizeForm.name_en.trim() || !sizeForm.name_ar.trim()}
         />
       </AdminPageSection>
+      ) : null}
 
+      {workflowStep === 'addon' ? (
       <AdminPageSection title={t('admin.createAddon')}>
         <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
           {sizes.map((size) => (
             <Pressable
               key={size.id}
               style={[styles.selectorChip, selectedSizeId === size.id ? styles.selectorChipActive : null]}
-              onPress={() => setSelectedSizeId(size.id)}>
+              onPress={() => setSelectedSizeId(size.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedSizeId === size.id }}
+              accessibilityLabel={getLocalizedValue(size, language, 'name')}>
               <AppText variant="caption" numberOfLines={1}>{getLocalizedValue(size, language, 'name')}</AppText>
             </Pressable>
           ))}
@@ -514,7 +669,7 @@ export const AdminMenuEditorScreen = () => {
           onChangeAr={(v) => setAddonForm((p) => ({ ...p, name_ar: v }))}
           helperText={missingName(addonForm.name_en, addonForm.name_ar)}
         />
-        <AppInput label={t('admin.imageUrl')} value={addonForm.image_url} onChangeText={(v) => setAddonForm((p) => ({ ...p, image_url: v }))} />
+        {renderImageField('addonForm', addonForm.image_url, (v) => setAddonForm((p) => ({ ...p, image_url: v })))}
         <AppInput label={t('admin.price')} value={addonForm.price} onChangeText={(v) => setAddonForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
         <AppInput label={t('admin.sortOrder')} value={addonForm.sort_order} onChangeText={(v) => setAddonForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
         <AppButton
@@ -523,6 +678,7 @@ export const AdminMenuEditorScreen = () => {
           disabled={!selectedSizeId || !addonForm.name_en.trim() || !addonForm.name_ar.trim()}
         />
       </AdminPageSection>
+      ) : null}
 
       {editTarget ? (
         <AdminPageSection title={`${t('admin.edit')} ${t(`admin.${editTarget.kind}`)}`}>
@@ -536,7 +692,7 @@ export const AdminMenuEditorScreen = () => {
             onChangeAr={(v) => setEditForm((p) => ({ ...p, name_ar: v }))}
             helperText={missingName(editForm.name_en, editForm.name_ar)}
           />
-          <AppInput label={t('admin.imageUrl')} value={editForm.image_url} onChangeText={(v) => setEditForm((p) => ({ ...p, image_url: v }))} />
+          {renderImageField('editForm', editForm.image_url, (v) => setEditForm((p) => ({ ...p, image_url: v })))}
           {editTarget.kind === 'item' ? (
             <BilingualFieldGroup
               labelEn={t('admin.descriptionEn')}
@@ -583,17 +739,36 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
     gap: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     paddingBottom: theme.spacing.sm,
     paddingTop: theme.spacing.xs,
   },
+  rowLabelPressable: {
+    flex: 1,
+    minWidth: 120,
+  },
+  rowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  rowActionsCompact: {
+    width: '100%',
+    marginTop: theme.spacing.xs,
+  },
+  compactActionFill: {
+    flex: 1,
+  },
   level1: { marginStart: 12 },
   level2: { marginStart: 24 },
   level3: { marginStart: 36 },
   level4: { marginStart: 48 },
+  level1Compact: { marginStart: 8 },
+  level2Compact: { marginStart: 16 },
+  level3Compact: { marginStart: 24 },
+  level4Compact: { marginStart: 32 },
   contextRow: {
     marginTop: theme.spacing.sm,
     flexDirection: 'row',
@@ -619,10 +794,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.secondaryCream,
   },
   actionButtonCompact: {
-    minHeight: 38,
-    paddingHorizontal: theme.spacing.md,
+    minHeight: 36,
+    paddingHorizontal: theme.spacing.sm,
   },
   flexButton: {
     flex: 1,
+  },
+  imageField: {
+    gap: theme.spacing.sm,
   },
 });

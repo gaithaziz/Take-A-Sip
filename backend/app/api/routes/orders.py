@@ -49,6 +49,27 @@ async def list_orders_endpoint(
     return OrderListResponse(orders=[OrderRead.model_validate(order) for order in orders])
 
 
+@router.get('/user/{user_id}', response_model=OrderListResponse)
+async def get_user_orders_endpoint(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> OrderListResponse:
+    if current_user.role == UserRole.CLIENT and user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Forbidden')
+    orders = await get_user_orders(db, user_id)
+    return OrderListResponse(orders=[OrderRead.model_validate(order) for order in orders])
+
+
+@router.get('/my-orders', response_model=OrderListResponse)
+async def get_my_orders_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> OrderListResponse:
+    orders = await get_user_orders(db, current_user.id)
+    return OrderListResponse(orders=[OrderRead.model_validate(order) for order in orders])
+
+
 @router.get('/{order_id}', response_model=OrderRead)
 async def get_order_endpoint(
     order_id: UUID,
@@ -62,18 +83,6 @@ async def get_order_endpoint(
     if current_user.role == UserRole.CLIENT and order.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Forbidden')
     return OrderRead.model_validate(order)
-
-
-@router.get('/user/{user_id}', response_model=OrderListResponse)
-async def get_user_orders_endpoint(
-    user_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> OrderListResponse:
-    if current_user.role == UserRole.CLIENT and user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Forbidden')
-    orders = await get_user_orders(db, user_id)
-    return OrderListResponse(orders=[OrderRead.model_validate(order) for order in orders])
 
 
 @router.post('/{order_id}/accept', response_model=AcceptOrderResponse)

@@ -27,3 +27,19 @@ Single Expo app for:
 - Native date/time inputs for admin forms use `@react-native-community/datetimepicker`.
 - If backend runs in Docker from repo root, use:
   - `docker compose up -d --build`
+
+## Quick Start
+
+```powershell
+# 1) Start backend from repo root
+docker compose up -d --build
+
+# 2) Get your PC LAN IP
+ipconfig
+
+# 3) Start mobile app
+cd mobile
+npm install
+$env:EXPO_PUBLIC_API_BASE_URL="http://<YOUR_PC_IP>:8000"
+npx expo start --host lan --clear
+```

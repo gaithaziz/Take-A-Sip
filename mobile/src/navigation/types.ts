@@ -12,16 +12,16 @@ export type AdminTabParamList = {
   AdminDashboard: undefined;
   AdminMenu: undefined;
   AdminPromotions: undefined;
-  AdminLoyalty: undefined;
   AdminScheduling: undefined;
   AdminUsers: undefined;
-  AdminProfile: undefined;
 };
 
 export type RootStackParamList = {
   Auth: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   AdminTabs: NavigatorScreenParams<AdminTabParamList>;
+  AdminLoyalty: undefined;
+  AdminProfile: undefined;
   AdminUserDetails: { user: UserSummary };
   ProductDetails: { item: Item };
   Cart: undefined;

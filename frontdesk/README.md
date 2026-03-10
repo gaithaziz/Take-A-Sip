@@ -18,8 +18,43 @@ Sunmi V2 Pro frontdesk app for incoming order handling and local thermal printin
 cd frontdesk
 npm install
 $env:EXPO_PUBLIC_API_BASE_URL="http://192.168.1.228:8000"
-npm run start -- --host lan --clear
+npm run start -- --host lan --port 8082 --clear
 ```
+
+Notes:
+- `8000` is the backend API port.
+- `8081/8082` are Metro/dev-server ports (not backend API).
+
+## Built app over USB (recommended for device testing)
+
+For installed APK/dev-client connected by USB, use backend on your PC and tunnel it.
+
+```powershell
+# Make sure backend is running on your PC at localhost:8000 first.
+cd frontdesk
+npm run usb:setup
+```
+
+You can also pass a custom backend URL:
+
+```powershell
+npm run usb:setup -- -BackendUrl "http://127.0.0.1:8000"
+```
+
+Manual equivalent:
+
+```powershell
+adb devices
+adb reverse tcp:8000 tcp:8000
+```
+
+Use app build config with:
+
+```text
+EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+```
+
+Because `EXPO_PUBLIC_*` is baked at build time, changing shell env after install does not change a built app.
 
 ## Sunmi native printer integration
 

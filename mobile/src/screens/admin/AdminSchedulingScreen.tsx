@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -16,13 +17,13 @@ import { InfoLine } from '@/components/admin/InfoLine';
 import { SelectDropdownField } from '@/components/admin/SelectDropdownField';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { adminService } from '@/services/adminService';
-import { menuService } from '@/services/menuService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 import { MenuEntityType, MenuSchedule, Section } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { getLocalizedValue } from '@/utils/i18n';
 import { mirroredRow } from '@/utils/layout';
+import { getCurrentTimeZone } from '@/utils/format';
 
 type EntityOption = {
   id: string;
@@ -76,6 +77,7 @@ export const AdminSchedulingScreen = () => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isCompact = width < 390;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -84,6 +86,8 @@ export const AdminSchedulingScreen = () => {
   const [sections, setSections] = useState<Section[]>([]);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [form, setForm] = useState<ScheduleForm>(defaultForm);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [mutatingScheduleId, setMutatingScheduleId] = useState<string | null>(null);
 
   const options = useMemo(() => buildEntityOptions(sections, language), [sections, language]);
   const dayLabelByValue = useMemo<Record<number, string>>(
@@ -112,7 +116,7 @@ export const AdminSchedulingScreen = () => {
     try {
       setLoading(true);
       setError(null);
-      const [scheduleResponse, menu] = await Promise.all([adminService.listSchedules(), menuService.getMenu()]);
+      const [scheduleResponse, menu] = await Promise.all([adminService.listSchedules(), adminService.getMenuTree()]);
       setSchedules(scheduleResponse.schedules);
       setSections(menu.sections);
     } catch (e) {
@@ -136,6 +140,7 @@ export const AdminSchedulingScreen = () => {
 
   const resetForm = () => {
     setEditingScheduleId(null);
+    setFormError(null);
     setForm((prev) => ({
       ...defaultForm,
       entity_type: prev.entity_type,
@@ -145,6 +150,7 @@ export const AdminSchedulingScreen = () => {
 
   const startEdit = (schedule: MenuSchedule) => {
     setEditingScheduleId(schedule.id);
+    setFormError(null);
     setForm({
       entity_type: schedule.entity_type,
       entity_id: schedule.entity_id,
@@ -157,12 +163,13 @@ export const AdminSchedulingScreen = () => {
 
   const save = async () => {
     if (!form.entity_id || !form.start_time || !form.end_time || form.days_of_week.length === 0) {
-      Alert.alert(t('common.error'), t('validation.requiredFields'));
+      setFormError(t('validation.requiredFields'));
       return;
     }
 
     try {
       setSaving(true);
+      setFormError(null);
       if (editingScheduleId) {
         await adminService.updateSchedule(editingScheduleId, {
           start_time: form.start_time,
@@ -198,10 +205,13 @@ export const AdminSchedulingScreen = () => {
         onPress: () => {
           void (async () => {
             try {
+              setMutatingScheduleId(scheduleId);
               await adminService.deleteSchedule(scheduleId);
               await load();
             } catch (e) {
               Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+            } finally {
+              setMutatingScheduleId(null);
             }
           })();
         },
@@ -211,10 +221,13 @@ export const AdminSchedulingScreen = () => {
 
   const toggleSchedule = async (schedule: MenuSchedule) => {
     try {
+      setMutatingScheduleId(schedule.id);
       await adminService.updateSchedule(schedule.id, { is_active: !schedule.is_active });
       await load();
     } catch (e) {
       Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+    } finally {
+      setMutatingScheduleId(null);
     }
   };
 
@@ -243,129 +256,209 @@ export const AdminSchedulingScreen = () => {
   const dateToTime = (value: Date): string =>
     `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
 
-  if (loading) {
-    return <LoadingState label={t('common.loading')} />;
-  }
+  const timezone = getCurrentTimeZone();
+  const canSave = !saving && Boolean(form.entity_id) && Boolean(form.start_time) && Boolean(form.end_time) && form.days_of_week.length > 0;
 
-  if (error) {
-    return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
-  }
+  const renderSchedule = ({ item: schedule }: { item: MenuSchedule }) => (
+    <AppCard>
+      <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
+        <Pressable
+          onPress={() => Alert.alert('', labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`)}
+          style={styles.grow}
+          accessibilityRole="button"
+          accessibilityLabel={labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`}>
+          <ExpandableText
+            value={labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`}
+            variant="h3"
+            numberOfLines={2}
+          />
+        </Pressable>
+        <BadgeChip label={schedule.is_active ? t('admin.active') : t('admin.inactive')} tone={schedule.is_active ? 'success' : 'default'} />
+      </View>
+      <InfoLine label={`${t('admin.timeRange')} (${timezone})`} value={`${schedule.start_time} - ${schedule.end_time}`} />
+      <InfoLine
+        label={t('admin.daysOfWeek')}
+        value={schedule.days_of_week.map((day) => dayLabelByValue[day]).join(', ')}
+        numberOfLines={2}
+      />
+      <ActionRow compact={isCompact}>
+        <AppButton title={t('admin.edit')} variant="secondary" onPress={() => startEdit(schedule)} style={styles.flexButton} disabled={mutatingScheduleId === schedule.id} />
+        <AppButton
+          title={schedule.is_active ? t('admin.disable') : t('admin.enable')}
+          variant="ghost"
+          onPress={() => void toggleSchedule(schedule)}
+          fullWidth={false}
+          loading={mutatingScheduleId === schedule.id}
+          disabled={Boolean(mutatingScheduleId && mutatingScheduleId !== schedule.id)}
+        />
+        <AppButton
+          title={t('admin.delete')}
+          variant="destructive"
+          onPress={() => void removeSchedule(schedule.id)}
+          fullWidth={false}
+          loading={mutatingScheduleId === schedule.id}
+          disabled={Boolean(mutatingScheduleId && mutatingScheduleId !== schedule.id)}
+        />
+      </ActionRow>
+    </AppCard>
+  );
 
   return (
-    <AppShell refreshing={loading} onRefresh={load}>
-      <AppText variant="h1">{t('admin.schedulingTitle')}</AppText>
+    <FlatList
+      data={loading || error ? [] : schedules}
+      keyExtractor={(schedule) => schedule.id}
+      renderItem={renderSchedule}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ListHeaderComponent={
+        <View style={styles.headerBlock}>
+          <AppText variant="h1">{t('admin.schedulingTitle')}</AppText>
 
-      <AdminPageSection
-        title={editingScheduleId ? t('admin.editSchedule') : t('admin.createSchedule')}
-        subtitle={t('admin.schedulingWhatWhenDays')}>
-        <View style={styles.formStack}>
-          <SelectDropdownField
-            label={t('admin.entityType')}
-            value={form.entity_type}
-            options={entityTypeOptions}
-            onChange={(value) =>
-              setForm((prev) => ({
-                ...prev,
-                entity_type: value as MenuEntityType,
-                entity_id: '',
-              }))
-            }
-          />
+          <AdminPageSection
+            title={editingScheduleId ? t('admin.editSchedule') : t('admin.createSchedule')}
+            subtitle={t('admin.schedulingWhatWhenDays')}>
+            <View style={styles.formStack}>
+              <SelectDropdownField
+                label={t('admin.entityType')}
+                value={form.entity_type}
+                options={entityTypeOptions}
+                onChange={(value) => {
+                  setFormError(null);
+                  setForm((prev) => ({
+                    ...prev,
+                    entity_type: value as MenuEntityType,
+                    entity_id: '',
+                  }));
+                }}
+              />
 
-          <SelectDropdownField
-            label={t('admin.entityId')}
-            value={form.entity_id}
-            options={filteredOptions.map((option) => ({ value: option.id, label: option.label }))}
-            onChange={(value) => setForm((prev) => ({ ...prev, entity_id: value }))}
-            emptyLabel={t('admin.noTargets')}
-          />
+              <SelectDropdownField
+                label={t('admin.entityId')}
+                value={form.entity_id}
+                options={filteredOptions.map((option) => ({ value: option.id, label: option.label }))}
+                onChange={(value) => {
+                  setFormError(null);
+                  setForm((prev) => ({ ...prev, entity_id: value }));
+                }}
+                emptyLabel={t('admin.noTargets')}
+              />
 
-          <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
-            <DateTimeField
-              label={t('admin.startTime')}
-              mode="time"
-              value={timeToDate(form.start_time)}
-              onChange={(value) => setForm((prev) => ({ ...prev, start_time: dateToTime(value) }))}
-            />
-            <DateTimeField
-              label={t('admin.endTime')}
-              mode="time"
-              value={timeToDate(form.end_time)}
-              onChange={(value) => setForm((prev) => ({ ...prev, end_time: dateToTime(value) }))}
-            />
-          </View>
-
-          <View>
-            <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.daysOfWeek')}</AppText>
-            <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
-              {Object.entries(dayLabelByValue).map(([value, label]) => {
-                const day = Number(value);
-                const selected = form.days_of_week.includes(day);
-                return (
-                  <Pressable key={value} style={[styles.optionChip, selected ? styles.optionChipActive : null]} onPress={() => toggleDay(day)}>
-                    <AppText variant="caption" color={selected ? theme.colors.primary700 : theme.colors.textSecondary}>{label}</AppText>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          <View>
-            <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
-            <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
-              <Pressable style={[styles.optionChip, form.is_active ? styles.optionChipActive : null]} onPress={() => setForm((prev) => ({ ...prev, is_active: true }))}>
-                <AppText variant="caption">{t('admin.active')}</AppText>
-              </Pressable>
-              <Pressable style={[styles.optionChip, !form.is_active ? styles.optionChipActive : null]} onPress={() => setForm((prev) => ({ ...prev, is_active: false }))}>
-                <AppText variant="caption">{t('admin.inactive')}</AppText>
-              </Pressable>
-            </View>
-          </View>
-
-          <ActionRow compact={isCompact}>
-            <AppButton title={editingScheduleId ? t('admin.saveChanges') : t('admin.createSchedule')} loading={saving} onPress={() => void save()} style={styles.flexButton} />
-            {editingScheduleId ? <AppButton title={t('common.cancel')} variant="ghost" onPress={resetForm} fullWidth={false} /> : null}
-          </ActionRow>
-        </View>
-      </AdminPageSection>
-
-      {schedules.length === 0 ? (
-        <EmptyState title={t('admin.noSchedulesTitle')} subtitle={t('admin.noSchedulesSubtitle')} />
-      ) : (
-        schedules.map((schedule) => (
-          <AppCard key={schedule.id}>
-            <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
-              <Pressable onPress={() => Alert.alert('', labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`)} style={styles.grow}>
-                <ExpandableText
-                  value={labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`}
-                  variant="h3"
-                  numberOfLines={2}
+              <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
+                <DateTimeField
+                  label={t('admin.startTime')}
+                  mode="time"
+                  value={timeToDate(form.start_time)}
+                  onChange={(value) => {
+                    setFormError(null);
+                    setForm((prev) => ({ ...prev, start_time: dateToTime(value) }));
+                  }}
                 />
-              </Pressable>
-              <BadgeChip label={schedule.is_active ? t('admin.active') : t('admin.inactive')} tone={schedule.is_active ? 'success' : 'default'} />
+                <DateTimeField
+                  label={t('admin.endTime')}
+                  mode="time"
+                  value={timeToDate(form.end_time)}
+                  onChange={(value) => {
+                    setFormError(null);
+                    setForm((prev) => ({ ...prev, end_time: dateToTime(value) }));
+                  }}
+                />
+              </View>
+              <AppText variant="caption" color={theme.colors.textSecondary}>
+                {`${t('admin.timeRange')}: ${timezone}`}
+              </AppText>
+
+              <View>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.daysOfWeek')}</AppText>
+                <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
+                  {Object.entries(dayLabelByValue).map(([value, label]) => {
+                    const day = Number(value);
+                    const selected = form.days_of_week.includes(day);
+                    return (
+                      <Pressable
+                        key={value}
+                        style={[styles.optionChip, selected ? styles.optionChipActive : null]}
+                        onPress={() => toggleDay(day)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={label}>
+                        <AppText variant="caption" color={selected ? theme.colors.primary700 : theme.colors.textSecondary}>{label}</AppText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
+                <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
+                  <Pressable
+                    style={[styles.optionChip, form.is_active ? styles.optionChipActive : null]}
+                    onPress={() => setForm((prev) => ({ ...prev, is_active: true }))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: form.is_active }}
+                    accessibilityLabel={t('admin.active')}>
+                    <AppText variant="caption">{t('admin.active')}</AppText>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.optionChip, !form.is_active ? styles.optionChipActive : null]}
+                    onPress={() => setForm((prev) => ({ ...prev, is_active: false }))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: !form.is_active }}
+                    accessibilityLabel={t('admin.inactive')}>
+                    <AppText variant="caption">{t('admin.inactive')}</AppText>
+                  </Pressable>
+                </View>
+              </View>
+
+              {formError ? <AppText variant="caption" color={theme.colors.error}>{formError}</AppText> : null}
+
+              <ActionRow compact={isCompact}>
+                <AppButton
+                  title={editingScheduleId ? t('admin.saveChanges') : t('admin.createSchedule')}
+                  loading={saving}
+                  onPress={() => void save()}
+                  style={styles.flexButton}
+                  disabled={!canSave}
+                />
+                {editingScheduleId ? <AppButton title={t('common.cancel')} variant="ghost" onPress={resetForm} fullWidth={false} /> : null}
+              </ActionRow>
             </View>
-            <InfoLine label={t('admin.timeRange')} value={`${schedule.start_time} - ${schedule.end_time}`} />
-            <InfoLine
-              label={t('admin.daysOfWeek')}
-              value={schedule.days_of_week.map((day) => dayLabelByValue[day]).join(', ')}
-              numberOfLines={2}
-            />
-            <ActionRow compact={isCompact}>
-              <AppButton title={t('admin.edit')} variant="secondary" onPress={() => startEdit(schedule)} style={styles.flexButton} />
-              <AppButton title={schedule.is_active ? t('admin.disable') : t('admin.enable')} variant="ghost" onPress={() => void toggleSchedule(schedule)} fullWidth={false} />
-              <AppButton title={t('admin.delete')} variant="destructive" onPress={() => void removeSchedule(schedule.id)} fullWidth={false} />
-            </ActionRow>
-          </AppCard>
-        ))
-      )}
-    </AppShell>
+          </AdminPageSection>
+        </View>
+      }
+      ListEmptyComponent={
+        loading ? (
+          <LoadingState label={t('common.loading')} />
+        ) : error ? (
+          <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />
+        ) : (
+          <EmptyState title={t('admin.noSchedulesTitle')} subtitle={t('admin.noSchedulesSubtitle')} />
+        )
+      }
+      refreshing={loading}
+      onRefresh={load}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + theme.spacing.md,
+          paddingBottom: insets.bottom + theme.spacing.xl,
+        },
+      ]}
+    />
   );
 };
 
 const styles = StyleSheet.create({
+  content: {
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  headerBlock: {
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.lg,
+  },
   formStack: {
     gap: theme.spacing.md,
-    marginTop: theme.spacing.md,
   },
   typeRow: {
     flexDirection: 'row',
@@ -410,5 +503,8 @@ const styles = StyleSheet.create({
   },
   grow: {
     flex: 1,
+  },
+  separator: {
+    height: theme.spacing.md,
   },
 });

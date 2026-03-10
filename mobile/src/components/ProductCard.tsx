@@ -26,7 +26,11 @@ export const ProductCard = ({ item, onPress }: ProductCardProps) => {
   const lowestPrice = getLowestPrice(item);
 
   return (
-    <Pressable onPress={onPress}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${formatCurrency(lowestPrice, language)}`}
+      hitSlop={6}>
       <AppCard>
         <View style={styles.row}>
           {item.image_url ? <Image source={{ uri: item.image_url }} style={styles.image} resizeMode="cover" /> : null}

@@ -11,6 +11,10 @@ export const orderService = {
     const { data } = await http.get(`/orders/user/${userId}`);
     return data;
   },
+  async getMyOrders(): Promise<OrderListResponse> {
+    const { data } = await http.get('/orders/my-orders');
+    return data;
+  },
   async reorder(orderId: string): Promise<OrderRead> {
     const { data } = await http.post(`/orders/${orderId}/reorder`);
     return data;

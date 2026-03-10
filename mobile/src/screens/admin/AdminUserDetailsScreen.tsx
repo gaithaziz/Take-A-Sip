@@ -1,6 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppCard } from '@/components/AppCard';
 import { AppShell } from '@/components/AppShell';
@@ -16,7 +17,7 @@ import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 import { OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
-import { formatCurrency, toNumber } from '@/utils/format';
+import { formatCurrency, formatDateTimeWithZone, getCurrentTimeZone, toNumber } from '@/utils/format';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { mirroredRow } from '@/utils/layout';
 
@@ -42,6 +43,7 @@ const orderTypeLabel = (orderType: OrderRead['order_type'], t: (key: string) => 
 export const AdminUserDetailsScreen = ({ route }: Props) => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
+  const insets = useSafeAreaInsets();
   const { user } = route.params;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,60 +67,85 @@ export const AdminUserDetailsScreen = ({ route }: Props) => {
   }, [load]);
 
   const totalSpent = useMemo(() => orders.reduce((sum, order) => sum + getOrderTotal(order), 0), [orders]);
+  const timezone = getCurrentTimeZone();
 
-  if (loading) {
-    return <LoadingState label={t('common.loading')} />;
-  }
-
-  if (error) {
-    return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
-  }
+  const renderOrder = ({ item: order }: { item: OrderRead }) => (
+    <AppCard>
+      <View style={[styles.orderHeader, mirroredRow(isRTL)]}>
+        <AppText variant="h3">#{order.order_number}</AppText>
+        <BadgeChip label={t(`status.${order.status}`)} tone={toneByStatus[order.status]} />
+      </View>
+      <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+        {formatDateTimeWithZone(order.created_at, language)}
+      </AppText>
+      <InfoLine label={t('admin.orderType')} value={orderTypeLabel(order.order_type, t)} numberOfLines={1} />
+      <InfoLine label={t('common.total')} value={formatCurrency(getOrderTotal(order), language)} numberOfLines={1} />
+      <View style={styles.itemsStack}>
+        {order.items.map((item) => (
+          <ExpandableText
+            key={item.id}
+            value={`${item.quantity}x ${item.item_name_snapshot} (${item.size_snapshot})`}
+            variant="caption"
+            numberOfLines={2}
+            color={theme.colors.textSecondary}
+          />
+        ))}
+      </View>
+    </AppCard>
+  );
 
   return (
-    <AppShell refreshing={loading} onRefresh={load}>
-      <AppText variant="h1">{t('admin.userOrdersTitle')}</AppText>
-      <AppCard>
-        <AppText variant="h3" numberOfLines={2}>{`${user.first_name} ${user.last_name}`}</AppText>
-        <InfoLine label={t('profile.phone')} value={user.phone_number} numberOfLines={1} />
-        <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
-          <BadgeChip label={`${t('admin.orderCount')}: ${orders.length}`} tone="info" />
-          <BadgeChip label={`${t('admin.totalSpent')}: ${formatCurrency(totalSpent, language)}`} tone="success" />
-        </View>
-      </AppCard>
-
-      {orders.length === 0 ? (
-        <EmptyState title={t('admin.noUserOrdersTitle')} subtitle={t('admin.noUserOrdersSubtitle')} />
-      ) : (
-        orders.map((order) => (
-          <AppCard key={order.id}>
-            <View style={[styles.orderHeader, mirroredRow(isRTL)]}>
-              <AppText variant="h3">#{order.order_number}</AppText>
-              <BadgeChip label={t(`status.${order.status}`)} tone={toneByStatus[order.status]} />
-            </View>
-            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-              {new Date(order.created_at).toLocaleString(language === 'ar' ? 'ar-JO' : 'en-US')}
-            </AppText>
-            <InfoLine label={t('admin.orderType')} value={orderTypeLabel(order.order_type, t)} numberOfLines={1} />
-            <InfoLine label={t('common.total')} value={formatCurrency(getOrderTotal(order), language)} numberOfLines={1} />
-            <View style={styles.itemsStack}>
-              {order.items.map((item) => (
-                <ExpandableText
-                  key={item.id}
-                  value={`${item.quantity}x ${item.item_name_snapshot} (${item.size_snapshot})`}
-                  variant="caption"
-                  numberOfLines={2}
-                  color={theme.colors.textSecondary}
-                />
-              ))}
+    <FlatList
+      data={loading || error ? [] : orders}
+      keyExtractor={(order) => order.id}
+      renderItem={renderOrder}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ListHeaderComponent={
+        <View style={styles.headerBlock}>
+          <AppText variant="h1">{t('admin.userOrdersTitle')}</AppText>
+          <AppCard>
+            <AppText variant="h3" numberOfLines={2}>{`${user.first_name} ${user.last_name}`}</AppText>
+            <InfoLine label={t('profile.phone')} value={user.phone_number} numberOfLines={1} />
+            <InfoLine label={t('admin.timeRange')} value={timezone} numberOfLines={1} />
+            <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+              <BadgeChip label={`${t('admin.orderCount')}: ${orders.length}`} tone="info" />
+              <BadgeChip label={`${t('admin.totalSpent')}: ${formatCurrency(totalSpent, language)}`} tone="success" />
             </View>
           </AppCard>
-        ))
-      )}
-    </AppShell>
+        </View>
+      }
+      ListEmptyComponent={
+        loading ? (
+          <LoadingState label={t('common.loading')} />
+        ) : error ? (
+          <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />
+        ) : (
+          <EmptyState title={t('admin.noUserOrdersTitle')} subtitle={t('admin.noUserOrdersSubtitle')} />
+        )
+      }
+      refreshing={loading}
+      onRefresh={load}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + theme.spacing.md,
+          paddingBottom: insets.bottom + theme.spacing.xl,
+        },
+      ]}
+    />
   );
 };
 
 const styles = StyleSheet.create({
+  content: {
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  headerBlock: {
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.lg,
+  },
   summaryRow: {
     marginTop: theme.spacing.md,
     flexDirection: 'row',
@@ -135,5 +162,8 @@ const styles = StyleSheet.create({
   itemsStack: {
     marginTop: theme.spacing.md,
     gap: theme.spacing.xs,
+  },
+  separator: {
+    height: theme.spacing.md,
   },
 });

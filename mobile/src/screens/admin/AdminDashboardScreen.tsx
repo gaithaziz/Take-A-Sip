@@ -13,7 +13,6 @@ import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { AdminTabParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
-import { menuService } from '@/services/menuService';
 import { theme } from '@/theme';
 import { mirroredRow } from '@/utils/layout';
 import { getApiErrorMessage } from '@/utils/errors';
@@ -43,7 +42,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
       setLoading(true);
       setError(null);
       const [menu, promotions, loyalty, users, revenueSummary] = await Promise.all([
-        menuService.getMenu(),
+        adminService.getMenuTree(),
         adminService.listPromotions(),
         adminService.listLoyaltyRules(),
         adminService.listUsers(),
@@ -83,6 +82,10 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
     [revenue, t],
   );
 
+  const navigateToAdminStackScreen = (screen: 'AdminLoyalty' | 'AdminProfile') => {
+    navigation.getParent()?.navigate(screen as never);
+  };
+
   if (loading) {
     return <LoadingState label={t('common.loading')} />;
   }
@@ -96,7 +99,12 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
       <AppText variant="h1">{t('admin.dashboardTitle')}</AppText>
 
       <View style={[styles.grid, isCompact ? styles.gridCompact : null]}>
-        <Pressable onPress={() => navigation.navigate('AdminMenu')}>
+        <Pressable
+          onPress={() => navigation.navigate('AdminMenu')}
+          style={({ pressed }) => (pressed ? styles.pressed : null)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={t('admin.menuSections')}>
           <AppCard style={styles.cardInteractive}>
             <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
               <AppText variant="h3" numberOfLines={2}>{t('admin.menuSections')}</AppText>
@@ -107,7 +115,12 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
           </AppCard>
         </Pressable>
 
-        <Pressable onPress={() => navigation.navigate('AdminPromotions')}>
+        <Pressable
+          onPress={() => navigation.navigate('AdminPromotions')}
+          style={({ pressed }) => (pressed ? styles.pressed : null)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={t('admin.promotionsTitle')}>
           <AppCard style={styles.cardInteractive}>
             <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
               <AppText variant="h3" numberOfLines={2}>{t('admin.promotionsTitle')}</AppText>
@@ -118,7 +131,12 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
           </AppCard>
         </Pressable>
 
-        <Pressable onPress={() => navigation.navigate('AdminLoyalty')}>
+        <Pressable
+          onPress={() => navigateToAdminStackScreen('AdminLoyalty')}
+          style={({ pressed }) => (pressed ? styles.pressed : null)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={t('admin.loyaltyTitle')}>
           <AppCard style={styles.cardInteractive}>
             <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
               <AppText variant="h3" numberOfLines={2}>{t('admin.loyaltyTitle')}</AppText>
@@ -129,7 +147,12 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
           </AppCard>
         </Pressable>
 
-        <Pressable onPress={() => navigation.navigate('AdminUsers')}>
+        <Pressable
+          onPress={() => navigation.navigate('AdminUsers')}
+          style={({ pressed }) => (pressed ? styles.pressed : null)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={t('admin.usersTitle')}>
           <AppCard style={styles.cardInteractive}>
             <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
               <AppText variant="h3" numberOfLines={2}>{t('admin.usersTitle')}</AppText>
@@ -158,6 +181,33 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
             <AppText variant="h3" numberOfLines={2}>{formatCurrency(revenue.month, language)}</AppText>
             <AppText variant="caption" color={theme.colors.textSecondary}>{trends.month}</AppText>
           </View>
+        </View>
+      </AdminPageSection>
+
+      <AdminPageSection title={t('admin.quickActions')}>
+        <View style={[styles.quickActionsRow, mirroredRow(isRTL)]}>
+          <Pressable
+            onPress={() => navigateToAdminStackScreen('AdminLoyalty')}
+            style={({ pressed }) => [styles.quickActionButton, pressed ? styles.pressed : null]}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t('admin.loyaltyTitle')}>
+            <Ionicons name="gift-outline" size={theme.iconSizes.md} color={theme.colors.primary600} />
+            <AppText variant="bodySmall" numberOfLines={1}>
+              {t('admin.loyaltyTitle')}
+            </AppText>
+          </Pressable>
+          <Pressable
+            onPress={() => navigateToAdminStackScreen('AdminProfile')}
+            style={({ pressed }) => [styles.quickActionButton, pressed ? styles.pressed : null]}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t('admin.profileTitle')}>
+            <Ionicons name="person-circle-outline" size={theme.iconSizes.md} color={theme.colors.primary600} />
+            <AppText variant="bodySmall" numberOfLines={1}>
+              {t('admin.profileTitle')}
+            </AppText>
+          </Pressable>
         </View>
       </AdminPageSection>
     </AppShell>
@@ -194,5 +244,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     gap: theme.spacing.xs,
+  },
+  quickActionsRow: {
+    gap: theme.spacing.sm,
+  },
+  quickActionButton: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.surface,
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

@@ -6,7 +6,7 @@ const mockListPromotions = jest.fn();
 const mockListLoyaltyRules = jest.fn();
 const mockListUsers = jest.fn();
 const mockListRevenueSummary = jest.fn();
-const mockGetMenu = jest.fn();
+const mockGetMenuTree = jest.fn();
 const translationMap: Record<string, string> = {
   'common.loading': 'Loading...',
   'common.error': 'Error',
@@ -46,6 +46,7 @@ jest.mock('@/state/LanguageContext', () => ({
 
 jest.mock('@/services/adminService', () => ({
   adminService: {
+    getMenuTree: (...args: any[]) => mockGetMenuTree(...args),
     listPromotions: (...args: any[]) => mockListPromotions(...args),
     listLoyaltyRules: (...args: any[]) => mockListLoyaltyRules(...args),
     listUsers: (...args: any[]) => mockListUsers(...args),
@@ -53,16 +54,10 @@ jest.mock('@/services/adminService', () => ({
   },
 }));
 
-jest.mock('@/services/menuService', () => ({
-  menuService: {
-    getMenu: (...args: any[]) => mockGetMenu(...args),
-  },
-}));
-
 describe('AdminDashboardScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetMenu.mockResolvedValue({ sections: [{ id: 's1' }] });
+    mockGetMenuTree.mockResolvedValue({ sections: [{ id: 's1' }] });
     mockListPromotions.mockResolvedValue({ promotions: [{ id: 'p1' }] });
     mockListLoyaltyRules.mockResolvedValue({ rules: [{ id: 'l1' }] });
     mockListUsers.mockResolvedValue({ users: [{ id: 'u1' }] });
