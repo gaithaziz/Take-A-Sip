@@ -13,24 +13,33 @@ type QuantitySelectorProps = {
 
 export const QuantitySelector = ({ value, onChange, min = 1 }: QuantitySelectorProps) => {
   const { t } = useAppTranslation();
+  const canDecrease = value > min;
+
   return (
     <View style={styles.wrapper}>
       <Pressable
-        style={styles.control}
+        style={[styles.control, !canDecrease ? styles.controlDisabled : null]}
         onPress={() => onChange(Math.max(min, value - 1))}
         hitSlop={8}
         accessibilityRole="button"
+        accessibilityState={{ disabled: !canDecrease }}
         accessibilityLabel={t('common.decreaseQuantity')}>
-        <AppText variant="h3">-</AppText>
+        <AppText variant="button" color={canDecrease ? theme.colors.primary700 : theme.colors.textMuted}>
+          -
+        </AppText>
       </Pressable>
-      <AppText variant="h3">{value}</AppText>
+      <AppText variant="h3" align="center">
+        {value}
+      </AppText>
       <Pressable
         style={styles.control}
         onPress={() => onChange(value + 1)}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={t('common.increaseQuantity')}>
-        <AppText variant="h3">+</AppText>
+        <AppText variant="button" color={theme.colors.primary700}>
+          +
+        </AppText>
       </Pressable>
     </View>
   );
@@ -42,18 +51,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
-    padding: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
   control: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.secondaryCream,
+    backgroundColor: theme.colors.secondarySand,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  controlDisabled: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
 });

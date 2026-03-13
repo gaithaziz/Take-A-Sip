@@ -57,11 +57,12 @@ export const TopAppBar = ({ title, onBack, rightAction }: TopAppBarProps) => {
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    ...theme.shadows.floating,
   },
   row: {
     alignItems: 'center',
@@ -82,10 +83,12 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.secondaryCream,
+    backgroundColor: theme.colors.primary50,
+    borderWidth: 1,
+    borderColor: theme.colors.primary100,
   },
   placeholder: {
     width: 44,

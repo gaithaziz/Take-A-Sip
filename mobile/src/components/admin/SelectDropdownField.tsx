@@ -50,9 +50,14 @@ export const SelectDropdownField = ({
           if (!hasOptions) return;
           setOpen(true);
         }}>
-        <AppText variant="bodySmall" numberOfLines={1} color={selectedLabel ? theme.colors.textPrimary : theme.colors.textMuted}>
-          {selectedLabel || emptyLabel || '-'}
-        </AppText>
+        <View style={[styles.triggerRow, mirroredRow(isRTL)]}>
+          <AppText variant="bodySmall" numberOfLines={2} color={selectedLabel ? theme.colors.textPrimary : theme.colors.textMuted} style={styles.triggerText}>
+            {selectedLabel || emptyLabel || '-'}
+          </AppText>
+          <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+            v
+          </AppText>
+        </View>
       </Pressable>
 
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -103,7 +108,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   trigger: {
-    minHeight: 52,
+    minHeight: 54,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
@@ -111,20 +116,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.lg,
   },
+  triggerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  triggerText: {
+    flex: 1,
+  },
   triggerDisabled: {
     opacity: 0.55,
   },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
+    justifyContent: 'flex-end',
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
   },
   modalCard: {
     borderRadius: theme.radius.lg,
     backgroundColor: theme.colors.surface,
     padding: theme.spacing.lg,
-    maxHeight: '75%',
+    maxHeight: '70%',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.floating,
   },
   optionsScroll: {
     marginTop: theme.spacing.md,
@@ -135,16 +152,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.sm,
     marginBottom: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   optionSelected: {
     backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
   },
   footer: {
     marginTop: theme.spacing.sm,
     justifyContent: 'flex-end',
   },
   footerBtn: {
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
     minWidth: 72,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.pill,
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
   },
 });

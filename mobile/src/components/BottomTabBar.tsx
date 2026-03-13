@@ -1,6 +1,7 @@
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { useLanguage } from '@/state/LanguageContext';
@@ -35,6 +36,7 @@ const iconByRouteFocused = {
 export const BottomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   const { t } = useAppTranslation();
   const { isRTL } = useLanguage();
+  const insets = useSafeAreaInsets();
   const compactLayout = state.routes.length <= 5;
 
   const items = state.routes.map((route, index) => {
@@ -60,11 +62,11 @@ export const BottomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
         accessibilityLabel={label}
         accessibilityState={focused ? { selected: true } : {}}
         hitSlop={6}>
-        <Ionicons
-          name={focused ? iconByRouteFocused[routeName] : iconByRoute[routeName]}
-          size={theme.iconSizes.lg}
-          color={focused ? theme.colors.primary600 : theme.colors.textSecondary}
-        />
+          <Ionicons
+            name={focused ? iconByRouteFocused[routeName] : iconByRoute[routeName]}
+            size={theme.iconSizes.lg}
+            color={focused ? theme.colors.primary500 : theme.colors.textSecondary}
+          />
         <AppText
           variant="caption"
           numberOfLines={1}
@@ -75,16 +77,18 @@ export const BottomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
     );
   });
 
+  const wrapperStyle = [styles.wrapper, { paddingBottom: Math.max(insets.bottom, theme.spacing.sm) }];
+
   if (compactLayout) {
     return (
-      <View style={styles.wrapper}>
+      <View style={wrapperStyle}>
         <View style={[styles.compactContent, mirroredRow(isRTL)]}>{items}</View>
       </View>
     );
   }
 
   return (
-    <View style={styles.wrapper}>
+    <View style={wrapperStyle}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -101,7 +105,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    paddingVertical: theme.spacing.xs,
+    paddingTop: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    ...theme.shadows.floating,
   },
   scrollContent: {
     paddingHorizontal: theme.spacing.md,
@@ -120,14 +126,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    gap: 2,
+    borderRadius: theme.radius.lg,
+    gap: 4,
   },
   compactItem: {
     flex: 1,
     minWidth: 0,
   },
   activeItem: {
-    backgroundColor: theme.colors.secondaryCream,
+    backgroundColor: theme.colors.primary50,
+    borderWidth: 1,
+    borderColor: theme.colors.primary100,
+    ...theme.shadows.card,
   },
 });

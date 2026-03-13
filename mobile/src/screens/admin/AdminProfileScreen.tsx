@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -22,13 +22,24 @@ export const AdminProfileScreen = () => {
 
   return (
     <AppShell>
-      <AppText variant="h1">{t('admin.profileTitle')}</AppText>
-      <AppCard>
+      <AppCard style={styles.headerCard}>
+        <AppText variant="h1">{t('admin.profileTitle')}</AppText>
+        <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+          {t(roleKey)}
+        </AppText>
+      </AppCard>
+
+      <AppCard style={styles.profileCard}>
+        <AppText variant="h3">{`${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || '-'}</AppText>
         <ProfileRow
           label={`${user?.first_name ?? ''} ${user?.last_name ?? ''}`}
           value={`${t('profile.phone')}: ${user?.phone_number ?? '-'}`}
         />
         <ProfileRow label={t('admin.role')} value={t(roleKey)} />
+      </AppCard>
+
+      <AppCard style={styles.preferencesCard}>
+        <AppText variant="h3">{t('common.language')}</AppText>
         <ProfileRow
           label={t('common.language')}
           value={language === 'en' ? t('common.languageEnglish') : t('common.languageArabic')}
@@ -37,7 +48,8 @@ export const AdminProfileScreen = () => {
           }}
         />
       </AppCard>
-      <AppCard>
+
+      <AppCard style={styles.supportCard}>
         <AppText variant="bodySmall" color={theme.colors.textSecondary}>
           {t('admin.profileSupportHint')}
         </AppText>
@@ -55,3 +67,20 @@ export const AdminProfileScreen = () => {
     </AppShell>
   );
 };
+
+const styles = StyleSheet.create({
+  headerCard: {
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
+  },
+  profileCard: {
+    gap: theme.spacing.sm,
+  },
+  preferencesCard: {
+    gap: theme.spacing.sm,
+  },
+  supportCard: {
+    borderStyle: 'dashed',
+  },
+});

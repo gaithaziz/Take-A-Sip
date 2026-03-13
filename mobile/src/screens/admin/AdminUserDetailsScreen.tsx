@@ -70,23 +70,25 @@ export const AdminUserDetailsScreen = ({ route }: Props) => {
   const timezone = getCurrentTimeZone();
 
   const renderOrder = ({ item: order }: { item: OrderRead }) => (
-    <AppCard>
+    <AppCard style={styles.orderCard}>
       <View style={[styles.orderHeader, mirroredRow(isRTL)]}>
         <AppText variant="h3">#{order.order_number}</AppText>
         <BadgeChip label={t(`status.${order.status}`)} tone={toneByStatus[order.status]} />
       </View>
-      <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+      <View style={[styles.metaRow, mirroredRow(isRTL)]}>
+        <BadgeChip label={orderTypeLabel(order.order_type, t)} tone="info" />
+        <BadgeChip label={formatCurrency(getOrderTotal(order), language)} tone="success" />
+      </View>
+      <AppText variant="bodySmall" color={theme.colors.textSecondary} numberOfLines={2}>
         {formatDateTimeWithZone(order.created_at, language)}
       </AppText>
-      <InfoLine label={t('admin.orderType')} value={orderTypeLabel(order.order_type, t)} numberOfLines={1} />
-      <InfoLine label={t('common.total')} value={formatCurrency(getOrderTotal(order), language)} numberOfLines={1} />
       <View style={styles.itemsStack}>
         {order.items.map((item) => (
           <ExpandableText
             key={item.id}
             value={`${item.quantity}x ${item.item_name_snapshot} (${item.size_snapshot})`}
             variant="caption"
-            numberOfLines={2}
+            numberOfLines={1}
             color={theme.colors.textSecondary}
           />
         ))}
@@ -103,10 +105,15 @@ export const AdminUserDetailsScreen = ({ route }: Props) => {
       ListHeaderComponent={
         <View style={styles.headerBlock}>
           <AppText variant="h1">{t('admin.userOrdersTitle')}</AppText>
-          <AppCard>
-            <AppText variant="h3" numberOfLines={2}>{`${user.first_name} ${user.last_name}`}</AppText>
-            <InfoLine label={t('profile.phone')} value={user.phone_number} numberOfLines={1} />
-            <InfoLine label={t('admin.timeRange')} value={timezone} numberOfLines={1} />
+          <AppCard style={styles.userSummaryCard}>
+            <View style={[styles.userSummaryHeader, mirroredRow(isRTL)]}>
+              <AppText variant="h3" numberOfLines={2}>{`${user.first_name} ${user.last_name}`}</AppText>
+              <BadgeChip label={user.is_banned ? t('admin.banned') : t('admin.active')} tone={user.is_banned ? 'error' : 'success'} />
+            </View>
+            <View style={styles.userInfoBox}>
+              <InfoLine label={t('profile.phone')} value={user.phone_number} numberOfLines={1} />
+              <InfoLine label={t('admin.timeRange')} value={timezone} numberOfLines={1} />
+            </View>
             <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
               <BadgeChip label={`${t('admin.orderCount')}: ${orders.length}`} tone="info" />
               <BadgeChip label={`${t('admin.totalSpent')}: ${formatCurrency(totalSpent, language)}`} tone="success" />
@@ -147,10 +154,33 @@ const styles = StyleSheet.create({
     gap: theme.spacing.lg,
   },
   summaryRow: {
-    marginTop: theme.spacing.md,
     flexDirection: 'row',
     gap: theme.spacing.sm,
     flexWrap: 'wrap',
+  },
+  userSummaryCard: {
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
+  },
+  userSummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  userInfoBox: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
+  },
+  orderCard: {
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
   },
   orderHeader: {
     flexDirection: 'row',
@@ -160,8 +190,18 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   itemsStack: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.xs,
+    padding: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
     gap: theme.spacing.xs,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
   },
   separator: {
     height: theme.spacing.md,

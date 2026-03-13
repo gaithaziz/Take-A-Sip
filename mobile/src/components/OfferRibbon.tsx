@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useAppTranslation } from '@/hooks/useAppTranslation';
+import { useLanguage } from '@/state/LanguageContext';
+import { theme } from '@/theme';
 import { Promotion } from '@/types/api';
 import { getLocalizedValue } from '@/utils/i18n';
+import { mirroredRow } from '@/utils/layout';
 
 import { AppCard } from './AppCard';
 import { AppText } from './AppText';
-import { BadgeChip } from './BadgeChip';
 
 type OfferRibbonProps = {
   offers: Promotion[];
@@ -15,6 +17,7 @@ type OfferRibbonProps = {
 
 export const OfferRibbon = ({ offers }: OfferRibbonProps) => {
   const { language, t } = useAppTranslation();
+  const { isRTL } = useLanguage();
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -38,10 +41,16 @@ export const OfferRibbon = ({ offers }: OfferRibbonProps) => {
 
   return (
     <AppCard style={styles.card}>
-      <View style={styles.row}>
-        <BadgeChip label={t('home.offers')} tone="warning" />
+      <View style={[styles.row, mirroredRow(isRTL)]}>
+        <View style={styles.badge}>
+          <AppText variant="caption" color={theme.colors.primary700} align="center">
+            {t('home.offers')}
+          </AppText>
+        </View>
       </View>
-      <AppText variant="h3">{getLocalizedValue(active, language, 'title')}</AppText>
+      <AppText variant="h3" color={theme.colors.white} align={isRTL ? 'right' : 'left'}>
+        {getLocalizedValue(active, language, 'title')}
+      </AppText>
       {offers.length > 1 ? (
         <View style={styles.dots}>
           {offers.map((offer, dotIndex) => (
@@ -55,28 +64,40 @@ export const OfferRibbon = ({ offers }: OfferRibbonProps) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff4e5',
-    borderColor: '#eed8b7',
-    gap: 10,
+    backgroundColor: theme.colors.primary500,
+    borderColor: theme.colors.primary600,
+    gap: theme.spacing.sm,
+    ...theme.shadows.floating,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+  },
+  badge: {
+    minHeight: 28,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.primary200,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dots: {
     flexDirection: 'row',
-    gap: 6,
+    gap: theme.spacing.sm,
     alignSelf: 'center',
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#d5b89a',
+    backgroundColor: '#e7c8a5',
   },
   dotActive: {
     width: 18,
-    backgroundColor: '#8d5d33',
+    backgroundColor: theme.colors.white,
   },
 });

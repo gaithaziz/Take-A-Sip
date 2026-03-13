@@ -167,20 +167,22 @@ export const AdminPromotionsScreen = () => {
   const timezone = getCurrentTimeZone();
 
   const renderPromotion = ({ item: promotion }: { item: Promotion }) => (
-    <AppCard>
+    <AppCard style={styles.itemCard}>
       <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
         <Pressable onPress={() => Alert.alert('', getLocalizedValue(promotion, language, 'title'))} style={styles.grow} accessibilityRole="button" accessibilityLabel={getLocalizedValue(promotion, language, 'title')}>
           <ExpandableText value={getLocalizedValue(promotion, language, 'title')} variant="h3" numberOfLines={2} />
         </Pressable>
         <BadgeChip label={promotion.is_active ? t('admin.active') : t('admin.inactive')} tone={promotion.is_active ? 'success' : 'default'} />
       </View>
-      <InfoLine
-        label={`${t('admin.dateRange')} (${timezone})`}
-        value={`${formatDateTimeWithZone(promotion.starts_at, language)} - ${formatDateTimeWithZone(promotion.ends_at, language)}`}
-        numberOfLines={2}
-      />
-      <InfoLine label={t('admin.promotionType')} value={promotionTypeLabel(promotion.type, t)} />
-      <InfoLine label={t('admin.value')} value={String(promotion.value)} />
+      <View style={styles.infoBox}>
+        <InfoLine
+          label={`${t('admin.dateRange')} (${timezone})`}
+          value={`${formatDateTimeWithZone(promotion.starts_at, language)} - ${formatDateTimeWithZone(promotion.ends_at, language)}`}
+          numberOfLines={2}
+        />
+        <InfoLine label={t('admin.promotionType')} value={promotionTypeLabel(promotion.type, t)} />
+        <InfoLine label={t('admin.value')} value={String(promotion.value)} />
+      </View>
       <ActionRow compact={isCompact}>
         <AppButton title={t('admin.edit')} variant="secondary" onPress={() => startEdit(promotion)} style={styles.flexButton} disabled={mutatingPromotionId === promotion.id} />
         <AppButton
@@ -217,7 +219,7 @@ export const AdminPromotionsScreen = () => {
                 helperText={hasMissingTranslation ? t('admin.missingTranslation') : undefined}
               />
 
-              <View>
+              <View style={styles.formGroup}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.promotionType')}</AppText>
                 <View style={[styles.segmentRow, mirroredRow(isRTL)]}>
                   {typeOptions.map((option) => (
@@ -234,74 +236,79 @@ export const AdminPromotionsScreen = () => {
                 </View>
               </View>
 
-              <AppInput
-                label={t('admin.value')}
-                value={form.value}
-                keyboardType="decimal-pad"
-                error={formErrors.value}
-                onChangeText={(value) => {
-                  setForm((prev) => ({ ...prev, value }));
-                  setFormErrors((prev) => ({ ...prev, value: undefined }));
-                }}
-              />
-
-              <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
-                <DateTimeField
-                  label={t('admin.startDate')}
-                  mode="date"
-                  value={form.starts_at}
-                  onChange={(value) => {
-                    const next = new Date(form.starts_at);
-                    next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate());
-                    setForm((prev) => ({ ...prev, starts_at: next }));
-                    setFormErrors((prev) => ({ ...prev, dateRange: undefined }));
-                  }}
-                />
-                <DateTimeField
-                  label={t('admin.startTime')}
-                  mode="time"
-                  value={form.starts_at}
-                  onChange={(value) => {
-                    const next = new Date(form.starts_at);
-                    next.setHours(value.getHours(), value.getMinutes(), 0, 0);
-                    setForm((prev) => ({ ...prev, starts_at: next }));
-                    setFormErrors((prev) => ({ ...prev, dateRange: undefined }));
+              <View style={styles.formGroup}>
+                <AppInput
+                  label={t('admin.value')}
+                  value={form.value}
+                  keyboardType="decimal-pad"
+                  error={formErrors.value}
+                  onChangeText={(value) => {
+                    setForm((prev) => ({ ...prev, value }));
+                    setFormErrors((prev) => ({ ...prev, value: undefined }));
                   }}
                 />
               </View>
 
-              <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
-                <DateTimeField
-                  label={t('admin.endDate')}
-                  mode="date"
-                  value={form.ends_at}
-                  onChange={(value) => {
-                    const next = new Date(form.ends_at);
-                    next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate());
-                    setForm((prev) => ({ ...prev, ends_at: next }));
-                    setFormErrors((prev) => ({ ...prev, dateRange: undefined }));
-                  }}
-                />
-                <DateTimeField
-                  label={t('admin.endTime')}
-                  mode="time"
-                  value={form.ends_at}
-                  onChange={(value) => {
-                    const next = new Date(form.ends_at);
-                    next.setHours(value.getHours(), value.getMinutes(), 0, 0);
-                    setForm((prev) => ({ ...prev, ends_at: next }));
-                    setFormErrors((prev) => ({ ...prev, dateRange: undefined }));
-                  }}
-                />
-              </View>
-              {formErrors.dateRange ? (
-                <AppText variant="caption" color={theme.colors.error}>{formErrors.dateRange}</AppText>
-              ) : null}
-              <AppText variant="caption" color={theme.colors.textSecondary}>
-                {`${t('admin.timeRange')}: ${timezone}`}
-              </AppText>
+              <View style={styles.formGroup}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.dateRange')}</AppText>
+                <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
+                  <DateTimeField
+                    label={t('admin.startDate')}
+                    mode="date"
+                    value={form.starts_at}
+                    onChange={(value) => {
+                      const next = new Date(form.starts_at);
+                      next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate());
+                      setForm((prev) => ({ ...prev, starts_at: next }));
+                      setFormErrors((prev) => ({ ...prev, dateRange: undefined }));
+                    }}
+                  />
+                  <DateTimeField
+                    label={t('admin.startTime')}
+                    mode="time"
+                    value={form.starts_at}
+                    onChange={(value) => {
+                      const next = new Date(form.starts_at);
+                      next.setHours(value.getHours(), value.getMinutes(), 0, 0);
+                      setForm((prev) => ({ ...prev, starts_at: next }));
+                      setFormErrors((prev) => ({ ...prev, dateRange: undefined }));
+                    }}
+                  />
+                </View>
 
-              <View>
+                <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
+                  <DateTimeField
+                    label={t('admin.endDate')}
+                    mode="date"
+                    value={form.ends_at}
+                    onChange={(value) => {
+                      const next = new Date(form.ends_at);
+                      next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate());
+                      setForm((prev) => ({ ...prev, ends_at: next }));
+                      setFormErrors((prev) => ({ ...prev, dateRange: undefined }));
+                    }}
+                  />
+                  <DateTimeField
+                    label={t('admin.endTime')}
+                    mode="time"
+                    value={form.ends_at}
+                    onChange={(value) => {
+                      const next = new Date(form.ends_at);
+                      next.setHours(value.getHours(), value.getMinutes(), 0, 0);
+                      setForm((prev) => ({ ...prev, ends_at: next }));
+                      setFormErrors((prev) => ({ ...prev, dateRange: undefined }));
+                    }}
+                  />
+                </View>
+                {formErrors.dateRange ? (
+                  <AppText variant="caption" color={theme.colors.error}>{formErrors.dateRange}</AppText>
+                ) : null}
+                <AppText variant="caption" color={theme.colors.textSecondary}>
+                  {`${t('admin.timeRange')}: ${timezone}`}
+                </AppText>
+              </View>
+
+              <View style={styles.formGroup}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
                 <View style={[styles.segmentRow, mirroredRow(isRTL)]}>
                   <Pressable
@@ -370,7 +377,15 @@ const styles = StyleSheet.create({
     gap: theme.spacing.lg,
   },
   formStack: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
+  },
+  formGroup: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.secondaryCream,
+    padding: theme.spacing.md,
   },
   itemHeader: {
     flexDirection: 'row',
@@ -379,6 +394,19 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
+  itemCard: {
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
+  },
+  infoBox: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
+  },
   flexButton: {
     flex: 1,
   },
@@ -386,9 +414,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   segmentRow: {
-    marginTop: theme.spacing.sm,
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
     flexWrap: 'wrap',
   },
   segmentChip: {
@@ -396,7 +423,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radius.pill,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   segmentChipActive: {
     borderColor: theme.colors.primary300,
@@ -408,7 +437,7 @@ const styles = StyleSheet.create({
   },
   halfRowCompact: {
     flexDirection: 'column',
-    gap: 0,
+    gap: theme.spacing.sm,
   },
   separator: {
     height: theme.spacing.md,

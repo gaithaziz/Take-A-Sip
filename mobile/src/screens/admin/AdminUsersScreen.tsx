@@ -119,19 +119,23 @@ export const AdminUsersScreen = ({ navigation }: Props) => {
   };
 
   const renderUser = ({ item: user }: { item: UserSummary }) => (
-    <AppCard>
+    <AppCard style={styles.userCard}>
       <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
         <Pressable style={styles.flexButton} onPress={() => openUserDetails(user)} accessibilityRole="button" accessibilityLabel={`${user.first_name} ${user.last_name}`}>
           <ExpandableText value={`${user.first_name} ${user.last_name}`} variant="h3" numberOfLines={2} />
         </Pressable>
         <BadgeChip label={user.is_banned ? t('admin.banned') : t('admin.active')} tone={user.is_banned ? 'error' : 'success'} />
       </View>
-      <InfoLine label={t('profile.phone')} value={user.phone_number} numberOfLines={1} />
-      <InfoLine label={t('admin.role')} value={roleLabel(user.role)} numberOfLines={1} />
-      <InfoLine label={t('admin.orderCount')} value={String(user.order_count)} numberOfLines={1} />
-      {user.banned_reason ? (
-        <InfoLine label={t('admin.banReason')} value={user.banned_reason} numberOfLines={2} />
-      ) : null}
+      <View style={[styles.metaRow, mirroredRow(isRTL)]}>
+        <BadgeChip label={`${t('admin.role')}: ${roleLabel(user.role)}`} tone="info" />
+        <BadgeChip label={`${t('admin.orderCount')}: ${user.order_count}`} tone="default" />
+      </View>
+      <View style={styles.infoBox}>
+        <InfoLine label={t('profile.phone')} value={user.phone_number} numberOfLines={1} />
+        {user.banned_reason ? (
+          <InfoLine label={t('admin.banReason')} value={user.banned_reason} numberOfLines={1} />
+        ) : null}
+      </View>
 
       <ActionRow compact={isCompact}>
         <AppButton
@@ -174,40 +178,53 @@ export const AdminUsersScreen = ({ navigation }: Props) => {
           <AppText variant="h1">{t('admin.usersTitle')}</AppText>
           <AdminPageSection title={t('admin.searchUsers')}>
             <View style={styles.filterStack}>
-              <AppInput value={searchInput} onChangeText={setSearchInput} placeholder={t('admin.searchByNameOrPhone')} />
-
-              <View style={[styles.filterButtonsRow, mirroredRow(isRTL), isCompact ? styles.filterButtonsRowCompact : null]}>
-                <AppButton
-                  title={t('admin.filterAll')}
-                  variant={filterInput === 'all' ? 'primary' : 'secondary'}
-                  onPress={() => setFilterInput('all')}
-                  style={styles.flexButton}
-                  fullWidth={false}
-                  accessibilityState={{ selected: filterInput === 'all' }}
-                />
-                <AppButton
-                  title={t('admin.filterBanned')}
-                  variant={filterInput === 'banned' ? 'primary' : 'secondary'}
-                  onPress={() => setFilterInput('banned')}
-                  style={styles.flexButton}
-                  fullWidth={false}
-                  accessibilityState={{ selected: filterInput === 'banned' }}
-                />
-                <AppButton
-                  title={t('admin.filterActive')}
-                  variant={filterInput === 'active' ? 'primary' : 'secondary'}
-                  onPress={() => setFilterInput('active')}
-                  style={styles.flexButton}
-                  fullWidth={false}
-                  accessibilityState={{ selected: filterInput === 'active' }}
+              <View style={styles.formGroup}>
+                <AppInput
+                  label={t('admin.searchUsers')}
+                  value={searchInput}
+                  onChangeText={setSearchInput}
+                  placeholder={t('admin.searchByNameOrPhone')}
                 />
               </View>
 
-              <AppButton
-                title={t('admin.applyFilters')}
-                onPress={applyFilters}
-                disabled={loading}
-              />
+              <View style={styles.formGroup}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
+                <View style={[styles.filterButtonsRow, mirroredRow(isRTL), isCompact ? styles.filterButtonsRowCompact : null]}>
+                  <AppButton
+                    title={t('admin.filterAll')}
+                    variant={filterInput === 'all' ? 'primary' : 'secondary'}
+                    onPress={() => setFilterInput('all')}
+                    style={styles.filterButton}
+                    fullWidth={false}
+                    accessibilityState={{ selected: filterInput === 'all' }}
+                    testID="users-filter-all"
+                  />
+                  <AppButton
+                    title={t('admin.filterBanned')}
+                    variant={filterInput === 'banned' ? 'primary' : 'secondary'}
+                    onPress={() => setFilterInput('banned')}
+                    style={styles.filterButton}
+                    fullWidth={false}
+                    accessibilityState={{ selected: filterInput === 'banned' }}
+                    testID="users-filter-banned"
+                  />
+                  <AppButton
+                    title={t('admin.filterActive')}
+                    variant={filterInput === 'active' ? 'primary' : 'secondary'}
+                    onPress={() => setFilterInput('active')}
+                    style={styles.filterButton}
+                    fullWidth={false}
+                    accessibilityState={{ selected: filterInput === 'active' }}
+                    testID="users-filter-active"
+                  />
+                </View>
+
+                <AppButton
+                  title={t('admin.applyFilters')}
+                  onPress={applyFilters}
+                  disabled={loading}
+                />
+              </View>
             </View>
           </AdminPageSection>
         </View>
@@ -250,12 +267,20 @@ const styles = StyleSheet.create({
     gap: theme.spacing.lg,
   },
   filterStack: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
+  },
+  formGroup: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.secondaryCream,
+    padding: theme.spacing.md,
   },
   filterButtonsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   filterButtonsRowCompact: {
     flexDirection: 'column',
@@ -263,12 +288,34 @@ const styles = StyleSheet.create({
   itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
+  userCard: {
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  infoBox: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
+  },
   flexButton: {
     flex: 1,
+  },
+  filterButton: {
+    flex: 1,
+    minHeight: 40,
   },
   separator: {
     height: theme.spacing.md,

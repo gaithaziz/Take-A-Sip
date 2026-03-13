@@ -15,7 +15,7 @@ export const en = {
     notes: 'Notes',
     language: 'Language',
     languageEnglish: 'English',
-    languageArabic: 'Arabic',
+    languageArabic: '\u0627\u0644\u0639\u0631\u0628\u064A\u0629',
     logout: 'Logout',
     quantity: 'Quantity',
     increaseQuantity: 'Increase quantity',
@@ -245,7 +245,7 @@ export const en = {
 
 export const ar = {
   common: {
-    appName: '\u062A\u064A\u0643 \u0623 \u0633\u064A\u0628',
+    appName: '\u062E\u0630\u0644\u0643 \u0634\u0641\u0629',
     continue: '\u0645\u062A\u0627\u0628\u0639\u0629',
     confirm: '\u062A\u0623\u0643\u064A\u062F',
     cancel: '\u0625\u0644\u063A\u0627\u0621',
@@ -259,7 +259,7 @@ export const ar = {
     error: '\u062E\u0637\u0623',
     notes: '\u0645\u0644\u0627\u062D\u0638\u0627\u062A',
     language: '\u0627\u0644\u0644\u063A\u0629',
-    languageEnglish: '\u0627\u0644\u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629',
+    languageEnglish: 'English',
     languageArabic: '\u0627\u0644\u0639\u0631\u0628\u064A\u0629',
     logout: '\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C',
     quantity: '\u0627\u0644\u0643\u0645\u064A\u0629',

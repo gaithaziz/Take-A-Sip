@@ -1,29 +1,25 @@
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, SectionList, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/AppText';
-import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
-import { OfferRibbon } from '@/components/OfferRibbon';
-import { ProductCard } from '@/components/ProductCard';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { MainTabParamList } from '@/navigation/types';
 import { menuService } from '@/services/menuService';
 import { promotionService } from '@/services/promotionService';
 import { useCart } from '@/state/CartContext';
-import { theme } from '@/theme';
 import { Item, Promotion, Section } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { getLocalizedValue } from '@/utils/i18n';
+import { useLanguage } from '@/state/LanguageContext';
+
+import { HomeScreenView } from './home/HomeScreenView';
+import { HomeMenuSection } from './home/types';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'Home'>;
-type MenuSection = { id: string; title: string; data: Item[] };
 
 export const HomeScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
+  const { isRTL } = useLanguage();
   const { items: cartItems } = useCart();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,7 +69,7 @@ export const HomeScreen = ({ navigation }: Props) => {
     [cartItems],
   );
   const insets = useSafeAreaInsets();
-  const menuSections = useMemo<MenuSection[]>(
+  const menuSections = useMemo<HomeMenuSection[]>(
     () =>
       sections.map((section) => ({
         id: section.id,
@@ -88,95 +84,20 @@ export const HomeScreen = ({ navigation }: Props) => {
   };
 
   return (
-    <SectionList
-      sections={menuSections}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <ProductCard item={item} onPress={() => openProduct(item)} />}
-      renderSectionHeader={({ section }) =>
-        section.data.length > 0 ? (
-          <View style={styles.sectionHeaderWrap}>
-            <AppText variant="h2">{section.title}</AppText>
-          </View>
-        ) : null
-      }
-      ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
-      SectionSeparatorComponent={() => <View style={styles.sectionSeparator} />}
-      ListHeaderComponent={
-        <View style={styles.headerBlock}>
-          <View style={styles.header}>
-            <AppText variant="h1">{t('home.title')}</AppText>
-            <Pressable
-              style={styles.cartButton}
-              onPress={() => navigation.getParent()?.navigate('Cart')}
-              accessibilityRole="button"
-              accessibilityLabel={`${t('home.cart')} (${cartCount})`}
-              hitSlop={8}>
-              <Ionicons name="bag-handle-outline" size={20} color={theme.colors.primary700} />
-              <AppText variant="caption">{`${t('home.cart')} (${cartCount})`}</AppText>
-            </Pressable>
-          </View>
-          {offers.length > 0 ? <OfferRibbon offers={offers} /> : null}
-        </View>
-      }
-      ListEmptyComponent={
-        loading && menuSections.length === 0 ? (
-          <LoadingState label={t('common.loading')} />
-        ) : error && menuSections.length === 0 ? (
-          <EmptyState title={t('common.retry')} subtitle={error} actionLabel={t('common.retry')} onAction={loadData} />
-        ) : (
-          <EmptyState title={t('home.noMenu')} subtitle={t('home.noMenu')} />
-        )
-      }
-      showsVerticalScrollIndicator={false}
-      onRefresh={loadData}
+    <HomeScreenView
+      menuSections={menuSections}
+      offers={offers}
+      loading={loading}
       refreshing={refreshing}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: insets.top + theme.spacing.md,
-          paddingBottom: insets.bottom + theme.spacing.xl,
-        },
-      ]}
-      stickySectionHeadersEnabled={false}
+      error={error}
+      cartCount={cartCount}
+      isRTL={isRTL}
+      topInset={insets.top}
+      bottomInset={insets.bottom}
+      t={t}
+      onReload={loadData}
+      onOpenCart={() => navigation.getParent()?.navigate('Cart')}
+      onOpenProduct={openProduct}
     />
   );
 };
-
-const styles = StyleSheet.create({
-  content: {
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.md,
-  },
-  headerBlock: {
-    gap: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-  cartButton: {
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.primary200,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: theme.colors.secondaryCream,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  sectionHeaderWrap: {
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  itemSeparator: {
-    height: theme.spacing.md,
-  },
-  sectionSeparator: {
-    height: theme.spacing.md,
-  },
-});

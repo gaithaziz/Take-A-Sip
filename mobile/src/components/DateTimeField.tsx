@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   inputLike: {
-    minHeight: 52,
+    minHeight: 54,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.md,
     borderWidth: 1,
@@ -133,9 +133,10 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
   },
   modalCard: {
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.xl,
     backgroundColor: theme.colors.surface,
     padding: theme.spacing.lg,
+    ...theme.shadows.floating,
   },
   footer: {
     marginTop: theme.spacing.md,

@@ -4,7 +4,7 @@ import { StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native'
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 
-type Variant = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'bodySmall' | 'caption' | 'price';
+type Variant = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'bodySmall' | 'caption' | 'button' | 'price';
 
 type AppTextProps = PropsWithChildren<
   TextProps & {
@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
   body: theme.typography.body,
   bodySmall: theme.typography.bodySmall,
   caption: theme.typography.caption,
+  button: theme.typography.button,
   price: theme.typography.price,
 });
 
@@ -57,6 +58,7 @@ const englishFontByVariant: Record<Variant, string> = {
   body: 'Inter_400Regular',
   bodySmall: 'Inter_400Regular',
   caption: 'Inter_400Regular',
+  button: 'Inter_600SemiBold',
   price: 'Inter_700Bold',
 };
 
@@ -68,5 +70,6 @@ const arabicFontByVariant: Record<Variant, string> = {
   body: 'IBMPlexSansArabic_400Regular',
   bodySmall: 'IBMPlexSansArabic_400Regular',
   caption: 'IBMPlexSansArabic_400Regular',
+  button: 'IBMPlexSansArabic_600SemiBold',
   price: 'IBMPlexSansArabic_700Bold',
 };

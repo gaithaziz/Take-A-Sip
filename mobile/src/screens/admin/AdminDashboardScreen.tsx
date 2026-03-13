@@ -96,73 +96,120 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
 
   return (
     <AppShell refreshing={loading} onRefresh={load}>
-      <AppText variant="h1">{t('admin.dashboardTitle')}</AppText>
-
-      <View style={[styles.grid, isCompact ? styles.gridCompact : null]}>
-        <Pressable
-          onPress={() => navigation.navigate('AdminMenu')}
-          style={({ pressed }) => (pressed ? styles.pressed : null)}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={t('admin.menuSections')}>
-          <AppCard style={styles.cardInteractive}>
-            <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.menuSections')}</AppText>
-              <Ionicons name="restaurant" size={18} color={theme.colors.primary600} />
-            </View>
-            <AppText variant="display">{stats.sections}</AppText>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-          </AppCard>
-        </Pressable>
-
-        <Pressable
-          onPress={() => navigation.navigate('AdminPromotions')}
-          style={({ pressed }) => (pressed ? styles.pressed : null)}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={t('admin.promotionsTitle')}>
-          <AppCard style={styles.cardInteractive}>
-            <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.promotionsTitle')}</AppText>
-              <Ionicons name="pricetag" size={18} color={theme.colors.primary600} />
-            </View>
-            <AppText variant="display">{stats.promotions}</AppText>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-          </AppCard>
-        </Pressable>
-
-        <Pressable
-          onPress={() => navigateToAdminStackScreen('AdminLoyalty')}
-          style={({ pressed }) => (pressed ? styles.pressed : null)}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={t('admin.loyaltyTitle')}>
-          <AppCard style={styles.cardInteractive}>
-            <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.loyaltyTitle')}</AppText>
-              <Ionicons name="gift" size={18} color={theme.colors.primary600} />
-            </View>
-            <AppText variant="display">{stats.loyaltyRules}</AppText>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-          </AppCard>
-        </Pressable>
-
-        <Pressable
-          onPress={() => navigation.navigate('AdminUsers')}
-          style={({ pressed }) => (pressed ? styles.pressed : null)}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={t('admin.usersTitle')}>
-          <AppCard style={styles.cardInteractive}>
-            <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.usersTitle')}</AppText>
-              <Ionicons name="people" size={18} color={theme.colors.primary600} />
-            </View>
-            <AppText variant="display">{stats.users}</AppText>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-          </AppCard>
-        </Pressable>
+      <View style={styles.headingBlock}>
+        <AppText variant="h1">{t('admin.dashboardTitle')}</AppText>
+        <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+          {t('admin.tapToOpen')}
+        </AppText>
       </View>
+
+      <AdminPageSection title={t('admin.quickActions')}>
+        <View style={[styles.grid, isCompact ? styles.gridCompact : null]}>
+          <Pressable
+            onPress={() => navigation.navigate('AdminMenu')}
+            style={({ pressed }) => (pressed ? styles.pressed : null)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t('admin.menuSections')}>
+            <AppCard style={styles.cardInteractive}>
+              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
+                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
+                  <Ionicons name="restaurant" size={18} color={theme.colors.primary600} />
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+              <AppText variant="h3" numberOfLines={2}>{t('admin.menuSections')}</AppText>
+              <View style={[styles.statRow, mirroredRow(isRTL)]}>
+                <AppText variant="h1">{stats.sections}</AppText>
+                <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
+              </View>
+            </AppCard>
+          </Pressable>
+
+          <Pressable
+            onPress={() => navigation.navigate('AdminPromotions')}
+            style={({ pressed }) => (pressed ? styles.pressed : null)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t('admin.promotionsTitle')}>
+            <AppCard style={styles.cardInteractive}>
+              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
+                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
+                  <Ionicons name="pricetag" size={18} color={theme.colors.primary600} />
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+              <AppText variant="h3" numberOfLines={2}>{t('admin.promotionsTitle')}</AppText>
+              <View style={[styles.statRow, mirroredRow(isRTL)]}>
+                <AppText variant="h1">{stats.promotions}</AppText>
+                <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
+              </View>
+            </AppCard>
+          </Pressable>
+
+          <Pressable
+            onPress={() => navigateToAdminStackScreen('AdminLoyalty')}
+            style={({ pressed }) => (pressed ? styles.pressed : null)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t('admin.loyaltyTitle')}>
+            <AppCard style={styles.cardInteractive}>
+              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
+                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
+                  <Ionicons name="gift" size={18} color={theme.colors.primary600} />
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+              <AppText variant="h3" numberOfLines={2}>{t('admin.loyaltyTitle')}</AppText>
+              <View style={[styles.statRow, mirroredRow(isRTL)]}>
+                <AppText variant="h1">{stats.loyaltyRules}</AppText>
+                <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
+              </View>
+            </AppCard>
+          </Pressable>
+
+          <Pressable
+            onPress={() => navigation.navigate('AdminUsers')}
+            style={({ pressed }) => (pressed ? styles.pressed : null)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t('admin.usersTitle')}>
+            <AppCard style={styles.cardInteractive}>
+              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
+                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
+                  <Ionicons name="people" size={18} color={theme.colors.primary600} />
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+              <AppText variant="h3" numberOfLines={2}>{t('admin.usersTitle')}</AppText>
+              <View style={[styles.statRow, mirroredRow(isRTL)]}>
+                <AppText variant="h1">{stats.users}</AppText>
+                <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
+              </View>
+            </AppCard>
+          </Pressable>
+
+          <Pressable
+            onPress={() => navigateToAdminStackScreen('AdminProfile')}
+            style={({ pressed }) => (pressed ? styles.pressed : null)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t('admin.profileTitle')}>
+            <AppCard style={styles.cardInteractive}>
+              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
+                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
+                  <Ionicons name="person-circle-outline" size={18} color={theme.colors.primary600} />
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+              <AppText variant="h3" numberOfLines={2}>{t('admin.profileTitle')}</AppText>
+              <View style={[styles.statRow, mirroredRow(isRTL)]}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
+              </View>
+            </AppCard>
+          </Pressable>
+        </View>
+      </AdminPageSection>
 
       <AdminPageSection title={t('admin.revenueSummary')}>
         <View style={[styles.revenueRow, isCompact ? styles.revenueRowCompact : null]}>
@@ -184,37 +231,14 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
         </View>
       </AdminPageSection>
 
-      <AdminPageSection title={t('admin.quickActions')}>
-        <View style={[styles.quickActionsRow, mirroredRow(isRTL)]}>
-          <Pressable
-            onPress={() => navigateToAdminStackScreen('AdminLoyalty')}
-            style={({ pressed }) => [styles.quickActionButton, pressed ? styles.pressed : null]}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={t('admin.loyaltyTitle')}>
-            <Ionicons name="gift-outline" size={theme.iconSizes.md} color={theme.colors.primary600} />
-            <AppText variant="bodySmall" numberOfLines={1}>
-              {t('admin.loyaltyTitle')}
-            </AppText>
-          </Pressable>
-          <Pressable
-            onPress={() => navigateToAdminStackScreen('AdminProfile')}
-            style={({ pressed }) => [styles.quickActionButton, pressed ? styles.pressed : null]}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={t('admin.profileTitle')}>
-            <Ionicons name="person-circle-outline" size={theme.iconSizes.md} color={theme.colors.primary600} />
-            <AppText variant="bodySmall" numberOfLines={1}>
-              {t('admin.profileTitle')}
-            </AppText>
-          </Pressable>
-        </View>
-      </AdminPageSection>
     </AppShell>
   );
 };
 
 const styles = StyleSheet.create({
+  headingBlock: {
+    gap: theme.spacing.xs,
+  },
   grid: {
     gap: theme.spacing.md,
   },
@@ -224,42 +248,44 @@ const styles = StyleSheet.create({
   cardInteractive: {
     borderColor: theme.colors.primary200,
     backgroundColor: theme.colors.secondaryCream,
+    gap: theme.spacing.sm,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    gap: theme.spacing.sm,
+  },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
     gap: theme.spacing.sm,
   },
   revenueRow: {
-    marginTop: theme.spacing.md,
     gap: theme.spacing.md,
   },
   revenueRowCompact: {
     gap: theme.spacing.sm,
   },
   revenueItem: {
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    gap: theme.spacing.xs,
-  },
-  quickActionsRow: {
-    gap: theme.spacing.sm,
-  },
-  quickActionButton: {
-    flex: 1,
-    minWidth: 0,
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.border,
     gap: theme.spacing.xs,
-    backgroundColor: theme.colors.surface,
   },
   pressed: {
     opacity: 0.8,

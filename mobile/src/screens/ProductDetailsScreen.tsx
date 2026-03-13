@@ -1,6 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
@@ -11,16 +12,19 @@ import { TopAppBar } from '@/components/TopAppBar';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
 import { useCart } from '@/state/CartContext';
+import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 import { Addon } from '@/types/api';
 import { formatCurrency, toNumber } from '@/utils/format';
 import { getLocalizedValue } from '@/utils/i18n';
+import { mirroredRow } from '@/utils/layout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetails'>;
 
 export const ProductDetailsScreen = ({ route, navigation }: Props) => {
   const { item } = route.params;
   const { t, language } = useAppTranslation();
+  const { isRTL } = useLanguage();
   const { addItem } = useCart();
   const insets = useSafeAreaInsets();
 
@@ -88,6 +92,15 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled">
+          {item.image_url ? (
+            <View style={styles.imageWrap}>
+              <Image source={{ uri: item.image_url }} style={styles.image} resizeMode="cover" />
+            </View>
+          ) : (
+            <View style={[styles.imageWrap, styles.imagePlaceholder]}>
+              <Ionicons name="image-outline" size={theme.iconSizes.xl} color={theme.colors.textMuted} />
+            </View>
+          )}
           <View style={styles.header}>
             <AppText variant="bodySmall" color={theme.colors.textSecondary}>
               {getLocalizedValue(item, language, 'description')}
@@ -108,7 +121,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                     accessibilityState={{ selected: itemType.id === selectedType?.id }}
                     accessibilityLabel={getLocalizedValue(itemType, language, 'name')}
                     hitSlop={6}>
-                    <AppText>{getLocalizedValue(itemType, language, 'name')}</AppText>
+                    <AppText align={isRTL ? 'right' : 'left'}>{getLocalizedValue(itemType, language, 'name')}</AppText>
                   </Pressable>
                 ))}
             </View>
@@ -128,10 +141,14 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                     accessibilityState={{ selected: size.id === selectedSize?.id }}
                     accessibilityLabel={`${getLocalizedValue(size, language, 'name')} ${formatCurrency(toNumber(size.price), language)}`}
                     hitSlop={6}>
-                    <AppText>{getLocalizedValue(size, language, 'name')}</AppText>
-                    <AppText variant="caption" color={theme.colors.textSecondary}>
-                      {formatCurrency(toNumber(size.price), language)}
-                    </AppText>
+                    <View style={[styles.choiceMeta, mirroredRow(isRTL)]}>
+                      <AppText style={styles.choiceLabel} align={isRTL ? 'right' : 'left'}>
+                        {getLocalizedValue(size, language, 'name')}
+                      </AppText>
+                      <AppText variant="caption" color={theme.colors.textSecondary}>
+                        {formatCurrency(toNumber(size.price), language)}
+                      </AppText>
+                    </View>
                   </Pressable>
                 ))}
             </View>
@@ -151,10 +168,14 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                     accessibilityState={{ checked: selected }}
                     accessibilityLabel={`${getLocalizedValue(addon, language, 'name')} +${formatCurrency(toNumber(addon.price), language)}`}
                     hitSlop={6}>
-                    <AppText>{getLocalizedValue(addon, language, 'name')}</AppText>
-                    <AppText variant="caption" color={theme.colors.textSecondary}>
-                      +{formatCurrency(toNumber(addon.price), language)}
-                    </AppText>
+                    <View style={[styles.choiceMeta, mirroredRow(isRTL)]}>
+                      <AppText style={styles.choiceLabel} align={isRTL ? 'right' : 'left'}>
+                        {getLocalizedValue(addon, language, 'name')}
+                      </AppText>
+                      <AppText variant="caption" color={theme.colors.textSecondary}>
+                        +{formatCurrency(toNumber(addon.price), language)}
+                      </AppText>
+                    </View>
                   </Pressable>
                 );
               })}
@@ -163,7 +184,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
         </ScrollView>
 
         <AppCard style={[styles.stickyCard, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
-          <View style={styles.footer}>
+          <View style={[styles.footer, mirroredRow(isRTL)]}>
             <QuantitySelector value={quantity} onChange={setQuantity} />
             <AppText variant="price" color={theme.colors.primary700}>
               {formatCurrency(totalPrice, language)}
@@ -190,6 +211,23 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.xxxl,
   },
+  imageWrap: {
+    height: 220,
+    borderRadius: theme.radius.lg,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.sectionBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.card,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   header: {
     gap: theme.spacing.sm,
   },
@@ -208,6 +246,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  choiceMeta: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  choiceLabel: {
+    flex: 1,
   },
   choiceActive: {
     borderColor: theme.colors.primary500,

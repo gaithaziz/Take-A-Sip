@@ -1,35 +1,24 @@
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, StyleSheet, View } from 'react-native';
+import { Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppButton } from '@/components/AppButton';
-import { AppCard } from '@/components/AppCard';
-import { AppText } from '@/components/AppText';
-import { BadgeChip } from '@/components/BadgeChip';
-import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { MainTabParamList } from '@/navigation/types';
 import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
 import { useCart } from '@/state/CartContext';
-import { theme } from '@/theme';
+import { useLanguage } from '@/state/LanguageContext';
 import { OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
-import { formatDateTime } from '@/utils/format';
 
-const statusToneMap = {
-  NEW: 'warning',
-  ACCEPTED: 'info',
-  COMPLETED: 'success',
-  CANCELLED: 'error',
-} as const;
+import { PastOrdersScreenView } from './orders/PastOrdersScreenView';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'PastOrders'>;
 
 export const PastOrdersScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
+  const { isRTL } = useLanguage();
   const { clearCart, addItem } = useCart();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -125,84 +114,25 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
     }
   };
 
-  const renderOrder = ({ item: order }: { item: OrderRead }) => (
-    <AppCard>
-      <View style={styles.top}>
-        <AppText variant="h3">#{order.order_number}</AppText>
-        <BadgeChip label={t(`status.${order.status}`)} tone={statusToneMap[order.status]} />
-      </View>
-      <AppText variant="caption" color={theme.colors.textSecondary}>
-        {formatDateTime(order.created_at, language)}
-      </AppText>
-      <View style={styles.items}>
-        {order.items.slice(0, 3).map((orderItem) => (
-          <AppText key={orderItem.id} variant="bodySmall">
-            {orderItem.quantity}x {orderItem.item_name_snapshot} ({orderItem.size_snapshot})
-          </AppText>
-        ))}
-      </View>
-      <AppButton
-        title={t('orders.reorder')}
-        variant="secondary"
-        loading={reorderingId === order.id}
-        onPress={() => void onReorder(order)}
-      />
-    </AppCard>
-  );
-
   return (
-    <FlatList
-      data={loading || error ? [] : orders}
-      keyExtractor={(order) => order.id}
-      renderItem={renderOrder}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <AppText variant="h1">{t('orders.title')}</AppText>
-        </View>
-      }
-      ListEmptyComponent={
-        loading ? (
-          <LoadingState label={t('common.loading')} />
-        ) : error ? (
-          <EmptyState title={t('common.retry')} subtitle={error} actionLabel={t('common.retry')} onAction={loadOrders} />
-        ) : (
-          <EmptyState title={t('orders.emptyTitle')} subtitle={t('orders.emptySubtitle')} />
-        )
-      }
-      refreshing={loading}
-      onRefresh={loadOrders}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: insets.top + theme.spacing.md,
-          paddingBottom: insets.bottom + theme.spacing.xl,
-        },
-      ]}
+    <PastOrdersScreenView
+      title={t('orders.title')}
+      loadingLabel={t('common.loading')}
+      retryLabel={t('common.retry')}
+      emptyTitle={t('orders.emptyTitle')}
+      emptySubtitle={t('orders.emptySubtitle')}
+      reorderLabel={t('orders.reorder')}
+      language={language}
+      isRTL={isRTL}
+      orders={orders}
+      loading={loading}
+      error={error}
+      reorderingId={reorderingId}
+      topInset={insets.top}
+      bottomInset={insets.bottom}
+      onReload={loadOrders}
+      onReorder={(order) => void onReorder(order)}
+      t={t}
     />
   );
 };
-
-const styles = StyleSheet.create({
-  top: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  items: {
-    marginVertical: theme.spacing.sm,
-    gap: theme.spacing.xs,
-  },
-  content: {
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  header: {
-    marginBottom: theme.spacing.lg,
-  },
-  separator: {
-    height: theme.spacing.md,
-  },
-});

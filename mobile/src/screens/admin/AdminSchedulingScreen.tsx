@@ -260,7 +260,7 @@ export const AdminSchedulingScreen = () => {
   const canSave = !saving && Boolean(form.entity_id) && Boolean(form.start_time) && Boolean(form.end_time) && form.days_of_week.length > 0;
 
   const renderSchedule = ({ item: schedule }: { item: MenuSchedule }) => (
-    <AppCard>
+    <AppCard style={styles.itemCard}>
       <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
         <Pressable
           onPress={() => Alert.alert('', labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`)}
@@ -275,12 +275,14 @@ export const AdminSchedulingScreen = () => {
         </Pressable>
         <BadgeChip label={schedule.is_active ? t('admin.active') : t('admin.inactive')} tone={schedule.is_active ? 'success' : 'default'} />
       </View>
-      <InfoLine label={`${t('admin.timeRange')} (${timezone})`} value={`${schedule.start_time} - ${schedule.end_time}`} />
-      <InfoLine
-        label={t('admin.daysOfWeek')}
-        value={schedule.days_of_week.map((day) => dayLabelByValue[day]).join(', ')}
-        numberOfLines={2}
-      />
+      <View style={styles.infoBox}>
+        <InfoLine label={`${t('admin.timeRange')} (${timezone})`} value={`${schedule.start_time} - ${schedule.end_time}`} />
+        <InfoLine
+          label={t('admin.daysOfWeek')}
+          value={schedule.days_of_week.map((day) => dayLabelByValue[day]).join(', ')}
+          numberOfLines={2}
+        />
+      </View>
       <ActionRow compact={isCompact}>
         <AppButton title={t('admin.edit')} variant="secondary" onPress={() => startEdit(schedule)} style={styles.flexButton} disabled={mutatingScheduleId === schedule.id} />
         <AppButton
@@ -291,15 +293,14 @@ export const AdminSchedulingScreen = () => {
           loading={mutatingScheduleId === schedule.id}
           disabled={Boolean(mutatingScheduleId && mutatingScheduleId !== schedule.id)}
         />
-        <AppButton
-          title={t('admin.delete')}
-          variant="destructive"
-          onPress={() => void removeSchedule(schedule.id)}
-          fullWidth={false}
-          loading={mutatingScheduleId === schedule.id}
-          disabled={Boolean(mutatingScheduleId && mutatingScheduleId !== schedule.id)}
-        />
       </ActionRow>
+      <AppButton
+        title={t('admin.delete')}
+        variant="destructive"
+        onPress={() => void removeSchedule(schedule.id)}
+        loading={mutatingScheduleId === schedule.id}
+        disabled={Boolean(mutatingScheduleId && mutatingScheduleId !== schedule.id)}
+      />
     </AppCard>
   );
 
@@ -317,56 +318,60 @@ export const AdminSchedulingScreen = () => {
             title={editingScheduleId ? t('admin.editSchedule') : t('admin.createSchedule')}
             subtitle={t('admin.schedulingWhatWhenDays')}>
             <View style={styles.formStack}>
-              <SelectDropdownField
-                label={t('admin.entityType')}
-                value={form.entity_type}
-                options={entityTypeOptions}
-                onChange={(value) => {
-                  setFormError(null);
-                  setForm((prev) => ({
-                    ...prev,
-                    entity_type: value as MenuEntityType,
-                    entity_id: '',
-                  }));
-                }}
-              />
-
-              <SelectDropdownField
-                label={t('admin.entityId')}
-                value={form.entity_id}
-                options={filteredOptions.map((option) => ({ value: option.id, label: option.label }))}
-                onChange={(value) => {
-                  setFormError(null);
-                  setForm((prev) => ({ ...prev, entity_id: value }));
-                }}
-                emptyLabel={t('admin.noTargets')}
-              />
-
-              <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
-                <DateTimeField
-                  label={t('admin.startTime')}
-                  mode="time"
-                  value={timeToDate(form.start_time)}
+              <View style={styles.formGroup}>
+                <SelectDropdownField
+                  label={t('admin.entityType')}
+                  value={form.entity_type}
+                  options={entityTypeOptions}
                   onChange={(value) => {
                     setFormError(null);
-                    setForm((prev) => ({ ...prev, start_time: dateToTime(value) }));
+                    setForm((prev) => ({
+                      ...prev,
+                      entity_type: value as MenuEntityType,
+                      entity_id: '',
+                    }));
                   }}
                 />
-                <DateTimeField
-                  label={t('admin.endTime')}
-                  mode="time"
-                  value={timeToDate(form.end_time)}
+
+                <SelectDropdownField
+                  label={t('admin.entityId')}
+                  value={form.entity_id}
+                  options={filteredOptions.map((option) => ({ value: option.id, label: option.label }))}
                   onChange={(value) => {
                     setFormError(null);
-                    setForm((prev) => ({ ...prev, end_time: dateToTime(value) }));
+                    setForm((prev) => ({ ...prev, entity_id: value }));
                   }}
+                  emptyLabel={t('admin.noTargets')}
                 />
               </View>
-              <AppText variant="caption" color={theme.colors.textSecondary}>
-                {`${t('admin.timeRange')}: ${timezone}`}
-              </AppText>
 
-              <View>
+              <View style={styles.formGroup}>
+                <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
+                  <DateTimeField
+                    label={t('admin.startTime')}
+                    mode="time"
+                    value={timeToDate(form.start_time)}
+                    onChange={(value) => {
+                      setFormError(null);
+                      setForm((prev) => ({ ...prev, start_time: dateToTime(value) }));
+                    }}
+                  />
+                  <DateTimeField
+                    label={t('admin.endTime')}
+                    mode="time"
+                    value={timeToDate(form.end_time)}
+                    onChange={(value) => {
+                      setFormError(null);
+                      setForm((prev) => ({ ...prev, end_time: dateToTime(value) }));
+                    }}
+                  />
+                </View>
+                <AppText variant="caption" color={theme.colors.textSecondary}>
+                  {`${t('admin.timeRange')}: ${timezone}`}
+                </AppText>
+              </View>
+
+              <View style={styles.formGroup}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.daysOfWeek')}</AppText>
                 <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
                   {Object.entries(dayLabelByValue).map(([value, label]) => {
@@ -387,7 +392,7 @@ export const AdminSchedulingScreen = () => {
                 </View>
               </View>
 
-              <View>
+              <View style={styles.formGroup}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
                 <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
                   <Pressable
@@ -458,7 +463,15 @@ const styles = StyleSheet.create({
     gap: theme.spacing.lg,
   },
   formStack: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
+  },
+  formGroup: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.secondaryCream,
+    padding: theme.spacing.md,
   },
   typeRow: {
     flexDirection: 'row',
@@ -468,15 +481,17 @@ const styles = StyleSheet.create({
   optionsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   optionChip: {
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.pill,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
+    minHeight: 36,
+    justifyContent: 'center',
     maxWidth: '48%',
   },
   optionChipActive: {
@@ -490,6 +505,19 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
+  itemCard: {
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
+  },
+  infoBox: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
+  },
   flexButton: {
     flex: 1,
   },
@@ -499,7 +527,7 @@ const styles = StyleSheet.create({
   },
   halfRowCompact: {
     flexDirection: 'column',
-    gap: 0,
+    gap: theme.spacing.sm,
   },
   grow: {
     flex: 1,

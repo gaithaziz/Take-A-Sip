@@ -150,15 +150,17 @@ export const AdminLoyaltyRulesScreen = () => {
   const canSave = !saving && Boolean(form.reward_value.trim()) && Number(form.required_orders) >= 1;
 
   const renderRule = ({ item: rule }: { item: LoyaltyRule }) => (
-    <AppCard>
+    <AppCard style={styles.itemCard}>
       <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
         <Pressable onPress={() => Alert.alert('', rule.reward_value)} style={styles.grow} accessibilityRole="button" accessibilityLabel={`${rule.required_orders} ${t('admin.ordersThreshold')}`}>
           <ExpandableText value={`${rule.required_orders} ${t('admin.ordersThreshold')}`} variant="h3" numberOfLines={2} />
         </Pressable>
         <BadgeChip label={rule.is_active ? t('admin.active') : t('admin.inactive')} tone={rule.is_active ? 'success' : 'default'} />
       </View>
-      <InfoLine label={t('admin.rewardType')} value={rewardTypeLabel(rule.reward_type, t)} numberOfLines={2} />
-      <InfoLine label={t('admin.rewardValue')} value={rule.reward_value} numberOfLines={2} />
+      <View style={styles.infoBox}>
+        <InfoLine label={t('admin.rewardType')} value={rewardTypeLabel(rule.reward_type, t)} numberOfLines={2} />
+        <InfoLine label={t('admin.rewardValue')} value={rule.reward_value} numberOfLines={2} />
+      </View>
 
       <ActionRow compact={isCompact}>
         <AppButton title={t('admin.edit')} variant="secondary" onPress={() => startEdit(rule)} style={styles.flexButton} disabled={mutatingRuleId === rule.id} />
@@ -186,18 +188,20 @@ export const AdminLoyaltyRulesScreen = () => {
 
           <AdminPageSection title={editingRuleId ? t('admin.editLoyaltyRule') : t('admin.createLoyaltyRule')}>
             <View style={styles.formStack}>
-              <AppInput
-                label={t('admin.requiredOrders')}
-                value={form.required_orders}
-                keyboardType="number-pad"
-                error={formErrors.required_orders}
-                onChangeText={(value) => {
-                  setForm((prev) => ({ ...prev, required_orders: value }));
-                  setFormErrors((prev) => ({ ...prev, required_orders: undefined }));
-                }}
-              />
+              <View style={styles.formGroup}>
+                <AppInput
+                  label={t('admin.requiredOrders')}
+                  value={form.required_orders}
+                  keyboardType="number-pad"
+                  error={formErrors.required_orders}
+                  onChangeText={(value) => {
+                    setForm((prev) => ({ ...prev, required_orders: value }));
+                    setFormErrors((prev) => ({ ...prev, required_orders: undefined }));
+                  }}
+                />
+              </View>
 
-              <View>
+              <View style={styles.formGroup}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.rewardType')}</AppText>
                 <View style={[styles.segmentRow, mirroredRow(isRTL)]}>
                   {rewardTypeOptions.map((option) => (
@@ -214,17 +218,19 @@ export const AdminLoyaltyRulesScreen = () => {
                 </View>
               </View>
 
-              <AppInput
-                label={t('admin.rewardValue')}
-                value={form.reward_value}
-                error={formErrors.reward_value}
-                onChangeText={(value) => {
-                  setForm((prev) => ({ ...prev, reward_value: value }));
-                  setFormErrors((prev) => ({ ...prev, reward_value: undefined }));
-                }}
-              />
+              <View style={styles.formGroup}>
+                <AppInput
+                  label={t('admin.rewardValue')}
+                  value={form.reward_value}
+                  error={formErrors.reward_value}
+                  onChangeText={(value) => {
+                    setForm((prev) => ({ ...prev, reward_value: value }));
+                    setFormErrors((prev) => ({ ...prev, reward_value: undefined }));
+                  }}
+                />
+              </View>
 
-              <View>
+              <View style={styles.formGroup}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
                 <View style={[styles.segmentRow, mirroredRow(isRTL)]}>
                   <Pressable
@@ -293,7 +299,15 @@ const styles = StyleSheet.create({
     gap: theme.spacing.lg,
   },
   formStack: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
+  },
+  formGroup: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.secondaryCream,
+    padding: theme.spacing.md,
   },
   itemHeader: {
     flexDirection: 'row',
@@ -302,6 +316,19 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
+  itemCard: {
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
+  },
+  infoBox: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
+  },
   flexButton: {
     flex: 1,
   },
@@ -309,9 +336,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   segmentRow: {
-    marginTop: theme.spacing.sm,
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
     flexWrap: 'wrap',
   },
   segmentChip: {
@@ -319,7 +345,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radius.pill,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   segmentChipActive: {
     borderColor: theme.colors.primary300,

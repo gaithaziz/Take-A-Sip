@@ -15,7 +15,7 @@ export const AppShell = ({ children, scroll = true, refreshing, onRefresh }: App
 
   if (!scroll) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + theme.spacing.md }]}>
+      <View style={[styles.container, { paddingTop: insets.top + theme.spacing.lg, paddingBottom: insets.bottom + theme.spacing.lg }]}>
         {children}
       </View>
     );
@@ -26,7 +26,7 @@ export const AppShell = ({ children, scroll = true, refreshing, onRefresh }: App
       contentContainerStyle={[
         styles.container,
         {
-          paddingTop: insets.top + theme.spacing.md,
+          paddingTop: insets.top + theme.spacing.lg,
           paddingBottom: insets.bottom + theme.spacing.xl,
         },
       ]}
@@ -46,6 +46,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.lg,
+    gap: theme.spacing.xxl,
   },
 });

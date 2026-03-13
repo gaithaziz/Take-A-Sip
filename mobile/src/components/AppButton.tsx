@@ -34,6 +34,9 @@ export const AppButton = ({
   testID,
 }: AppButtonProps) => {
   const isDisabled = disabled || loading;
+  const activityColor =
+    variant === 'primary' || variant === 'destructive' ? theme.colors.white : theme.colors.primary700;
+
   return (
     <Pressable
       disabled={isDisabled}
@@ -48,58 +51,59 @@ export const AppButton = ({
         styles.base,
         variantStyles[variant],
         fullWidth ? styles.fullWidth : null,
-        pressed ? styles.pressed : null,
+        pressed ? pressedStyles[variant] : null,
         isDisabled ? styles.disabled : null,
         style,
       ]}>
-      {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? theme.colors.white : theme.colors.primary600} />
-      ) : (
-        <AppText variant="body" style={[styles.label, labelStyles[variant]]}>
-          {title}
-        </AppText>
-      )}
+      {loading ? <ActivityIndicator color={activityColor} /> : <AppText variant="button" style={labelStyles[variant]}>{title}</AppText>}
     </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
+    minHeight: 54,
     borderRadius: theme.radius.md,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.xl,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   fullWidth: {
     width: '100%',
   },
-  label: {
-    fontWeight: '600',
-  },
-  pressed: {
-    opacity: 0.9,
-  },
   disabled: {
-    opacity: 0.5,
+    opacity: 0.55,
   },
 });
 
 const variantStyles = StyleSheet.create({
   primary: {
     backgroundColor: theme.colors.primary500,
+    borderColor: theme.colors.primary600,
+    ...theme.shadows.floating,
   },
   secondary: {
-    backgroundColor: theme.colors.secondaryCream,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.primary200,
   },
   ghost: {
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.primary50,
+    borderColor: theme.colors.primary100,
   },
   destructive: {
     backgroundColor: theme.colors.error,
+    borderColor: '#b54b3d',
   },
+});
+
+const pressedStyles = StyleSheet.create({
+  primary: { opacity: 0.92, transform: [{ scale: 0.99 }] },
+  secondary: { backgroundColor: theme.colors.secondarySand },
+  ghost: { backgroundColor: theme.colors.secondarySand },
+  destructive: { opacity: 0.92, transform: [{ scale: 0.99 }] },
 });
 
 const labelStyles = StyleSheet.create({

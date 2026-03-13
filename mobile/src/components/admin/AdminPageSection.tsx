@@ -33,9 +33,12 @@ export const AdminPageSection = ({ title, subtitle, style, children }: AdminPage
 const styles = StyleSheet.create({
   header: {
     gap: theme.spacing.xs,
+    paddingBottom: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   body: {
-    marginTop: theme.spacing.md,
-    gap: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    gap: theme.spacing.lg,
   },
 });

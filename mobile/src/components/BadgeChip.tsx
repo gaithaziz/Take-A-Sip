@@ -12,7 +12,7 @@ type BadgeChipProps = {
 export const BadgeChip = ({ label, tone = 'default' }: BadgeChipProps) => {
   return (
     <View style={[styles.chip, toneStyles[tone]]}>
-      <AppText variant="caption" style={styles.label} numberOfLines={1}>
+      <AppText variant="caption" style={[styles.label, toneLabelStyles[tone]]} numberOfLines={1}>
         {label}
       </AppText>
     </View>
@@ -33,6 +33,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });
 
@@ -42,19 +43,27 @@ const toneStyles = StyleSheet.create({
     borderColor: theme.colors.primary200,
   },
   success: {
-    backgroundColor: '#ebf7f0',
-    borderColor: '#b7dfc5',
+    backgroundColor: theme.colors.successSurface,
+    borderColor: '#c7dcc9',
   },
   warning: {
-    backgroundColor: '#fdf4e6',
-    borderColor: '#e8c68f',
+    backgroundColor: theme.colors.warningSurface,
+    borderColor: '#e7cba1',
   },
   error: {
-    backgroundColor: '#fdecec',
-    borderColor: '#e8b2b1',
+    backgroundColor: theme.colors.errorSurface,
+    borderColor: '#e4b0a8',
   },
   info: {
-    backgroundColor: '#edf3f7',
-    borderColor: '#b7c8d5',
+    backgroundColor: theme.colors.infoSurface,
+    borderColor: '#c0ced7',
   },
+});
+
+const toneLabelStyles = StyleSheet.create({
+  default: { color: theme.colors.primary700 },
+  success: { color: theme.colors.success },
+  warning: { color: theme.colors.warning },
+  error: { color: theme.colors.error },
+  info: { color: theme.colors.info },
 });

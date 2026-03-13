@@ -48,7 +48,6 @@ export const AdminMenuEditorScreen = () => {
   const { isRTL } = useLanguage();
   const { width } = useWindowDimensions();
   const isCompact = width < 390;
-  const actionButtonStyle = isCompact ? styles.actionButtonCompact : undefined;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
@@ -104,7 +103,13 @@ export const AdminMenuEditorScreen = () => {
   };
 
   const renderImageField = (fieldKey: string, value: string, onChange: (next: string) => void) => (
-    <View style={styles.imageField}>
+    <View style={styles.formGroup}>
+      <View style={[styles.imageFieldHeader, mirroredRow(isRTL)]}>
+        <ImageThumbnail uri={value} />
+        <AppText variant="caption" color={theme.colors.textSecondary}>
+          {t('admin.photo')}
+        </AppText>
+      </View>
       <AppInput
         label={t('admin.photo')}
         value={value}
@@ -303,21 +308,33 @@ export const AdminMenuEditorScreen = () => {
       <AppButton
         title={t('admin.edit')}
         variant="ghost"
-        fullWidth={!isCompact}
-        style={isCompact ? styles.compactActionFill : actionButtonStyle}
+        fullWidth={false}
+        style={styles.actionButton}
         onPress={onEdit}
         disabled={Boolean(mutatingEntityId && mutatingEntityId !== id)}
       />
       <AppButton
         title={t('admin.toggle')}
         variant="secondary"
-        fullWidth={!isCompact}
-        style={isCompact ? styles.compactActionFill : actionButtonStyle}
+        fullWidth={false}
+        style={styles.actionButton}
         loading={mutatingEntityId === id}
         disabled={Boolean(mutatingEntityId && mutatingEntityId !== id)}
         onPress={() => void toggleEntity(id, isActive, label)}
       />
     </View>
+  );
+
+  const renderExpandControl = (open: boolean, onPress: () => void) => (
+    <Pressable
+      style={styles.expandToggle}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={open ? t('admin.disable') : t('admin.enable')}>
+      <AppText variant="h3" align="center">
+        {open ? '-' : '+'}
+      </AppText>
+    </Pressable>
   );
 
   if (loading) return <LoadingState label={t('common.loading')} />;
@@ -345,7 +362,7 @@ export const AdminMenuEditorScreen = () => {
               accessibilityRole="button"
               accessibilityState={{ selected: workflowStep === step.key }}
               accessibilityLabel={step.label}>
-              <AppText variant="caption" numberOfLines={1}>{step.label}</AppText>
+              <AppText variant="caption" numberOfLines={2}>{step.label}</AppText>
             </Pressable>
           ))}
         </View>
@@ -366,25 +383,27 @@ export const AdminMenuEditorScreen = () => {
         <View style={styles.list}>
           {sections.map((section) => {
             const sectionKey = `s-${section.id}`;
-            const sectionOpen = expanded[sectionKey] ?? true;
+            const sectionOpen = expanded[sectionKey] ?? false;
             return (
               <View key={section.id}>
-                <View style={[styles.row, mirroredRow(isRTL)]}>
-                  <Pressable onPress={() => toggleExpanded(sectionKey)} accessibilityRole="button" accessibilityLabel={sectionOpen ? t('admin.disable') : t('admin.enable')}>
-                    <AppText variant="h3">{sectionOpen ? '-' : '+'}</AppText>
-                  </Pressable>
-                  <ImageThumbnail uri={section.image_url} />
-                  <Pressable
-                    style={styles.rowLabelPressable}
-                    onPress={() => {
-                      setSelectedSectionId(section.id);
-                      setSelectedItemId(null);
-                      setSelectedTypeId(null);
-                      setSelectedSizeId(null);
-                    }}>
-                    <ExpandableText value={`${t('admin.section')}: ${getLocalizedValue(section, language, 'name')} (${section.sort_order})`} />
-                  </Pressable>
-                  <BadgeChip label={section.is_active ? t('admin.active') : t('admin.inactive')} tone={section.is_active ? 'success' : 'default'} />
+                <View style={styles.nodeCard}>
+                  <View style={[styles.nodeHeader, mirroredRow(isRTL)]}>
+                    {renderExpandControl(sectionOpen, () => toggleExpanded(sectionKey))}
+                    <ImageThumbnail uri={section.image_url} />
+                    <Pressable
+                      style={styles.rowLabelPressable}
+                      onPress={() => {
+                        setSelectedSectionId(section.id);
+                        setSelectedItemId(null);
+                        setSelectedTypeId(null);
+                        setSelectedSizeId(null);
+                      }}>
+                      <ExpandableText value={`${t('admin.section')}: ${getLocalizedValue(section, language, 'name')} (${section.sort_order})`} numberOfLines={1} />
+                    </Pressable>
+                  </View>
+                  <View style={[styles.nodeMetaRow, mirroredRow(isRTL)]}>
+                    <BadgeChip label={section.is_active ? t('admin.active') : t('admin.inactive')} tone={section.is_active ? 'success' : 'default'} />
+                  </View>
                   {renderHierarchyActions(
                     section.id,
                     section.is_active,
@@ -399,22 +418,24 @@ export const AdminMenuEditorScreen = () => {
                       const itemOpen = expanded[itemKey] ?? false;
                       return (
                         <View key={item.id} style={[styles.level1, isCompact ? styles.level1Compact : null]}>
-                          <View style={[styles.row, mirroredRow(isRTL)]}>
-                            <Pressable onPress={() => toggleExpanded(itemKey)} accessibilityRole="button" accessibilityLabel={itemOpen ? t('admin.disable') : t('admin.enable')}>
-                              <AppText variant="h3">{itemOpen ? '-' : '+'}</AppText>
-                            </Pressable>
-                            <ImageThumbnail uri={item.image_url} />
-                            <Pressable
-                              style={styles.rowLabelPressable}
-                              onPress={() => {
-                                setSelectedSectionId(section.id);
-                                setSelectedItemId(item.id);
-                                setSelectedTypeId(null);
-                                setSelectedSizeId(null);
-                              }}>
-                              <ExpandableText value={`${t('admin.item')}: ${getLocalizedValue(item, language, 'name')} (${item.sort_order})`} />
-                            </Pressable>
-                            <BadgeChip label={item.is_active ? t('admin.active') : t('admin.inactive')} tone={item.is_active ? 'success' : 'default'} />
+                          <View style={styles.nodeCard}>
+                            <View style={[styles.nodeHeader, mirroredRow(isRTL)]}>
+                              {renderExpandControl(itemOpen, () => toggleExpanded(itemKey))}
+                              <ImageThumbnail uri={item.image_url} />
+                              <Pressable
+                                style={styles.rowLabelPressable}
+                                onPress={() => {
+                                  setSelectedSectionId(section.id);
+                                  setSelectedItemId(item.id);
+                                  setSelectedTypeId(null);
+                                  setSelectedSizeId(null);
+                                }}>
+                                <ExpandableText value={`${t('admin.item')}: ${getLocalizedValue(item, language, 'name')} (${item.sort_order})`} numberOfLines={1} />
+                              </Pressable>
+                            </View>
+                            <View style={[styles.nodeMetaRow, mirroredRow(isRTL)]}>
+                              <BadgeChip label={item.is_active ? t('admin.active') : t('admin.inactive')} tone={item.is_active ? 'success' : 'default'} />
+                            </View>
                             {renderHierarchyActions(
                               item.id,
                               item.is_active,
@@ -428,11 +449,10 @@ export const AdminMenuEditorScreen = () => {
                                 const typeKey = `t-${itemType.id}`;
                                 const typeOpen = expanded[typeKey] ?? false;
                                 return (
-                                  <View key={itemType.id} style={[styles.level2, isCompact ? styles.level2Compact : null]}>
-                                    <View style={[styles.row, mirroredRow(isRTL)]}>
-                                      <Pressable onPress={() => toggleExpanded(typeKey)} accessibilityRole="button" accessibilityLabel={typeOpen ? t('admin.disable') : t('admin.enable')}>
-                                        <AppText variant="h3">{typeOpen ? '-' : '+'}</AppText>
-                                      </Pressable>
+                                <View key={itemType.id} style={[styles.level2, isCompact ? styles.level2Compact : null]}>
+                                  <View style={styles.nodeCard}>
+                                    <View style={[styles.nodeHeader, mirroredRow(isRTL)]}>
+                                      {renderExpandControl(typeOpen, () => toggleExpanded(typeKey))}
                                       <ImageThumbnail uri={itemType.image_url} />
                                       <Pressable
                                         style={styles.rowLabelPressable}
@@ -442,16 +462,19 @@ export const AdminMenuEditorScreen = () => {
                                           setSelectedTypeId(itemType.id);
                                           setSelectedSizeId(null);
                                         }}>
-                                        <ExpandableText value={`${t('admin.type')}: ${getLocalizedValue(itemType, language, 'name')} (${itemType.sort_order})`} />
+                                        <ExpandableText value={`${t('admin.type')}: ${getLocalizedValue(itemType, language, 'name')} (${itemType.sort_order})`} numberOfLines={1} />
                                       </Pressable>
-                                      <BadgeChip label={itemType.is_active ? t('admin.active') : t('admin.inactive')} tone={itemType.is_active ? 'success' : 'default'} />
-                                      {renderHierarchyActions(
-                                        itemType.id,
-                                        itemType.is_active,
-                                        `${t('admin.type')} ${getLocalizedValue(itemType, language, 'name')}`,
-                                        () => beginEdit({ kind: 'type', data: itemType }),
-                                      )}
                                     </View>
+                                    <View style={[styles.nodeMetaRow, mirroredRow(isRTL)]}>
+                                      <BadgeChip label={itemType.is_active ? t('admin.active') : t('admin.inactive')} tone={itemType.is_active ? 'success' : 'default'} />
+                                    </View>
+                                    {renderHierarchyActions(
+                                      itemType.id,
+                                      itemType.is_active,
+                                      `${t('admin.type')} ${getLocalizedValue(itemType, language, 'name')}`,
+                                      () => beginEdit({ kind: 'type', data: itemType }),
+                                    )}
+                                  </View>
 
                                     {typeOpen
                                       ? itemType.sizes.map((size) => {
@@ -459,22 +482,24 @@ export const AdminMenuEditorScreen = () => {
                                           const sizeOpen = expanded[sizeKey] ?? false;
                                           return (
                                             <View key={size.id} style={[styles.level3, isCompact ? styles.level3Compact : null]}>
-                                              <View style={[styles.row, mirroredRow(isRTL)]}>
-                                                <Pressable onPress={() => toggleExpanded(sizeKey)} accessibilityRole="button" accessibilityLabel={sizeOpen ? t('admin.disable') : t('admin.enable')}>
-                                                  <AppText variant="h3">{sizeOpen ? '-' : '+'}</AppText>
-                                                </Pressable>
-                                                <ImageThumbnail uri={size.image_url} />
-                                                <Pressable
-                                                  style={styles.rowLabelPressable}
-                                                  onPress={() => {
-                                                    setSelectedSectionId(section.id);
-                                                    setSelectedItemId(item.id);
-                                                    setSelectedTypeId(itemType.id);
-                                                    setSelectedSizeId(size.id);
-                                                  }}>
-                                                  <ExpandableText value={`${t('admin.size')}: ${getLocalizedValue(size, language, 'name')} (${size.sort_order})`} />
-                                                </Pressable>
-                                                <BadgeChip label={size.is_active ? t('admin.active') : t('admin.inactive')} tone={size.is_active ? 'success' : 'default'} />
+                                              <View style={styles.nodeCard}>
+                                                <View style={[styles.nodeHeader, mirroredRow(isRTL)]}>
+                                                  {renderExpandControl(sizeOpen, () => toggleExpanded(sizeKey))}
+                                                  <ImageThumbnail uri={size.image_url} />
+                                                  <Pressable
+                                                    style={styles.rowLabelPressable}
+                                                    onPress={() => {
+                                                      setSelectedSectionId(section.id);
+                                                      setSelectedItemId(item.id);
+                                                      setSelectedTypeId(itemType.id);
+                                                      setSelectedSizeId(size.id);
+                                                    }}>
+                                                    <ExpandableText value={`${t('admin.size')}: ${getLocalizedValue(size, language, 'name')} (${size.sort_order})`} numberOfLines={1} />
+                                                  </Pressable>
+                                                </View>
+                                                <View style={[styles.nodeMetaRow, mirroredRow(isRTL)]}>
+                                                  <BadgeChip label={size.is_active ? t('admin.active') : t('admin.inactive')} tone={size.is_active ? 'success' : 'default'} />
+                                                </View>
                                                 {renderHierarchyActions(
                                                   size.id,
                                                   size.is_active,
@@ -485,12 +510,17 @@ export const AdminMenuEditorScreen = () => {
                                               {sizeOpen
                                                 ? size.addons.map((addon) => (
                                                     <View key={addon.id} style={[styles.level4, isCompact ? styles.level4Compact : null]}>
-                                                      <View style={[styles.row, mirroredRow(isRTL)]}>
-                                                        <ImageThumbnail uri={addon.image_url} />
-                                                        <Pressable style={styles.rowLabelPressable} onPress={() => setSelectedSizeId(size.id)}>
-                                                          <ExpandableText value={`${t('admin.addon')}: ${getLocalizedValue(addon, language, 'name')} (${addon.sort_order})`} />
-                                                        </Pressable>
-                                                        <BadgeChip label={addon.is_active ? t('admin.active') : t('admin.inactive')} tone={addon.is_active ? 'success' : 'default'} />
+                                                        <View style={styles.nodeCard}>
+                                                          <View style={[styles.nodeHeader, mirroredRow(isRTL)]}>
+                                                            <View style={styles.expandToggleSpacer} />
+                                                            <ImageThumbnail uri={addon.image_url} />
+                                                            <Pressable style={styles.rowLabelPressable} onPress={() => setSelectedSizeId(size.id)}>
+                                                              <ExpandableText value={`${t('admin.addon')}: ${getLocalizedValue(addon, language, 'name')} (${addon.sort_order})`} numberOfLines={1} />
+                                                            </Pressable>
+                                                          </View>
+                                                        <View style={[styles.nodeMetaRow, mirroredRow(isRTL)]}>
+                                                          <BadgeChip label={addon.is_active ? t('admin.active') : t('admin.inactive')} tone={addon.is_active ? 'success' : 'default'} />
+                                                        </View>
                                                         {renderHierarchyActions(
                                                           addon.id,
                                                           addon.is_active,
@@ -521,192 +551,230 @@ export const AdminMenuEditorScreen = () => {
 
       {workflowStep === 'section' ? (
       <AdminPageSection title={t('admin.createSection')}>
-        <BilingualFieldGroup
-          labelEn={t('admin.nameEn')}
-          labelAr={t('admin.nameAr')}
-          valueEn={sectionForm.name_en}
-          valueAr={sectionForm.name_ar}
-          onChangeEn={(v) => setSectionForm((p) => ({ ...p, name_en: v }))}
-          onChangeAr={(v) => setSectionForm((p) => ({ ...p, name_ar: v }))}
-          helperText={missingName(sectionForm.name_en, sectionForm.name_ar)}
-        />
+        <View style={styles.formStack}>
+          <BilingualFieldGroup
+            labelEn={t('admin.nameEn')}
+            labelAr={t('admin.nameAr')}
+            valueEn={sectionForm.name_en}
+            valueAr={sectionForm.name_ar}
+            onChangeEn={(v) => setSectionForm((p) => ({ ...p, name_en: v }))}
+            onChangeAr={(v) => setSectionForm((p) => ({ ...p, name_ar: v }))}
+            helperText={missingName(sectionForm.name_en, sectionForm.name_ar)}
+          />
         {renderImageField('sectionForm', sectionForm.image_url, (v) => setSectionForm((p) => ({ ...p, image_url: v })))}
-        <AppInput label={t('admin.sortOrder')} value={sectionForm.sort_order} onChangeText={(v) => setSectionForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+          <View style={styles.formGroup}>
+            <AppInput label={t('admin.sortOrder')} value={sectionForm.sort_order} onChangeText={(v) => setSectionForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+          </View>
         <AppButton
           title={t('admin.createSection')}
           onPress={() => void createSection()}
           disabled={!sectionForm.name_en.trim() || !sectionForm.name_ar.trim()}
         />
+        </View>
       </AdminPageSection>
       ) : null}
 
       {workflowStep === 'item' ? (
       <AdminPageSection title={t('admin.createItem')}>
-        <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
-          {sections.map((section) => (
-            <Pressable
-              key={section.id}
-              style={[styles.selectorChip, selectedSectionId === section.id ? styles.selectorChipActive : null]}
-              onPress={() => setSelectedSectionId(section.id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedSectionId === section.id }}
-              accessibilityLabel={getLocalizedValue(section, language, 'name')}>
-              <AppText variant="caption" numberOfLines={1}>{getLocalizedValue(section, language, 'name')}</AppText>
-            </Pressable>
-          ))}
-        </View>
-        <BilingualFieldGroup
-          labelEn={t('admin.nameEn')}
-          labelAr={t('admin.nameAr')}
-          valueEn={itemForm.name_en}
-          valueAr={itemForm.name_ar}
-          onChangeEn={(v) => setItemForm((p) => ({ ...p, name_en: v }))}
-          onChangeAr={(v) => setItemForm((p) => ({ ...p, name_ar: v }))}
-          helperText={missingName(itemForm.name_en, itemForm.name_ar)}
-        />
-        <AppInput label={t('admin.descriptionEn')} value={itemForm.description_en} onChangeText={(v) => setItemForm((p) => ({ ...p, description_en: v }))} />
-        <AppInput label={t('admin.descriptionAr')} value={itemForm.description_ar} onChangeText={(v) => setItemForm((p) => ({ ...p, description_ar: v }))} />
-        {renderImageField('itemForm', itemForm.image_url, (v) => setItemForm((p) => ({ ...p, image_url: v })))}
-        <AppInput label={t('admin.sortOrder')} value={itemForm.sort_order} onChangeText={(v) => setItemForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+        <View style={styles.formStack}>
+          <View style={styles.formGroup}>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.section')}</AppText>
+            <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
+              {sections.map((section) => (
+                <Pressable
+                  key={section.id}
+                  style={[styles.selectorChip, selectedSectionId === section.id ? styles.selectorChipActive : null]}
+                  onPress={() => setSelectedSectionId(section.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedSectionId === section.id }}
+                  accessibilityLabel={getLocalizedValue(section, language, 'name')}>
+                  <AppText variant="caption" numberOfLines={2}>{getLocalizedValue(section, language, 'name')}</AppText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <BilingualFieldGroup
+            labelEn={t('admin.nameEn')}
+            labelAr={t('admin.nameAr')}
+            valueEn={itemForm.name_en}
+            valueAr={itemForm.name_ar}
+            onChangeEn={(v) => setItemForm((p) => ({ ...p, name_en: v }))}
+            onChangeAr={(v) => setItemForm((p) => ({ ...p, name_ar: v }))}
+            helperText={missingName(itemForm.name_en, itemForm.name_ar)}
+          />
+          <View style={styles.formGroup}>
+            <AppInput label={t('admin.descriptionEn')} value={itemForm.description_en} onChangeText={(v) => setItemForm((p) => ({ ...p, description_en: v }))} />
+            <AppInput label={t('admin.descriptionAr')} value={itemForm.description_ar} onChangeText={(v) => setItemForm((p) => ({ ...p, description_ar: v }))} />
+          </View>
+          {renderImageField('itemForm', itemForm.image_url, (v) => setItemForm((p) => ({ ...p, image_url: v })))}
+          <View style={styles.formGroup}>
+            <AppInput label={t('admin.sortOrder')} value={itemForm.sort_order} onChangeText={(v) => setItemForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+          </View>
         <AppButton
           title={t('admin.createItem')}
           onPress={() => void createItem()}
           disabled={!selectedSectionId || !itemForm.name_en.trim() || !itemForm.name_ar.trim()}
         />
+        </View>
       </AdminPageSection>
       ) : null}
 
       {workflowStep === 'type' ? (
       <AdminPageSection title={t('admin.createType')}>
-        <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
-          {items.map((item) => (
-            <Pressable
-              key={item.id}
-              style={[styles.selectorChip, selectedItemId === item.id ? styles.selectorChipActive : null]}
-              onPress={() => setSelectedItemId(item.id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedItemId === item.id }}
-              accessibilityLabel={getLocalizedValue(item, language, 'name')}>
-              <AppText variant="caption" numberOfLines={1}>{getLocalizedValue(item, language, 'name')}</AppText>
-            </Pressable>
-          ))}
-        </View>
-        <BilingualFieldGroup
-          labelEn={t('admin.nameEn')}
-          labelAr={t('admin.nameAr')}
-          valueEn={typeForm.name_en}
-          valueAr={typeForm.name_ar}
-          onChangeEn={(v) => setTypeForm((p) => ({ ...p, name_en: v }))}
-          onChangeAr={(v) => setTypeForm((p) => ({ ...p, name_ar: v }))}
-          helperText={missingName(typeForm.name_en, typeForm.name_ar)}
-        />
-        {renderImageField('typeForm', typeForm.image_url, (v) => setTypeForm((p) => ({ ...p, image_url: v })))}
-        <AppInput label={t('admin.sortOrder')} value={typeForm.sort_order} onChangeText={(v) => setTypeForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+        <View style={styles.formStack}>
+          <View style={styles.formGroup}>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.item')}</AppText>
+            <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
+              {items.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.selectorChip, selectedItemId === item.id ? styles.selectorChipActive : null]}
+                  onPress={() => setSelectedItemId(item.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedItemId === item.id }}
+                  accessibilityLabel={getLocalizedValue(item, language, 'name')}>
+                  <AppText variant="caption" numberOfLines={2}>{getLocalizedValue(item, language, 'name')}</AppText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <BilingualFieldGroup
+            labelEn={t('admin.nameEn')}
+            labelAr={t('admin.nameAr')}
+            valueEn={typeForm.name_en}
+            valueAr={typeForm.name_ar}
+            onChangeEn={(v) => setTypeForm((p) => ({ ...p, name_en: v }))}
+            onChangeAr={(v) => setTypeForm((p) => ({ ...p, name_ar: v }))}
+            helperText={missingName(typeForm.name_en, typeForm.name_ar)}
+          />
+          {renderImageField('typeForm', typeForm.image_url, (v) => setTypeForm((p) => ({ ...p, image_url: v })))}
+          <View style={styles.formGroup}>
+            <AppInput label={t('admin.sortOrder')} value={typeForm.sort_order} onChangeText={(v) => setTypeForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+          </View>
         <AppButton
           title={t('admin.createType')}
           onPress={() => void createType()}
           disabled={!selectedItemId || !typeForm.name_en.trim() || !typeForm.name_ar.trim()}
         />
+        </View>
       </AdminPageSection>
       ) : null}
 
       {workflowStep === 'size' ? (
       <AdminPageSection title={t('admin.createSize')}>
-        <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
-          {itemTypes.map((itemType) => (
-            <Pressable
-              key={itemType.id}
-              style={[styles.selectorChip, selectedTypeId === itemType.id ? styles.selectorChipActive : null]}
-              onPress={() => setSelectedTypeId(itemType.id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedTypeId === itemType.id }}
-              accessibilityLabel={getLocalizedValue(itemType, language, 'name')}>
-              <AppText variant="caption" numberOfLines={1}>{getLocalizedValue(itemType, language, 'name')}</AppText>
-            </Pressable>
-          ))}
-        </View>
-        <BilingualFieldGroup
-          labelEn={t('admin.nameEn')}
-          labelAr={t('admin.nameAr')}
-          valueEn={sizeForm.name_en}
-          valueAr={sizeForm.name_ar}
-          onChangeEn={(v) => setSizeForm((p) => ({ ...p, name_en: v }))}
-          onChangeAr={(v) => setSizeForm((p) => ({ ...p, name_ar: v }))}
-          helperText={missingName(sizeForm.name_en, sizeForm.name_ar)}
-        />
-        {renderImageField('sizeForm', sizeForm.image_url, (v) => setSizeForm((p) => ({ ...p, image_url: v })))}
-        <AppInput label={t('admin.price')} value={sizeForm.price} onChangeText={(v) => setSizeForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
-        <AppInput label={t('admin.sortOrder')} value={sizeForm.sort_order} onChangeText={(v) => setSizeForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+        <View style={styles.formStack}>
+          <View style={styles.formGroup}>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.type')}</AppText>
+            <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
+              {itemTypes.map((itemType) => (
+                <Pressable
+                  key={itemType.id}
+                  style={[styles.selectorChip, selectedTypeId === itemType.id ? styles.selectorChipActive : null]}
+                  onPress={() => setSelectedTypeId(itemType.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedTypeId === itemType.id }}
+                  accessibilityLabel={getLocalizedValue(itemType, language, 'name')}>
+                  <AppText variant="caption" numberOfLines={2}>{getLocalizedValue(itemType, language, 'name')}</AppText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <BilingualFieldGroup
+            labelEn={t('admin.nameEn')}
+            labelAr={t('admin.nameAr')}
+            valueEn={sizeForm.name_en}
+            valueAr={sizeForm.name_ar}
+            onChangeEn={(v) => setSizeForm((p) => ({ ...p, name_en: v }))}
+            onChangeAr={(v) => setSizeForm((p) => ({ ...p, name_ar: v }))}
+            helperText={missingName(sizeForm.name_en, sizeForm.name_ar)}
+          />
+          {renderImageField('sizeForm', sizeForm.image_url, (v) => setSizeForm((p) => ({ ...p, image_url: v })))}
+          <View style={styles.formGroup}>
+            <AppInput label={t('admin.price')} value={sizeForm.price} onChangeText={(v) => setSizeForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
+            <AppInput label={t('admin.sortOrder')} value={sizeForm.sort_order} onChangeText={(v) => setSizeForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+          </View>
         <AppButton
           title={t('admin.createSize')}
           onPress={() => void createSize()}
           disabled={!selectedTypeId || !sizeForm.name_en.trim() || !sizeForm.name_ar.trim()}
         />
+        </View>
       </AdminPageSection>
       ) : null}
 
       {workflowStep === 'addon' ? (
       <AdminPageSection title={t('admin.createAddon')}>
-        <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
-          {sizes.map((size) => (
-            <Pressable
-              key={size.id}
-              style={[styles.selectorChip, selectedSizeId === size.id ? styles.selectorChipActive : null]}
-              onPress={() => setSelectedSizeId(size.id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedSizeId === size.id }}
-              accessibilityLabel={getLocalizedValue(size, language, 'name')}>
-              <AppText variant="caption" numberOfLines={1}>{getLocalizedValue(size, language, 'name')}</AppText>
-            </Pressable>
-          ))}
-        </View>
-        <BilingualFieldGroup
-          labelEn={t('admin.nameEn')}
-          labelAr={t('admin.nameAr')}
-          valueEn={addonForm.name_en}
-          valueAr={addonForm.name_ar}
-          onChangeEn={(v) => setAddonForm((p) => ({ ...p, name_en: v }))}
-          onChangeAr={(v) => setAddonForm((p) => ({ ...p, name_ar: v }))}
-          helperText={missingName(addonForm.name_en, addonForm.name_ar)}
-        />
-        {renderImageField('addonForm', addonForm.image_url, (v) => setAddonForm((p) => ({ ...p, image_url: v })))}
-        <AppInput label={t('admin.price')} value={addonForm.price} onChangeText={(v) => setAddonForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
-        <AppInput label={t('admin.sortOrder')} value={addonForm.sort_order} onChangeText={(v) => setAddonForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+        <View style={styles.formStack}>
+          <View style={styles.formGroup}>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.size')}</AppText>
+            <View style={[styles.selectorWrap, mirroredRow(isRTL)]}>
+              {sizes.map((size) => (
+                <Pressable
+                  key={size.id}
+                  style={[styles.selectorChip, selectedSizeId === size.id ? styles.selectorChipActive : null]}
+                  onPress={() => setSelectedSizeId(size.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedSizeId === size.id }}
+                  accessibilityLabel={getLocalizedValue(size, language, 'name')}>
+                  <AppText variant="caption" numberOfLines={2}>{getLocalizedValue(size, language, 'name')}</AppText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <BilingualFieldGroup
+            labelEn={t('admin.nameEn')}
+            labelAr={t('admin.nameAr')}
+            valueEn={addonForm.name_en}
+            valueAr={addonForm.name_ar}
+            onChangeEn={(v) => setAddonForm((p) => ({ ...p, name_en: v }))}
+            onChangeAr={(v) => setAddonForm((p) => ({ ...p, name_ar: v }))}
+            helperText={missingName(addonForm.name_en, addonForm.name_ar)}
+          />
+          {renderImageField('addonForm', addonForm.image_url, (v) => setAddonForm((p) => ({ ...p, image_url: v })))}
+          <View style={styles.formGroup}>
+            <AppInput label={t('admin.price')} value={addonForm.price} onChangeText={(v) => setAddonForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
+            <AppInput label={t('admin.sortOrder')} value={addonForm.sort_order} onChangeText={(v) => setAddonForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+          </View>
         <AppButton
           title={t('admin.createAddon')}
           onPress={() => void createAddon()}
           disabled={!selectedSizeId || !addonForm.name_en.trim() || !addonForm.name_ar.trim()}
         />
+        </View>
       </AdminPageSection>
       ) : null}
 
       {editTarget ? (
         <AdminPageSection title={`${t('admin.edit')} ${t(`admin.${editTarget.kind}`)}`}>
-          <ImageThumbnail uri={editForm.image_url} />
-          <BilingualFieldGroup
-            labelEn={t('admin.nameEn')}
-            labelAr={t('admin.nameAr')}
-            valueEn={editForm.name_en}
-            valueAr={editForm.name_ar}
-            onChangeEn={(v) => setEditForm((p) => ({ ...p, name_en: v }))}
-            onChangeAr={(v) => setEditForm((p) => ({ ...p, name_ar: v }))}
-            helperText={missingName(editForm.name_en, editForm.name_ar)}
-          />
-          {renderImageField('editForm', editForm.image_url, (v) => setEditForm((p) => ({ ...p, image_url: v })))}
-          {editTarget.kind === 'item' ? (
+          <View style={styles.formStack}>
             <BilingualFieldGroup
-              labelEn={t('admin.descriptionEn')}
-              labelAr={t('admin.descriptionAr')}
-              valueEn={editForm.description_en}
-              valueAr={editForm.description_ar}
-              onChangeEn={(v) => setEditForm((p) => ({ ...p, description_en: v }))}
-              onChangeAr={(v) => setEditForm((p) => ({ ...p, description_ar: v }))}
+              labelEn={t('admin.nameEn')}
+              labelAr={t('admin.nameAr')}
+              valueEn={editForm.name_en}
+              valueAr={editForm.name_ar}
+              onChangeEn={(v) => setEditForm((p) => ({ ...p, name_en: v }))}
+              onChangeAr={(v) => setEditForm((p) => ({ ...p, name_ar: v }))}
+              helperText={missingName(editForm.name_en, editForm.name_ar)}
             />
-          ) : null}
-          {editTarget.kind === 'size' || editTarget.kind === 'addon' ? (
-            <AppInput label={t('admin.price')} value={editForm.price} onChangeText={(v) => setEditForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
-          ) : null}
-          <AppInput label={t('admin.sortOrder')} value={editForm.sort_order} onChangeText={(v) => setEditForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+            {renderImageField('editForm', editForm.image_url, (v) => setEditForm((p) => ({ ...p, image_url: v })))}
+            {editTarget.kind === 'item' ? (
+              <View style={styles.formGroup}>
+                <BilingualFieldGroup
+                  labelEn={t('admin.descriptionEn')}
+                  labelAr={t('admin.descriptionAr')}
+                  valueEn={editForm.description_en}
+                  valueAr={editForm.description_ar}
+                  onChangeEn={(v) => setEditForm((p) => ({ ...p, description_en: v }))}
+                  onChangeAr={(v) => setEditForm((p) => ({ ...p, description_ar: v }))}
+                />
+              </View>
+            ) : null}
+            <View style={styles.formGroup}>
+              {editTarget.kind === 'size' || editTarget.kind === 'addon' ? (
+                <AppInput label={t('admin.price')} value={editForm.price} onChangeText={(v) => setEditForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
+              ) : null}
+              <AppInput label={t('admin.sortOrder')} value={editForm.sort_order} onChangeText={(v) => setEditForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
+            </View>
           <ActionRow compact={isCompact}>
             <AppButton
               title={t('admin.saveChanges')}
@@ -716,6 +784,7 @@ export const AdminMenuEditorScreen = () => {
             />
             <AppButton title={t('common.cancel')} variant="ghost" onPress={() => setEditTarget(null)} fullWidth={false} />
           </ActionRow>
+          </View>
         </AdminPageSection>
       ) : null}
     </AppShell>
@@ -724,11 +793,11 @@ export const AdminMenuEditorScreen = () => {
 
 const styles = StyleSheet.create({
   list: {
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   thumb: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
     borderRadius: theme.radius.sm,
     backgroundColor: theme.colors.sectionBackground,
   },
@@ -736,14 +805,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  nodeCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.secondaryCream,
+    padding: theme.spacing.sm,
     gap: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    paddingBottom: theme.spacing.sm,
+  },
+  nodeHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+  },
+  nodeMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
     paddingTop: theme.spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   rowLabelPressable: {
     flex: 1,
@@ -751,24 +832,50 @@ const styles = StyleSheet.create({
   },
   rowActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
+    alignItems: 'stretch',
+    gap: theme.spacing.sm,
+    width: '100%',
   },
   rowActionsCompact: {
-    width: '100%',
-    marginTop: theme.spacing.xs,
+    marginTop: 0,
+    flexDirection: 'column',
   },
-  compactActionFill: {
+  actionButton: {
     flex: 1,
+    minHeight: 40,
   },
-  level1: { marginStart: 12 },
-  level2: { marginStart: 24 },
-  level3: { marginStart: 36 },
-  level4: { marginStart: 48 },
-  level1Compact: { marginStart: 8 },
-  level2Compact: { marginStart: 16 },
-  level3Compact: { marginStart: 24 },
-  level4Compact: { marginStart: 32 },
+  level1: {
+    marginStart: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    paddingStart: theme.spacing.sm,
+    borderStartWidth: 2,
+    borderStartColor: theme.colors.primary100,
+  },
+  level2: {
+    marginStart: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+    paddingStart: theme.spacing.sm,
+    borderStartWidth: 2,
+    borderStartColor: theme.colors.primary100,
+  },
+  level3: {
+    marginStart: theme.spacing.xl,
+    marginTop: theme.spacing.sm,
+    paddingStart: theme.spacing.sm,
+    borderStartWidth: 2,
+    borderStartColor: theme.colors.primary100,
+  },
+  level4: {
+    marginStart: theme.spacing.xxl,
+    marginTop: theme.spacing.sm,
+    paddingStart: theme.spacing.sm,
+    borderStartWidth: 2,
+    borderStartColor: theme.colors.primary100,
+  },
+  level1Compact: { marginStart: theme.spacing.sm },
+  level2Compact: { marginStart: theme.spacing.md },
+  level3Compact: { marginStart: theme.spacing.lg },
+  level4Compact: { marginStart: theme.spacing.xl },
   contextRow: {
     marginTop: theme.spacing.sm,
     flexDirection: 'row',
@@ -778,29 +885,57 @@ const styles = StyleSheet.create({
   selectorWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
   selectorChip: {
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.pill,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
-    maxWidth: '48%',
+    minHeight: 36,
+    flexBasis: '48%',
+    justifyContent: 'center',
   },
   selectorChipActive: {
     borderColor: theme.colors.primary300,
     backgroundColor: theme.colors.secondaryCream,
-  },
-  actionButtonCompact: {
-    minHeight: 36,
-    paddingHorizontal: theme.spacing.sm,
   },
   flexButton: {
     flex: 1,
   },
   imageField: {
     gap: theme.spacing.sm,
+  },
+  imageFieldHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  formStack: {
+    gap: theme.spacing.lg,
+  },
+  formGroup: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.secondaryCream,
+    padding: theme.spacing.md,
+  },
+  expandToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  expandToggleSpacer: {
+    width: 32,
+    height: 32,
   },
 });

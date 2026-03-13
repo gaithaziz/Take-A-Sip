@@ -7,6 +7,7 @@ import { BottomTabBar } from '@/components/BottomTabBar';
 import { LoadingState } from '@/components/LoadingState';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { useAuth } from '@/state/AuthContext';
+import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 
 import { AuthScreen } from '@/screens/AuthScreen';
@@ -110,12 +111,14 @@ const AdminTabs = () => {
 };
 
 export const AppNavigator = () => {
+  const { language } = useLanguage();
   const { token, user, isLoading } = useAuth();
+  const appName = language === 'ar' ? 'خذلك شفة' : 'Take A Sip';
 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <LoadingState label="Take A Sip" />
+        <LoadingState label={appName} />
       </View>
     );
   }

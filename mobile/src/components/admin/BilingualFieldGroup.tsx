@@ -26,12 +26,16 @@ export const BilingualFieldGroup = ({
 }: BilingualFieldGroupProps) => {
   return (
     <View style={styles.wrapper}>
-      <AppInput label={labelEn} value={valueEn} onChangeText={onChangeEn} />
-      <AppInput label={labelAr} value={valueAr} onChangeText={onChangeAr} />
+      <View style={styles.fieldsCard}>
+        <AppInput label={labelEn} value={valueEn} onChangeText={onChangeEn} />
+        <AppInput label={labelAr} value={valueAr} onChangeText={onChangeAr} />
+      </View>
       {helperText ? (
-        <AppText variant="caption" color={theme.colors.warning}>
-          {helperText}
-        </AppText>
+        <View style={styles.helperWrap}>
+          <AppText variant="caption" color={theme.colors.warning}>
+            {helperText}
+          </AppText>
+        </View>
       ) : null}
     </View>
   );
@@ -40,5 +44,21 @@ export const BilingualFieldGroup = ({
 const styles = StyleSheet.create({
   wrapper: {
     gap: theme.spacing.md,
+  },
+  fieldsCard: {
+    gap: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.secondaryCream,
+    padding: theme.spacing.md,
+  },
+  helperWrap: {
+    borderWidth: 1,
+    borderColor: '#e7cba1',
+    backgroundColor: theme.colors.warningSurface,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
   },
 });
