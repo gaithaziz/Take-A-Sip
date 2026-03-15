@@ -9,7 +9,7 @@ import { theme } from '@/theme';
 import { mirroredRow } from '@/utils/layout';
 
 import { AppText } from './AppText';
-import { AdminTabParamList, MainTabParamList } from '@/navigation/types';
+import { AdminTabParamList, DriverTabParamList, MainTabParamList } from '@/navigation/types';
 
 const iconByRoute = {
   Home: 'home-outline',
@@ -19,7 +19,11 @@ const iconByRoute = {
   AdminMenu: 'restaurant-outline',
   AdminPromotions: 'pricetag-outline',
   AdminScheduling: 'calendar-outline',
+  AdminStaff: 'person-add-outline',
   AdminUsers: 'people-outline',
+  AdminDelivery: 'car-outline',
+  DriverOrders: 'bicycle-outline',
+  DriverProfile: 'person-outline',
 } as const;
 
 const iconByRouteFocused = {
@@ -30,7 +34,11 @@ const iconByRouteFocused = {
   AdminMenu: 'restaurant',
   AdminPromotions: 'pricetag',
   AdminScheduling: 'calendar',
+  AdminStaff: 'person-add',
   AdminUsers: 'people',
+  AdminDelivery: 'car',
+  DriverOrders: 'bicycle',
+  DriverProfile: 'person',
 } as const;
 
 export const BottomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
@@ -40,7 +48,7 @@ export const BottomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
   const compactLayout = state.routes.length <= 5;
 
   const items = state.routes.map((route, index) => {
-    const routeName = route.name as keyof (MainTabParamList & AdminTabParamList);
+    const routeName = route.name as keyof (MainTabParamList & AdminTabParamList & DriverTabParamList);
     const focused = state.index === index;
     const { options } = descriptors[route.key];
     const defaultLabel =

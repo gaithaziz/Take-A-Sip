@@ -33,6 +33,8 @@ const getOrderTotal = (order: OrderRead): number => {
 const toneByStatus: Record<OrderRead['status'], 'info' | 'success' | 'warning' | 'error'> = {
   NEW: 'warning',
   ACCEPTED: 'info',
+  ASSIGNED: 'info',
+  OUT_FOR_DELIVERY: 'info',
   COMPLETED: 'success',
   CANCELLED: 'error',
 };

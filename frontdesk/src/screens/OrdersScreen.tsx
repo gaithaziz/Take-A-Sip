@@ -153,7 +153,10 @@ export const OrdersScreen = ({
               items: t('orders.items'),
               phone: t('orders.phone'),
               time: t('orders.time'),
+              status: t('orders.status'),
               accept: t('orders.accept'),
+              needsAssignment: t('orders.needsAssignment'),
+              assignedTo: t('details.assignedTo'),
             }}
           />
         )}

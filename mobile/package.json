@@ -26,6 +26,7 @@
     "expo-asset": "~12.0.12",
     "expo-font": "~14.0.11",
     "expo-image-picker": "^55.0.11",
+    "expo-location": "^55.1.2",
     "expo-status-bar": "~3.0.9",
     "i18next": "^24.2.3",
     "npx": "^10.2.2",

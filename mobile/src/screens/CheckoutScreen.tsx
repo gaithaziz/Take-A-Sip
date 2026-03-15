@@ -2,6 +2,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 
 import { useCartPricing } from '@/hooks/useCartPricing';
 import { RootStackParamList } from '@/navigation/types';
@@ -24,18 +25,35 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const { discount, total } = useCartPricing(subtotal);
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryLat, setDeliveryLat] = useState('');
+  const [deliveryLng, setDeliveryLng] = useState('');
   const [deliveryAddressError, setDeliveryAddressError] = useState<string | undefined>(undefined);
+  const [deliveryLocationError, setDeliveryLocationError] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const insets = useSafeAreaInsets();
 
-  const isDeliveryAddressValid = orderType === 'pickup' || deliveryAddress.trim().length > 0;
-  const canPlaceOrder = Boolean(user) && items.length > 0 && isDeliveryAddressValid && !loading;
+  const hasDeliveryAddress = deliveryAddress.trim().length > 0;
+  const latValue = Number(deliveryLat);
+  const lngValue = Number(deliveryLng);
+  const hasDeliveryCoords =
+    Number.isFinite(latValue) &&
+    Number.isFinite(lngValue) &&
+    latValue >= -90 &&
+    latValue <= 90 &&
+    lngValue >= -180 &&
+    lngValue <= 180;
+  const isDeliveryValid = orderType === 'pickup' || (hasDeliveryAddress && hasDeliveryCoords);
+  const canPlaceOrder = Boolean(user) && items.length > 0 && isDeliveryValid && !loading;
 
   const payload = useMemo(
     () => ({
       order_type: orderType,
       delivery_address: orderType === 'delivery' && deliveryAddress.trim() ? deliveryAddress.trim() : undefined,
+      delivery_address_text: orderType === 'delivery' && deliveryAddress.trim() ? deliveryAddress.trim() : undefined,
+      delivery_lat: orderType === 'delivery' && hasDeliveryCoords ? latValue : undefined,
+      delivery_lng: orderType === 'delivery' && hasDeliveryCoords ? lngValue : undefined,
       notes: notes.trim() ? notes.trim() : undefined,
       items: items.map((item) => ({
         size_id: item.size.id,
@@ -43,7 +61,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
         addon_ids: item.addons.map((addon) => addon.id),
       })),
     }),
-    [deliveryAddress, items, notes, orderType],
+    [deliveryAddress, hasDeliveryCoords, items, latValue, lngValue, notes, orderType],
   );
 
   const placeOrder = async () => {
@@ -53,6 +71,15 @@ export const CheckoutScreen = ({ navigation }: Props) => {
 
     if (orderType === 'delivery' && !deliveryAddress.trim()) {
       setDeliveryAddressError(t('checkout.deliveryAddressRequired'));
+    } else {
+      setDeliveryAddressError(undefined);
+    }
+    if (orderType === 'delivery' && !hasDeliveryCoords) {
+      setDeliveryLocationError(t('checkout.deliveryLocationRequired'));
+    } else {
+      setDeliveryLocationError(undefined);
+    }
+    if (orderType === 'delivery' && (!deliveryAddress.trim() || !hasDeliveryCoords)) {
       return;
     }
 
@@ -66,6 +93,39 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       Alert.alert(t('common.appName'), getApiErrorMessage(e, t));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const useCurrentLocation = async () => {
+    try {
+      setLocating(true);
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert(t('common.appName'), t('checkout.locationPermissionRequired'));
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      setDeliveryLat(String(lat.toFixed(6)));
+      setDeliveryLng(String(lng.toFixed(6)));
+      setDeliveryLocationError(undefined);
+
+      const geocode = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (geocode.length > 0) {
+        const top = geocode[0];
+        const parts = [top.name, top.street, top.city, top.region, top.country].filter(Boolean);
+        if (parts.length > 0) {
+          setDeliveryAddress(parts.join(', '));
+          setDeliveryAddressError(undefined);
+        }
+      }
+    } catch {
+      Alert.alert(t('common.appName'), t('checkout.locationFetchFailed'));
+    } finally {
+      setLocating(false);
     }
   };
 
@@ -85,6 +145,14 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       orderType={orderType}
       deliveryAddress={deliveryAddress}
       deliveryAddressError={deliveryAddressError}
+      deliveryLatLabel={t('checkout.deliveryLat')}
+      deliveryLngLabel={t('checkout.deliveryLng')}
+      deliveryLat={deliveryLat}
+      deliveryLng={deliveryLng}
+      deliveryLocationError={deliveryLocationError}
+      useCurrentLocationLabel={t('checkout.useCurrentLocation')}
+      useCurrentLocationLoadingLabel={t('checkout.locating')}
+      locating={locating}
       notes={notes}
       subtotal={subtotal}
       discount={discount}
@@ -97,10 +165,14 @@ export const CheckoutScreen = ({ navigation }: Props) => {
         setOrderType(next);
         if (next === 'pickup') {
           setDeliveryAddressError(undefined);
+          setDeliveryLocationError(undefined);
           return;
         }
         if (!deliveryAddress.trim()) {
           setDeliveryAddressError(t('checkout.deliveryAddressRequired'));
+        }
+        if (!hasDeliveryCoords) {
+          setDeliveryLocationError(t('checkout.deliveryLocationRequired'));
         }
       }}
       onChangeDeliveryAddress={(value) => {
@@ -109,8 +181,23 @@ export const CheckoutScreen = ({ navigation }: Props) => {
           setDeliveryAddressError(undefined);
         }
       }}
+      onChangeDeliveryLat={(value) => {
+        setDeliveryLat(value);
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed >= -90 && parsed <= 90 && Number.isFinite(Number(deliveryLng))) {
+          setDeliveryLocationError(undefined);
+        }
+      }}
+      onChangeDeliveryLng={(value) => {
+        setDeliveryLng(value);
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed >= -180 && parsed <= 180 && Number.isFinite(Number(deliveryLat))) {
+          setDeliveryLocationError(undefined);
+        }
+      }}
       onChangeNotes={setNotes}
       onPlaceOrder={placeOrder}
+      onUseCurrentLocation={() => void useCurrentLocation()}
     />
   );
 };

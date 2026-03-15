@@ -1,10 +1,15 @@
 import {
+  AdminDashboardAnalyticsResponse,
+  AdminRatingSummaryResponse,
+  AdminRatingsResponse,
+  DeliveryDistanceBandListResponse,
   LoyaltyRuleListResponse,
   MenuEntityType,
   MenuResponse,
   MenuScheduleListResponse,
   OrderListResponse,
   PromotionListResponse,
+  ProvisionStaffResponse,
   RevenueSummaryResponse,
   UserModerationResponse,
   UsersListResponse,
@@ -174,14 +179,53 @@ export const adminService = {
     return data;
   },
 
-  async listUsers(search?: string, banned?: boolean | null): Promise<UsersListResponse> {
+  async listUsers(search?: string, banned?: boolean | null, role?: 'CLIENT' | 'ADMIN' | 'FRONTDESK' | 'DRIVER'): Promise<UsersListResponse> {
     const { data } = await http.get('/admin/users', {
       params: {
         search: search || undefined,
         banned: banned === null || banned === undefined ? undefined : banned,
+        role: role || undefined,
       },
     });
     return data;
+  },
+  async listDrivers(search?: string, isActive?: boolean): Promise<UsersListResponse> {
+    const { data } = await http.get('/admin/drivers', {
+      params: {
+        search: search || undefined,
+        is_active: isActive === undefined ? undefined : isActive,
+      },
+    });
+    return data;
+  },
+  async listAvailableDrivers(search?: string): Promise<UsersListResponse> {
+    const { data } = await http.get('/admin/drivers/available', {
+      params: {
+        search: search || undefined,
+      },
+    });
+    return data;
+  },
+  async listDeliveryDistanceBands(): Promise<DeliveryDistanceBandListResponse> {
+    const { data } = await http.get('/admin/delivery/distance-bands');
+    return data;
+  },
+  async createDeliveryDistanceBand(payload: {
+    min_distance_km: number;
+    max_distance_km: number;
+    fee_amount: number;
+    is_active: boolean;
+    sort_order: number;
+  }) {
+    const { data } = await http.post('/admin/delivery/distance-bands', payload);
+    return data;
+  },
+  async updateDeliveryDistanceBand(id: string, payload: Record<string, unknown>) {
+    const { data } = await http.patch(`/admin/delivery/distance-bands/${id}`, payload);
+    return data;
+  },
+  async deleteDeliveryDistanceBand(id: string) {
+    await http.delete(`/admin/delivery/distance-bands/${id}`);
   },
 
   async banUser(id: string, reason?: string): Promise<UserModerationResponse> {
@@ -193,6 +237,15 @@ export const adminService = {
     const { data } = await http.post(`/admin/users/${id}/unban`);
     return data;
   },
+  async provisionStaff(payload: {
+    first_name: string;
+    last_name: string;
+    phone_number: string;
+    role: 'ADMIN' | 'FRONTDESK' | 'DRIVER';
+  }): Promise<ProvisionStaffResponse> {
+    const { data } = await http.post('/admin/users/provision-staff', payload);
+    return data;
+  },
 
   async listOrders(status?: string): Promise<OrderListResponse> {
     const { data } = await http.get('/orders', {
@@ -200,6 +253,19 @@ export const adminService = {
         status: status || undefined,
       },
     });
+    return data;
+  },
+  async listLatestOrders(params?: {
+    status?: string[];
+    order_type?: 'pickup' | 'delivery';
+    limit?: number;
+    offset?: number;
+  }): Promise<OrderListResponse> {
+    const { data } = await http.get('/orders/latest', { params });
+    return data;
+  },
+  async assignDriverToOrder(orderId: string, driverUserId: string) {
+    const { data } = await http.post(`/orders/${orderId}/assign-driver`, { driver_user_id: driverUserId });
     return data;
   },
 
@@ -210,6 +276,18 @@ export const adminService = {
 
   async listRevenueSummary(): Promise<RevenueSummaryResponse> {
     const { data } = await http.get('/admin/analytics/revenue-summary');
+    return data;
+  },
+  async getDashboardAnalytics(): Promise<AdminDashboardAnalyticsResponse> {
+    const { data } = await http.get('/admin/analytics/dashboard');
+    return data;
+  },
+  async listRatings(limit = 10, offset = 0): Promise<AdminRatingsResponse> {
+    const { data } = await http.get('/admin/ratings', { params: { limit, offset } });
+    return data;
+  },
+  async getRatingsSummary(): Promise<AdminRatingSummaryResponse> {
+    const { data } = await http.get('/admin/ratings/summary');
     return data;
   },
 };

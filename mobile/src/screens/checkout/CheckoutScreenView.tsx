@@ -17,6 +17,8 @@ type CheckoutScreenViewProps = {
   pickupLabel: string;
   deliveryLabel: string;
   deliveryAddressLabel: string;
+  deliveryLatLabel: string;
+  deliveryLngLabel: string;
   notesLabel: string;
   subtotalLabel: string;
   discountLabel: string;
@@ -27,6 +29,12 @@ type CheckoutScreenViewProps = {
   orderType: CheckoutOrderType;
   deliveryAddress: string;
   deliveryAddressError?: string;
+  deliveryLat: string;
+  deliveryLng: string;
+  deliveryLocationError?: string;
+  useCurrentLocationLabel: string;
+  useCurrentLocationLoadingLabel: string;
+  locating: boolean;
   notes: string;
   subtotal: number;
   discount: number;
@@ -37,8 +45,11 @@ type CheckoutScreenViewProps = {
   onBack: () => void;
   onSelectOrderType: (next: CheckoutOrderType) => void;
   onChangeDeliveryAddress: (value: string) => void;
+  onChangeDeliveryLat: (value: string) => void;
+  onChangeDeliveryLng: (value: string) => void;
   onChangeNotes: (value: string) => void;
   onPlaceOrder: () => void;
+  onUseCurrentLocation: () => void;
 };
 
 export const CheckoutScreenView = ({
@@ -46,6 +57,8 @@ export const CheckoutScreenView = ({
   pickupLabel,
   deliveryLabel,
   deliveryAddressLabel,
+  deliveryLatLabel,
+  deliveryLngLabel,
   notesLabel,
   subtotalLabel,
   discountLabel,
@@ -56,6 +69,12 @@ export const CheckoutScreenView = ({
   orderType,
   deliveryAddress,
   deliveryAddressError,
+  deliveryLat,
+  deliveryLng,
+  deliveryLocationError,
+  useCurrentLocationLabel,
+  useCurrentLocationLoadingLabel,
+  locating,
   notes,
   subtotal,
   discount,
@@ -66,8 +85,11 @@ export const CheckoutScreenView = ({
   onBack,
   onSelectOrderType,
   onChangeDeliveryAddress,
+  onChangeDeliveryLat,
+  onChangeDeliveryLng,
   onChangeNotes,
   onPlaceOrder,
+  onUseCurrentLocation,
 }: CheckoutScreenViewProps) => {
   return (
     <View style={styles.page}>
@@ -126,12 +148,34 @@ export const CheckoutScreenView = ({
             {notesLabel}
           </AppText>
           {orderType === 'delivery' ? (
-            <AppInput
-              label={deliveryAddressLabel}
-              value={deliveryAddress}
-              onChangeText={onChangeDeliveryAddress}
-              error={deliveryAddressError}
-            />
+            <>
+              <AppInput
+                label={deliveryAddressLabel}
+                value={deliveryAddress}
+                onChangeText={onChangeDeliveryAddress}
+                error={deliveryAddressError}
+              />
+              <AppInput
+                label={deliveryLatLabel}
+                value={deliveryLat}
+                keyboardType="numeric"
+                onChangeText={onChangeDeliveryLat}
+                error={deliveryLocationError}
+              />
+              <AppInput
+                label={deliveryLngLabel}
+                value={deliveryLng}
+                keyboardType="numeric"
+                onChangeText={onChangeDeliveryLng}
+                error={deliveryLocationError}
+              />
+              <AppButton
+                title={locating ? useCurrentLocationLoadingLabel : useCurrentLocationLabel}
+                variant="secondary"
+                onPress={onUseCurrentLocation}
+                disabled={locating}
+              />
+            </>
           ) : null}
           <AppInput label={notesLabel} multiline value={notes} onChangeText={onChangeNotes} style={styles.notesInput} />
         </AppCard>

@@ -14,6 +14,9 @@ type Props = {
     phone: string;
     time: string;
     accept: string;
+    needsAssignment: string;
+    assignedTo: string;
+    status: string;
   };
 };
 
@@ -34,6 +37,9 @@ export const OrderCard = ({ order, onPress, onAccept, isRTL, labels }: Props) =>
         {labels.type}: {order.order_type}
       </Text>
       <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
+        {labels.status}: {order.status}
+      </Text>
+      <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
         {labels.items}: {itemsSummary || '-'}
       </Text>
       <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
@@ -42,9 +48,17 @@ export const OrderCard = ({ order, onPress, onAccept, isRTL, labels }: Props) =>
       <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
         {labels.time}: {formatTime(order.created_at)}
       </Text>
-      <Pressable style={styles.acceptButton} onPress={onAccept}>
-        <Text style={styles.acceptText}>{labels.accept}</Text>
-      </Pressable>
+      {order.status === 'NEW' ? (
+        <Pressable style={styles.acceptButton} onPress={onAccept}>
+          <Text style={styles.acceptText}>{labels.accept}</Text>
+        </Pressable>
+      ) : order.order_type === 'delivery' && order.status === 'ACCEPTED' && !order.assigned_driver_id ? (
+        <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>{labels.needsAssignment}</Text>
+      ) : order.assigned_driver_id ? (
+        <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
+          {labels.assignedTo}: {order.assigned_driver_name || order.assigned_driver_id}
+        </Text>
+      ) : null}
     </Pressable>
   );
 };

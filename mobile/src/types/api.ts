@@ -19,6 +19,7 @@ export type VerifyOtpPayload = {
   otp_code: string;
   first_name?: string;
   last_name?: string;
+  role?: 'CLIENT' | 'DRIVER';
 };
 
 export type TokenResponse = {
@@ -106,6 +107,9 @@ export type ActivePromotionsResponse = {
 export type CreateOrderPayload = {
   order_type: 'pickup' | 'delivery';
   delivery_address?: string;
+  delivery_address_text?: string;
+  delivery_lat?: number;
+  delivery_lng?: number;
   notes?: string;
   items: Array<{
     size_id: string;
@@ -129,6 +133,15 @@ export type OrderItemRead = {
   addons: OrderItemAddonRead[];
 };
 
+export type OrderRatingRead = {
+  id: string;
+  order_id: string;
+  user_id: string;
+  stars: number;
+  note?: string | null;
+  created_at: string;
+};
+
 export type OrderRead = {
   id: string;
   order_number: number;
@@ -136,11 +149,24 @@ export type OrderRead = {
   customer_name?: string | null;
   customer_phone?: string | null;
   delivery_address?: string | null;
-  status: 'NEW' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
+  delivery_address_text?: string | null;
+  delivery_latitude?: string | null;
+  delivery_longitude?: string | null;
+  delivery_distance_km?: string | null;
+  delivery_fee?: string | null;
+  delivery_distance_band_id?: string | null;
+  assigned_driver_id?: string | null;
+  assigned_driver_name?: string | null;
+  assigned_driver_phone?: string | null;
+  assigned_at?: string | null;
+  completed_at?: string | null;
+  google_maps_url?: string | null;
+  status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'COMPLETED' | 'CANCELLED';
   order_type: 'pickup' | 'delivery';
   created_at: string;
   notes: string | null;
   items: OrderItemRead[];
+  rating?: OrderRatingRead | null;
 };
 
 export type OrderListResponse = {
@@ -187,6 +213,15 @@ export type UserModerationResponse = {
   banned_reason: string | null;
 };
 
+export type ProvisionStaffResponse = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  role: 'ADMIN' | 'FRONTDESK' | 'DRIVER';
+  created: boolean;
+};
+
 export type LoyaltyRule = {
   id: string;
   required_orders: number;
@@ -210,4 +245,68 @@ export type RevenueSummaryResponse = {
   today_orders: number;
   week_orders: number;
   month_orders: number;
+};
+
+export type OrderAnalyticsResponse = {
+  total_orders_today: number;
+  pickup_orders_today: number;
+  delivery_orders_today: number;
+  pickup_delivery_ratio: string;
+  average_order_value: string;
+};
+
+export type DriverDeliveryAnalytics = {
+  driver_id: string;
+  driver_name: string;
+  deliveries_completed_today: number;
+};
+
+export type DriverAnalyticsResponse = {
+  deliveries_completed_today: number;
+  deliveries_per_driver: DriverDeliveryAnalytics[];
+};
+
+export type DeliveryDistanceBand = {
+  id: string;
+  min_distance_km: string;
+  max_distance_km: string;
+  fee_amount: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DeliveryDistanceBandListResponse = {
+  bands: DeliveryDistanceBand[];
+};
+
+export type SubmitOrderRatingPayload = {
+  stars: number;
+  note?: string;
+};
+
+export type AdminRatingReview = {
+  order_id: string;
+  stars: number;
+  note?: string | null;
+  customer_name: string;
+  created_at: string;
+};
+
+export type AdminRatingsResponse = {
+  ratings: AdminRatingReview[];
+};
+
+export type AdminRatingSummaryResponse = {
+  average_rating: number;
+  total_ratings: number;
+  stars_breakdown: Record<string, number>;
+};
+
+export type AdminDashboardAnalyticsResponse = {
+  revenue: RevenueSummaryResponse;
+  orders: OrderAnalyticsResponse;
+  ratings: AdminRatingSummaryResponse;
+  drivers: DriverAnalyticsResponse;
 };

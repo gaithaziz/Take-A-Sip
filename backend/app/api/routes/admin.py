@@ -9,6 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.deps import require_roles
+from app.schemas.delivery import (
+    DeliveryDistanceBandCreate,
+    DeliveryDistanceBandListResponse,
+    DeliveryDistanceBandRead,
+    DeliveryDistanceBandUpdate,
+)
 from app.models.menu import Addon, Item, ItemType, Section, Size
 from app.models.promotion import LoyaltyRule, Promotion, PromotionType
 from app.models.user import User, UserRole
@@ -36,7 +42,12 @@ from app.schemas.menu import (
     SizeUpdate,
     ToggleResponse,
 )
-from app.schemas.order import RevenueSummaryResponse
+from app.schemas.order import (
+    AdminDashboardAnalyticsResponse,
+    AdminRatingSummaryResponse,
+    AdminRatingsResponse,
+    RevenueSummaryResponse,
+)
 from app.schemas.promotion import (
     LoyaltyRuleCreate,
     LoyaltyRuleRead,
@@ -47,7 +58,14 @@ from app.schemas.promotion import (
     PromotionsListResponse,
     PromotionUpdate,
 )
-from app.schemas.user import BanUserRequest, UserModerationResponse, UserRead, UsersListResponse
+from app.schemas.user import (
+    BanUserRequest,
+    ProvisionStaffRequest,
+    ProvisionStaffResponse,
+    UserModerationResponse,
+    UserRead,
+    UsersListResponse,
+)
 from app.services.menu_service import (
     create_menu_schedule,
     delete_menu_schedule,
@@ -55,9 +73,20 @@ from app.services.menu_service import (
     list_menu_schedules,
     update_menu_schedule,
 )
+from app.services.delivery_service import (
+    create_distance_band,
+    delete_distance_band,
+    list_distance_bands,
+    update_distance_band,
+)
 from app.services.promotion_service import list_loyalty_rules, list_promotions
-from app.services.order_service import get_revenue_summary
-from app.services.user_service import ban_user, list_users, unban_user
+from app.services.order_service import (
+    get_admin_dashboard_analytics,
+    get_admin_rating_summary,
+    get_revenue_summary,
+    list_admin_ratings,
+)
+from app.services.user_service import ban_user, list_drivers, list_users, provision_staff_user, unban_user
 
 router = APIRouter(prefix='/admin', tags=['admin'])
 
@@ -627,10 +656,11 @@ async def toggle_loyalty_rule(
 async def list_users_endpoint(
     search: str | None = Query(default=None),
     banned: bool | None = Query(default=None),
+    role: str | None = Query(default=None, pattern='^(CLIENT|ADMIN|FRONTDESK|DRIVER)$'),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> UsersListResponse:
-    users_with_counts = await list_users(db, search=search, banned=banned)
+    users_with_counts = await list_users(db, search=search, banned=banned, role=role)
     return UsersListResponse(
         users=[
             UserRead(
@@ -649,6 +679,107 @@ async def list_users_endpoint(
             for user, order_count in users_with_counts
         ]
     )
+
+
+@router.get('/drivers', response_model=UsersListResponse)
+async def list_drivers_endpoint(
+    search: str | None = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.FRONTDESK)),
+) -> UsersListResponse:
+    drivers = await list_drivers(db=db, search=search, is_active=is_active, include_banned=True)
+    return UsersListResponse(
+        users=[
+            UserRead(
+                id=user.id,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                phone_number=user.phone_number,
+                role=user.role.value,
+                is_active=user.is_active,
+                is_banned=user.is_banned,
+                banned_at=user.banned_at,
+                banned_reason=user.banned_reason,
+                order_count=0,
+                created_at=user.created_at,
+            )
+            for user in drivers
+        ]
+    )
+
+
+@router.get('/drivers/available', response_model=UsersListResponse)
+async def list_available_drivers_endpoint(
+    search: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.FRONTDESK)),
+) -> UsersListResponse:
+    drivers = await list_drivers(db=db, search=search, is_active=True, include_banned=False)
+    return UsersListResponse(
+        users=[
+            UserRead(
+                id=user.id,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                phone_number=user.phone_number,
+                role=user.role.value,
+                is_active=user.is_active,
+                is_banned=user.is_banned,
+                banned_at=user.banned_at,
+                banned_reason=user.banned_reason,
+                order_count=0,
+                created_at=user.created_at,
+            )
+            for user in drivers
+        ]
+    )
+
+
+@router.get('/delivery/distance-bands', response_model=DeliveryDistanceBandListResponse)
+async def list_delivery_distance_bands_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> DeliveryDistanceBandListResponse:
+    bands = await list_distance_bands(db)
+    return DeliveryDistanceBandListResponse(bands=[DeliveryDistanceBandRead.model_validate(b) for b in bands])
+
+
+@router.post('/delivery/distance-bands', response_model=DeliveryDistanceBandRead)
+async def create_delivery_distance_band_endpoint(
+    payload: DeliveryDistanceBandCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> DeliveryDistanceBandRead:
+    band = await create_distance_band(
+        db=db,
+        min_distance_km=payload.min_distance_km,
+        max_distance_km=payload.max_distance_km,
+        fee_amount=payload.fee_amount,
+        is_active=payload.is_active,
+        sort_order=payload.sort_order,
+    )
+    return DeliveryDistanceBandRead.model_validate(band)
+
+
+@router.patch('/delivery/distance-bands/{band_id}', response_model=DeliveryDistanceBandRead)
+async def update_delivery_distance_band_endpoint(
+    band_id: UUID,
+    payload: DeliveryDistanceBandUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> DeliveryDistanceBandRead:
+    band = await update_distance_band(db, band_id, payload.model_dump(exclude_unset=True))
+    return DeliveryDistanceBandRead.model_validate(band)
+
+
+@router.delete('/delivery/distance-bands/{band_id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_delivery_distance_band_endpoint(
+    band_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> None:
+    await delete_distance_band(db, band_id)
 
 
 @router.post('/users/{user_id}/ban', response_model=UserModerationResponse)
@@ -672,6 +803,30 @@ async def unban_user_endpoint(
     return UserModerationResponse(id=user.id, is_banned=user.is_banned, banned_reason=user.banned_reason)
 
 
+@router.post('/users/provision-staff', response_model=ProvisionStaffResponse)
+async def provision_staff_endpoint(
+    payload: ProvisionStaffRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_roles(UserRole.ADMIN)),
+) -> ProvisionStaffResponse:
+    user, created = await provision_staff_user(
+        db,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+        phone_number=payload.phone_number,
+        role=payload.role,
+        actor_user_id=actor.id,
+    )
+    return ProvisionStaffResponse(
+        id=user.id,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        phone_number=user.phone_number,
+        role=user.role.value,
+        created=created,
+    )
+
+
 @router.get('/analytics/revenue-summary', response_model=RevenueSummaryResponse)
 async def revenue_summary_endpoint(
     db: AsyncSession = Depends(get_db),
@@ -679,3 +834,43 @@ async def revenue_summary_endpoint(
 ) -> RevenueSummaryResponse:
     summary = await get_revenue_summary(db)
     return RevenueSummaryResponse(**summary)
+
+
+@router.get('/analytics/dashboard', response_model=AdminDashboardAnalyticsResponse)
+async def dashboard_analytics_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> AdminDashboardAnalyticsResponse:
+    analytics = await get_admin_dashboard_analytics(db)
+    return AdminDashboardAnalyticsResponse(**analytics)
+
+
+@router.get('/ratings', response_model=AdminRatingsResponse)
+async def list_ratings_endpoint(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> AdminRatingsResponse:
+    ratings = await list_admin_ratings(db=db, limit=limit, offset=offset)
+    return AdminRatingsResponse(ratings=ratings)
+
+
+@router.get('/ratings/reviews', response_model=AdminRatingsResponse)
+async def list_rating_reviews_endpoint(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> AdminRatingsResponse:
+    ratings = await list_admin_ratings(db=db, limit=limit, offset=offset)
+    return AdminRatingsResponse(ratings=ratings)
+
+
+@router.get('/ratings/summary', response_model=AdminRatingSummaryResponse)
+async def ratings_summary_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> AdminRatingSummaryResponse:
+    summary = await get_admin_rating_summary(db)
+    return AdminRatingSummaryResponse(**summary)

@@ -16,7 +16,13 @@ export const getApiErrorMessage = (error: unknown, t: Translator): string => {
   }
 
   const status = error.response.status;
-  const detail = String((error.response.data as { detail?: unknown })?.detail ?? '').toLowerCase();
+  const payload = error.response.data as {
+    detail?: unknown;
+    message?: string;
+    error?: string;
+    details?: Array<{ message?: string }>;
+  };
+  const detail = String(payload.detail ?? payload.message ?? '').toLowerCase();
 
   if (status === 401) {
     return t('errors.authRequired');
@@ -32,6 +38,10 @@ export const getApiErrorMessage = (error: unknown, t: Translator): string => {
 
   if (status >= 500) {
     return t('errors.server');
+  }
+
+  if (payload.details?.[0]?.message) {
+    return String(payload.details[0].message);
   }
 
   if (detail.length > 0) {

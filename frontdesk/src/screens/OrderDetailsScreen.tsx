@@ -1,14 +1,16 @@
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { OrderRead } from '@/types/api';
+import { OrderRead, UserSummary } from '@/types/api';
 
 type Props = {
   order: OrderRead;
   onAccept: () => void;
+  drivers: UserSummary[];
+  onAssignDriver: (driverUserId: string) => Promise<void>;
 };
 
-export const OrderDetailsScreen = ({ order, onAccept }: Props) => {
+export const OrderDetailsScreen = ({ order, onAccept, drivers, onAssignDriver }: Props) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.dir() === 'rtl';
 
@@ -52,9 +54,32 @@ export const OrderDetailsScreen = ({ order, onAccept }: Props) => {
         </View>
       ))}
 
-      <Pressable style={styles.acceptButton} onPress={onAccept}>
-        <Text style={styles.acceptText}>{t('details.accept')}</Text>
-      </Pressable>
+      {order.status === 'NEW' ? (
+        <Pressable style={styles.acceptButton} onPress={onAccept}>
+          <Text style={styles.acceptText}>{t('details.accept')}</Text>
+        </Pressable>
+      ) : null}
+      {order.order_type === 'delivery' && order.status === 'ACCEPTED' ? (
+        <View style={styles.assignWrap}>
+          <Text style={[styles.sectionTitle, isRTL ? styles.rtlText : styles.ltrText]}>{t('details.assignDriver')}</Text>
+          {drivers.length === 0 ? (
+            <Text style={[styles.itemLine, isRTL ? styles.rtlText : styles.ltrText]}>{t('details.noDrivers')}</Text>
+          ) : (
+            drivers.map((driver) => (
+              <Pressable key={driver.id} style={styles.assignButton} onPress={() => void onAssignDriver(driver.id)}>
+                <Text style={styles.assignButtonText}>
+                  {driver.first_name} {driver.last_name}
+                </Text>
+              </Pressable>
+            ))
+          )}
+        </View>
+      ) : null}
+      {order.assigned_driver_id ? (
+        <Text style={[styles.itemLine, isRTL ? styles.rtlText : styles.ltrText]}>
+          {t('details.assignedTo')}: {order.assigned_driver_name || order.assigned_driver_id}
+        </Text>
+      ) : null}
     </ScrollView>
   );
 };
@@ -118,6 +143,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#0C2340',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  assignWrap: {
+    marginTop: 12,
+    gap: 8,
+  },
+  assignButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#0C2340',
+    backgroundColor: '#FFFFFF',
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  assignButtonText: {
+    color: '#0C2340',
+    fontWeight: '700',
   },
   acceptText: {
     color: '#FFFFFF',

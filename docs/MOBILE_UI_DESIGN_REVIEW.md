@@ -56,6 +56,12 @@ This document records the pre-implementation visual planning and critique for th
 - Status `BadgeChip`
 - Reorder CTA only as informational fallback if endpoint unsupported
 
+### Latest Orders
+- `AppShell`
+- Recent-first list
+- Compact `OrderCard` variants for quick scanning
+- Pull-to-refresh and empty/loading states
+
 ### Profile
 - `AppShell`
 - User summary
@@ -81,5 +87,5 @@ This document records the pre-implementation visual planning and critique for th
 - Tokenized theme (`colors`, `spacing`, `radius`, `typography`, `shadows`) created first.
 - Reusable component system built before screen assembly.
 - Empty/loading/error states included for major screens.
-- Bottom navigation limited to exactly: Home, Past Orders, Profile.
+- Bottom navigation limited to exactly: Home, Past Orders, Latest Orders, Profile.
 - Offer ribbon kept compact and hidden when no active offers.

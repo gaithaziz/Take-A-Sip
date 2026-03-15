@@ -1,4 +1,4 @@
-import { AcceptOrderResponse, OrderListResponse, OrderRead } from '@/types/api';
+import { AcceptOrderResponse, OrderListResponse, OrderRead, UsersListResponse } from '@/types/api';
 
 import { http } from './http';
 
@@ -9,12 +9,24 @@ export const orderService = {
     });
     return data.orders;
   },
+  listLatestOrders: async (params?: { status?: string; order_type?: 'pickup' | 'delivery'; limit?: number; offset?: number }) => {
+    const { data } = await http.get<OrderListResponse>('/orders/latest', { params });
+    return data.orders;
+  },
   getOrder: async (orderId: string) => {
     const { data } = await http.get<OrderRead>(`/orders/${orderId}`);
     return data;
   },
   acceptOrder: async (orderId: string) => {
     const { data } = await http.post<AcceptOrderResponse>(`/orders/${orderId}/accept`);
+    return data;
+  },
+  listAvailableDrivers: async (search?: string) => {
+    const { data } = await http.get<UsersListResponse>('/admin/drivers/available', { params: { search } });
+    return data.users;
+  },
+  assignDriver: async (orderId: string, driverUserId: string) => {
+    const { data } = await http.post<OrderRead>(`/orders/${orderId}/assign-driver`, { driver_user_id: driverUserId });
     return data;
   },
 };

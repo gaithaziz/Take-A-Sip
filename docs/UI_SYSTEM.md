@@ -369,11 +369,23 @@ Clean and minimal.
 
 ---
 
-# 17. Bottom Navigation
+# 17. Latest Orders Screen
+
+Display:
+- recent orders first
+- compact order card with status and timestamps
+- quick open to order details
+
+Should feel operational and easy to scan.
+
+---
+
+# 18. Bottom Navigation
 
 Must contain exactly:
 - Home
 - Past Orders
+- Latest Orders
 - Profile
 
 Style:
@@ -386,7 +398,7 @@ Style:
 
 ---
 
-# 18. Offer Ribbon
+# 19. Offer Ribbon
 
 Must:
 - rotate when multiple offers exist
@@ -402,7 +414,7 @@ Recommended:
 
 ---
 
-# 19. Status Badges
+# 20. Status Badges
 
 Use consistent badge styling.
 
@@ -415,7 +427,7 @@ Do not rely on color only; keep text labels visible.
 
 ---
 
-# 20. RTL Rules
+# 21. RTL Rules
 
 Arabic must support full RTL behavior.
 
@@ -427,7 +439,7 @@ Rules:
 
 ---
 
-# 21. Motion
+# 22. Motion
 
 Motion should be subtle only.
 
@@ -444,7 +456,7 @@ Avoid:
 
 ---
 
-# 22. Redesign Constraint
+# 23. Redesign Constraint
 
 This redesign is presentation-only.
 

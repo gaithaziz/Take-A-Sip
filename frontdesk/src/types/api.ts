@@ -3,7 +3,7 @@ export type AuthUser = {
   first_name: string;
   last_name: string;
   phone_number: string;
-  role: 'CLIENT' | 'ADMIN' | 'FRONTDESK';
+  role: 'CLIENT' | 'ADMIN' | 'FRONTDESK' | 'DRIVER';
 };
 
 export type SendOtpPayload = {
@@ -47,7 +47,13 @@ export type OrderRead = {
   customer_name?: string | null;
   customer_phone?: string | null;
   delivery_address?: string | null;
-  status: 'NEW' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
+  delivery_address_text?: string | null;
+  delivery_latitude?: string | null;
+  delivery_longitude?: string | null;
+  assigned_driver_id?: string | null;
+  assigned_driver_name?: string | null;
+  assigned_driver_phone?: string | null;
+  status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'COMPLETED' | 'CANCELLED';
   order_type: 'pickup' | 'delivery';
   created_at: string;
   notes: string | null;
@@ -64,8 +70,26 @@ export type AcceptOrderResponse = {
 };
 
 export type FrontdeskSocketMessage = {
-  event: 'order.created' | 'order.accepted';
+  event: 'order.created' | 'order.accepted' | 'order.assigned';
   order_id: string;
   order_number: number;
   status: string;
+};
+
+export type UserSummary = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  role: string;
+  is_active: boolean;
+  is_banned: boolean;
+  banned_at: string | null;
+  banned_reason: string | null;
+  order_count: number;
+  created_at: string;
+};
+
+export type UsersListResponse = {
+  users: UserSummary[];
 };

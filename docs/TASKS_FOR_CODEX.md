@@ -64,3 +64,53 @@ Planned scope:
 - schedule menu
 - user list
 - ban/unban users
+
+---
+
+## Phase 5 - Delivery Operations and Feedback
+
+Status: Not started
+
+Planned scope:
+- delivery address capture with map coordinates + readable address
+- delivery workflow statuses in backend and apps
+- manual driver assignment by frontdesk/admin
+- driver role OTP login
+- driver assigned orders list + order detail + Google Maps open link
+- admin-managed distance bands and distance-based delivery fee calculation
+- latest orders sections for relevant roles
+- post-completion order rating (stars + optional note)
+- admin ratings summary and detailed reviews
+
+Dependencies:
+1. DB migrations for delivery/rating entities and order status updates.
+2. API updates and RBAC for new delivery/driver/rating endpoints.
+3. Frontend role-based UI surfaces (client/frontdesk/admin/driver).
+
+Production readiness checklist (must be complete before implementation starts):
+1. Finalize order status transition matrix and per-role permissions.
+2. Finalize distance calculation policy (Haversine from store coordinates).
+3. Ensure `store_settings` and distance-band constraints are documented and migrated.
+4. Define pagination/filter contracts for latest-orders and reviews endpoints.
+5. Define driver assignment constraints and reassignment rules.
+
+---
+
+## Phase 7 - Production Reliability and Operations
+
+Status: Complete
+
+Delivered:
+- admin dashboard analytics expansion (`/admin/analytics/dashboard`)
+- structured backend logging with request IDs
+- consistent backend error response envelope
+- backend query/index performance improvements
+- client/admin/driver order visibility polish
+- admin-driven staff provisioning flow (`/admin/users/provision-staff` + admin staff tab)
+- security checks and integration coverage for key guards
+- operational metrics endpoint (`/metrics`)
+
+Release checkpoint:
+1. API contract freeze for existing order/auth/cart/navigation flows.
+2. Run `backend/scripts/smoke_phase7_staff_provisioning.py` in pre-release.
+3. Ensure production `.env` uses non-default secrets/providers.

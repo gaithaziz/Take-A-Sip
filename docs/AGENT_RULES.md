@@ -41,7 +41,8 @@ The agent must not:
 
 - invent extra user roles
 - invent online payment flows
-- invent driver systems
+- invent marketplace dispatch models
+- invent live driver tracking
 - invent dark mode
 - invent unsupported order statuses
 - replace the stack with different technologies
@@ -97,41 +98,37 @@ Backend foundation:
 - i18n-ready schema fields
 
 ## Phase 2
-Menu system:
-- hierarchy models
-- menu read API
-- admin CRUD
-- manual on/off toggles
-- scheduled availability
+Client mobile app:
+- OTP auth UX
+- menu browsing
+- cart and checkout
+- order history
+- profile and language toggle
 
 ## Phase 3
-Ordering:
-- cart validation
-- order creation
-- order snapshots
-- order history
-- order statuses
+Frontdesk app (Sunmi):
+- realtime incoming orders
+- order acceptance
+- local receipt printing
+- reconnect and missed-order recovery
 
 ## Phase 4
-Realtime:
-- websocket infrastructure
-- Sunmi/frontdesk order feed
-- reconnect logic
-- missed-order recovery
+Admin app:
+- menu management
+- promotions and loyalty
+- menu scheduling
+- user moderation
 
 ## Phase 5
-Frontdesk printing:
-- order acceptance
-- print formatting
-- Sunmi printer integration
+Delivery and feedback:
+- delivery address + coordinates support
+- distance-band delivery pricing
+- manual driver assignment
+- driver assigned-orders workflows
+- latest orders feeds
+- completed-order ratings and admin review analytics
 
 ## Phase 6
-Promotions and loyalty:
-- first-order reward
-- repeated-order reward
-- offers ribbon
-
-## Phase 7
 UI polish and testing:
 - Arabic/English toggle
 - RTL support
@@ -169,6 +166,9 @@ The system supports these order statuses only:
 
 - NEW
 - ACCEPTED
+- ASSIGNED_TO_DRIVER
+- OUT_FOR_DELIVERY
+- DELIVERED
 - COMPLETED
 - CANCELLED
 
@@ -177,6 +177,7 @@ The agent must not add additional statuses unless explicitly instructed.
 Frontdesk permissions:
 - view incoming orders
 - accept orders
+- assign drivers to delivery orders
 
 Admin permissions:
 - full menu/inventory control
@@ -186,13 +187,53 @@ Admin permissions:
 - view users
 - ban users
 - unban users
+- manage delivery distance bands
+- assign drivers to delivery orders
+- view ratings summary and detailed reviews
 
 Client permissions:
 - browse menu
 - place order
 - view past orders
+- view latest own orders
 - manage profile
 - authenticate via OTP
+
+Driver permissions:
+- authenticate via OTP
+- view assigned/latest delivery orders
+- view delivery order details (customer name, phone, destination)
+- open destination in Google Maps
+- update assigned delivery order statuses
+
+---
+
+# 6.1 Delivery and Rating Rules
+
+Delivery assignment:
+- must be manual by frontdesk or admin
+- must not auto-dispatch drivers
+
+Delivery pricing:
+- must use admin-editable distance bands
+- backend calculates delivery fee from configured bands
+
+Delivery location data:
+- store `delivery_address_readable`
+- store `delivery_latitude`
+- store `delivery_longitude`
+
+Ratings:
+- allowed only when order status is `COMPLETED`
+- one rating per order
+- includes stars and optional note
+
+Status transitions (must be validated server-side):
+- NEW -> ACCEPTED | CANCELLED
+- ACCEPTED -> ASSIGNED_TO_DRIVER | COMPLETED | CANCELLED
+- ASSIGNED_TO_DRIVER -> OUT_FOR_DELIVERY | CANCELLED
+- OUT_FOR_DELIVERY -> DELIVERED | CANCELLED
+- DELIVERED -> COMPLETED
 
 ---
 
@@ -201,10 +242,10 @@ Client permissions:
 The menu hierarchy is:
 
 Section
-→ Item
-→ Type of Item
-→ Size
-→ Add-on
+-> Item
+-> Type of Item
+-> Size
+-> Add-on
 
 The agent must preserve this exact hierarchy in schema, API, and UI.
 
@@ -254,7 +295,9 @@ The agent must build auth around phone-number OTP.
 
 The agent must not replace this with email/password auth for clients.
 
-Admin/frontdesk auth may use a simpler staff auth flow if needed, but must remain separate from client OTP flow.
+Driver auth must use phone-number OTP.
+
+Admin/frontdesk auth may use a simpler staff auth flow if needed, but must remain separate from client/driver OTP flows.
 
 ---
 
@@ -291,6 +334,7 @@ The agent must follow these UI rules:
 - bottom navigation for client app:
   - Home
   - Past Orders
+  - Latest Orders
   - Profile
 - offers ribbon at top of Home
 - ribbon hidden when no active offers exist
@@ -308,6 +352,7 @@ The Sunmi frontdesk app must:
 - connect to backend in real-time
 - display incoming orders clearly
 - allow frontdesk to accept an order
+- allow frontdesk to assign drivers for delivery orders
 - print the receipt after acceptance
 - recover missed orders after reconnect
 
@@ -333,6 +378,13 @@ For mobile and admin APIs:
 - prefer stable response contracts
 - keep naming clear
 - avoid over-nesting response payloads unless useful
+- include pagination for list endpoints (`limit`, `offset`)
+- define role-based access rules explicitly per endpoint
+
+For delivery APIs:
+- enforce the documented status transition matrix
+- enforce manual assignment constraints
+- enforce delivery fee calculation from distance bands only
 
 ---
 
@@ -457,3 +509,4 @@ Rules:
 - banned users cannot log in successfully
 - banned users cannot place new orders
 - banning/unbanning should be auditable if practical
+

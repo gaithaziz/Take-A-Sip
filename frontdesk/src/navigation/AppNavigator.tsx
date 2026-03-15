@@ -57,6 +57,13 @@ export const AppNavigator = () => {
           {({ route, navigation }) => (
             <OrderDetailsScreen
               order={realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order}
+              drivers={realtime.availableDrivers}
+              onAssignDriver={async (driverUserId) => {
+                const current =
+                  realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
+                await realtime.assignDriver(current.id, driverUserId);
+                navigation.goBack();
+              }}
               onAccept={async () => {
                 const current =
                   realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;

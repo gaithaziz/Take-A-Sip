@@ -170,3 +170,48 @@ async def test_admin_users_list_includes_order_count(client, db_session):
     users = users_response.json()['users']
     lina_row = next(row for row in users if row['id'] == str(customer.id))
     assert lina_row['order_count'] == 1
+
+
+async def test_admin_can_provision_staff_accounts(client, db_session):
+    admin = User(
+        first_name='Admin',
+        last_name='Owner',
+        phone_number='+962790001111',
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_banned=False,
+    )
+    db_session.add(admin)
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(admin.id), admin.role.value)}"}
+
+    create_response = await client.post(
+        '/admin/users/provision-staff',
+        headers=headers,
+        json={
+            'first_name': 'Driver',
+            'last_name': 'One',
+            'phone_number': '+962790001112',
+            'role': 'DRIVER',
+        },
+    )
+    assert create_response.status_code == 200
+    created = create_response.json()
+    assert created['created'] is True
+    assert created['role'] == 'DRIVER'
+
+    update_response = await client.post(
+        '/admin/users/provision-staff',
+        headers=headers,
+        json={
+            'first_name': 'Desk',
+            'last_name': 'Agent',
+            'phone_number': '+962790001112',
+            'role': 'FRONTDESK',
+        },
+    )
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert updated['created'] is False
+    assert updated['role'] == 'FRONTDESK'

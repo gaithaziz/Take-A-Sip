@@ -22,15 +22,22 @@ import { AdminMenuEditorScreen } from '@/screens/admin/AdminMenuEditorScreen';
 import { AdminPromotionsScreen } from '@/screens/admin/AdminPromotionsScreen';
 import { AdminLoyaltyRulesScreen } from '@/screens/admin/AdminLoyaltyRulesScreen';
 import { AdminSchedulingScreen } from '@/screens/admin/AdminSchedulingScreen';
+import { AdminStaffScreen } from '@/screens/admin/AdminStaffScreen';
 import { AdminUsersScreen } from '@/screens/admin/AdminUsersScreen';
 import { AdminProfileScreen } from '@/screens/admin/AdminProfileScreen';
 import { AdminUserDetailsScreen } from '@/screens/admin/AdminUserDetailsScreen';
+import { AdminDeliveryScreen } from '@/screens/admin/AdminDeliveryScreen';
+import { DriverOrdersScreen } from '@/screens/driver/DriverOrdersScreen';
+import { DriverProfileScreen } from '@/screens/driver/DriverProfileScreen';
+import { DriverOrderDetailsScreen } from '@/screens/driver/DriverOrderDetailsScreen';
+import { ClientOrderDetailsScreen } from '@/screens/ClientOrderDetailsScreen';
 
-import { AdminTabParamList, MainTabParamList, RootStackParamList } from './types';
+import { AdminTabParamList, DriverTabParamList, MainTabParamList, RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
 const AdminTabsNavigator = createBottomTabNavigator<AdminTabParamList>();
+const DriverTabsNavigator = createBottomTabNavigator<DriverTabParamList>();
 
 const navTheme: Theme = {
   dark: false,
@@ -102,11 +109,41 @@ const AdminTabs = () => {
         options={{ title: t('tabs.adminScheduling') }}
       />
       <AdminTabsNavigator.Screen
+        name="AdminStaff"
+        component={AdminStaffScreen}
+        options={{ title: t('tabs.adminStaff') }}
+      />
+      <AdminTabsNavigator.Screen
         name="AdminUsers"
         component={AdminUsersScreen}
         options={{ title: t('tabs.adminUsers') }}
       />
+      <AdminTabsNavigator.Screen
+        name="AdminDelivery"
+        component={AdminDeliveryScreen}
+        options={{ title: t('tabs.adminDelivery') }}
+      />
     </AdminTabsNavigator.Navigator>
+  );
+};
+
+const DriverTabs = () => {
+  const { t } = useAppTranslation();
+  return (
+    <DriverTabsNavigator.Navigator
+      tabBar={(props) => <BottomTabBar {...props} />}
+      screenOptions={{ headerShown: false, lazy: true }}>
+      <DriverTabsNavigator.Screen
+        name="DriverOrders"
+        component={DriverOrdersScreen}
+        options={{ title: t('tabs.driverOrders') }}
+      />
+      <DriverTabsNavigator.Screen
+        name="DriverProfile"
+        component={DriverProfileScreen}
+        options={{ title: t('tabs.driverProfile') }}
+      />
+    </DriverTabsNavigator.Navigator>
   );
 };
 
@@ -135,9 +172,15 @@ export const AppNavigator = () => {
             <Stack.Screen name="AdminProfile" component={AdminProfileScreen} />
             <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
           </>
+        ) : user?.role === 'DRIVER' ? (
+          <>
+            <Stack.Screen name="DriverTabs" component={DriverTabs} />
+            <Stack.Screen name="DriverOrderDetails" component={DriverOrderDetailsScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="ClientOrderDetails" component={ClientOrderDetailsScreen} />
             <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
             <Stack.Screen name="Cart" component={CartScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />

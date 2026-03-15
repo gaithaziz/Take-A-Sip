@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildReceiptText } from '@/printer/receiptFormatter';
 import { sunmiPrinter } from '@/printer/sunmiPrinter';
 import { orderService } from '@/services/orderService';
-import { FrontdeskSocketMessage, OrderRead } from '@/types/api';
+import { FrontdeskSocketMessage, OrderRead, UserSummary } from '@/types/api';
 import { FrontdeskSocket } from '@/websocket/frontdeskSocket';
 
 const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
@@ -18,6 +18,7 @@ export const useFrontdeskOrders = (token: string | null) => {
   const isMountedRef = useRef(true);
   const [orders, setOrders] = useState<OrderRead[]>([]);
   const [failedPrints, setFailedPrints] = useState<FailedPrintJob[]>([]);
+  const [availableDrivers, setAvailableDrivers] = useState<UserSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'disconnected'>(
     'connecting',
@@ -34,11 +35,15 @@ export const useFrontdeskOrders = (token: string | null) => {
 
   const loadNewOrders = useCallback(async () => {
     try {
-      const newOrders = await orderService.listNewOrders();
+      const newOrders = await orderService.listLatestOrders({ limit: 50 });
       if (!isMountedRef.current) {
         return;
       }
       setOrders(newOrders);
+      const drivers = await orderService.listAvailableDrivers();
+      if (isMountedRef.current) {
+        setAvailableDrivers(drivers);
+      }
     } catch {
       if (!isMountedRef.current) {
         return;
@@ -62,11 +67,12 @@ export const useFrontdeskOrders = (token: string | null) => {
       return;
     }
 
-    if (message.event === 'order.accepted') {
+    if (message.event === 'order.accepted' || message.event === 'order.assigned') {
       if (!isMountedRef.current) {
         return;
       }
-      setOrders((prev) => prev.filter((item) => item.id !== message.order_id));
+      const fullOrder = await orderService.getOrder(message.order_id);
+      setOrders((prev) => [fullOrder, ...prev.filter((item) => item.id !== message.order_id)]);
     }
   }, []);
 
@@ -147,7 +153,16 @@ export const useFrontdeskOrders = (token: string | null) => {
         ...prev.filter((job) => job.order.id !== order.id),
       ]);
     }
-    setOrders((prev) => prev.filter((item) => item.id !== order.id));
+    if (order.order_type === 'delivery') {
+      try {
+        const updated = await orderService.getOrder(order.id);
+        setOrders((prev) => [updated, ...prev.filter((item) => item.id !== order.id)]);
+      } catch {
+        setOrders((prev) => prev.filter((item) => item.id !== order.id));
+      }
+    } else {
+      setOrders((prev) => prev.filter((item) => item.id !== order.id));
+    }
   }, []);
 
   const reprintFailedOrder = useCallback(async (orderId: string) => {
@@ -173,6 +188,16 @@ export const useFrontdeskOrders = (token: string | null) => {
 
   const dismissFailedOrder = useCallback((orderId: string) => {
     setFailedPrints((prev) => prev.filter((item) => item.order.id !== orderId));
+  }, []);
+
+  const assignDriver = useCallback(async (orderId: string, driverUserId: string) => {
+    try {
+      const updated = await orderService.assignDriver(orderId, driverUserId);
+      setOrders((prev) => [updated, ...prev.filter((item) => item.id !== orderId)]);
+      setBanner(`Driver assigned to #${updated.order_number}`);
+    } catch {
+      setBanner('Failed to assign driver');
+    }
   }, []);
 
   const printTestReceipt = useCallback(async () => {
@@ -212,6 +237,8 @@ export const useFrontdeskOrders = (token: string | null) => {
       printTestReceipt,
       reprintFailedOrder,
       dismissFailedOrder,
+      availableDrivers,
+      assignDriver,
       refresh: loadNewOrders,
     }),
     [
@@ -219,6 +246,8 @@ export const useFrontdeskOrders = (token: string | null) => {
       banner,
       connectionState,
       dismissFailedOrder,
+      availableDrivers,
+      assignDriver,
       failedPrints,
       isLoading,
       loadNewOrders,

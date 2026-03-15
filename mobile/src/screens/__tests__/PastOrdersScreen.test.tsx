@@ -40,13 +40,13 @@ jest.mock('@/state/LanguageContext', () => ({
 
 jest.mock('@/services/orderService', () => ({
   orderService: {
-    getMyOrders: jest.fn(),
+    getMyLatest: jest.fn(),
   },
 }));
 
 describe('PastOrdersScreen', () => {
   it('renders empty state when there are no orders', async () => {
-    (orderService.getMyOrders as jest.Mock).mockResolvedValue({ orders: [] });
+    (orderService.getMyLatest as jest.Mock).mockResolvedValue({ orders: [] });
 
     const { getByText } = render(
       <PastOrdersScreen navigation={{ getParent: () => ({ navigate: jest.fn() }) } as never} route={{} as never} />,

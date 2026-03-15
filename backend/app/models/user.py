@@ -11,6 +11,7 @@ class UserRole(str, enum.Enum):
     CLIENT = 'CLIENT'
     ADMIN = 'ADMIN'
     FRONTDESK = 'FRONTDESK'
+    DRIVER = 'DRIVER'
 
 
 class User(UUIDPrimaryKeyMixin, TimestampCreatedMixin, Base):
@@ -27,4 +28,5 @@ class User(UUIDPrimaryKeyMixin, TimestampCreatedMixin, Base):
     banned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     banned_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    orders = relationship('Order', back_populates='user')
+    orders = relationship('Order', back_populates='user', foreign_keys='Order.user_id')
+    order_ratings = relationship('OrderRating', back_populates='user', foreign_keys='OrderRating.user_id')

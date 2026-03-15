@@ -32,3 +32,19 @@ class UserModerationResponse(AppBaseModel):
     id: UUID
     is_banned: bool
     banned_reason: str | None
+
+
+class ProvisionStaffRequest(AppBaseModel):
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    phone_number: str = Field(min_length=6, max_length=30)
+    role: str = Field(pattern='^(ADMIN|FRONTDESK|DRIVER)$')
+
+
+class ProvisionStaffResponse(AppBaseModel):
+    id: UUID
+    first_name: str
+    last_name: str
+    phone_number: str
+    role: str
+    created: bool
