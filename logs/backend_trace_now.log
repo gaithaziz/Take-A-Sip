@@ -1,0 +1,320 @@
+﻿INFO:     172.19.0.1:45986 - "POST /orders/4cf2cfca-26b4-42c4-bfd9-eb4eb086de75/accept HTTP/1.1" 200 OK
+docker : {"ts": "2026-03-17T23:51:54.652419+00:00", "level": "INFO", "logger": "app.services.order_service", 
+"message": "order.accepted", "event": "order.accepted", "order_id": "4cf2cfca-26b4-42c4-bfd9-eb4eb086de75", 
+"order_number": 43, "status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": 
+"FRONTDESK"}
+At line:2 char:70
++ ... race_now.log'; docker logs --since 6m take_a_sip_backend 2>&1 | Out-F ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ({"ts": "2026-03...": "FRONTDESK"}:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+INFO:     172.19.0.1:45986 - "GET /orders/4cf2cfca-26b4-42c4-bfd9-eb4eb086de75 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/9a3ddae0-7198-4833-af2e-8e54ce769877/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/9a3ddae0-7198-4833-af2e-8e54ce769877 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/e093b4ca-52f9-42ea-a720-14eae52b9a31/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/e093b4ca-52f9-42ea-a720-14eae52b9a31 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/70017e16-0b6d-4267-ba81-c2cc33790983/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/70017e16-0b6d-4267-ba81-c2cc33790983 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/004489c7-e895-468c-b64d-60dca5e61781/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/004489c7-e895-468c-b64d-60dca5e61781 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/bbf10c45-0991-4b4b-9b3c-b1a48a08cb4c/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/bbf10c45-0991-4b4b-9b3c-b1a48a08cb4c HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/77e36ea6-b59a-49a0-ae15-5df09e44ffc2/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/77e36ea6-b59a-49a0-ae15-5df09e44ffc2 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/9da0c9a7-7fa3-4ae8-aa35-8fc5d300af0d/accept HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:51:54.659964+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/4cf2cfca-26b4-42c4-bfd9-eb4eb086de75/accept", "status_code": 200, 
+"elapsed_ms": 25.36, "request_id": "9856046e-e696-41e4-bc58-a9f95ca7a5bc"}
+{"ts": "2026-03-17T23:51:54.694032+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/4cf2cfca-26b4-42c4-bfd9-eb4eb086de75", "status_code": 200, 
+"elapsed_ms": 8.59, "request_id": "f1a756c1-7991-41f6-9275-af2175a7bc77"}
+{"ts": "2026-03-17T23:51:57.942733+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "9a3ddae0-7198-4833-af2e-8e54ce769877", "order_number": 42, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:51:57.950273+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/9a3ddae0-7198-4833-af2e-8e54ce769877/accept", "status_code": 200, 
+"elapsed_ms": 27.65, "request_id": "b271ff51-a176-4283-afbb-5dc7456433dc"}
+{"ts": "2026-03-17T23:51:57.988234+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/9a3ddae0-7198-4833-af2e-8e54ce769877", "status_code": 200, 
+"elapsed_ms": 8.33, "request_id": "0b3af245-636a-430c-8d38-1e70352e6329"}
+{"ts": "2026-03-17T23:52:02.600954+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "e093b4ca-52f9-42ea-a720-14eae52b9a31", "order_number": 40, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:02.606534+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/e093b4ca-52f9-42ea-a720-14eae52b9a31/accept", "status_code": 200, 
+"elapsed_ms": 24.4, "request_id": "bedb30bf-84bb-4977-9319-d9bd5693591e"}
+{"ts": "2026-03-17T23:52:02.628005+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/e093b4ca-52f9-42ea-a720-14eae52b9a31", "status_code": 200, 
+"elapsed_ms": 7.06, "request_id": "6ad7688d-df22-4ddb-b68d-2c21d37cb6a1"}
+{"ts": "2026-03-17T23:52:05.522059+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "70017e16-0b6d-4267-ba81-c2cc33790983", "order_number": 38, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:05.527612+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/70017e16-0b6d-4267-ba81-c2cc33790983/accept", "status_code": 200, 
+"elapsed_ms": 16.7, "request_id": "9c794a56-b7e1-4bef-b30f-a7497d321a09"}
+{"ts": "2026-03-17T23:52:05.551180+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/70017e16-0b6d-4267-ba81-c2cc33790983", "status_code": 200, 
+"elapsed_ms": 7.66, "request_id": "5555a6f8-abc3-4d97-bf47-c03d461240ad"}
+{"ts": "2026-03-17T23:52:08.337343+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "004489c7-e895-468c-b64d-60dca5e61781", "order_number": 39, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:08.343851+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/004489c7-e895-468c-b64d-60dca5e61781/accept", "status_code": 200, 
+"elapsed_ms": 17.88, "request_id": "808de99a-8b27-41e5-afb8-42221655748c"}
+{"ts": "2026-03-17T23:52:08.390579+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/004489c7-e895-468c-b64d-60dca5e61781", "status_code": 200, 
+"elapsed_ms": 7.52, "request_id": "b8ccde2c-e4f3-4494-8286-ccd49341cac4"}
+{"ts": "2026-03-17T23:52:11.734533+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "bbf10c45-0991-4b4b-9b3c-b1a48a08cb4c", "order_number": 37, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:11.741483+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/bbf10c45-0991-4b4b-9b3c-b1a48a08cb4c/accept", "status_code": 200, 
+"elapsed_ms": 18.46, "request_id": "71a60a0c-0dab-42b5-9cb4-cc980da5cb11"}
+{"ts": "2026-03-17T23:52:11.772248+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/bbf10c45-0991-4b4b-9b3c-b1a48a08cb4c", "status_code": 200, 
+"elapsed_ms": 7.09, "request_id": "f06500d3-95bb-4ac2-bd88-a5ecce4c89cf"}
+{"ts": "2026-03-17T23:52:14.509579+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "77e36ea6-b59a-49a0-ae15-5df09e44ffc2", "order_number": 36, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:14.515815+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/77e36ea6-b59a-49a0-ae15-5df09e44ffc2/accept", "status_code": 200, 
+"elapsed_ms": 26.22, "request_id": "8269ef4b-0bb8-450c-8f59-76c36f1e4dcf"}
+{"ts": "2026-03-17T23:52:14.552013+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/77e36ea6-b59a-49a0-ae15-5df09e44ffc2", "status_code": 200, 
+"elapsed_ms": 6.78, "request_id": "69a5b250-bf7c-4774-90c0-9e67ddb6f80d"}
+{"ts": "2026-03-17T23:52:17.643377+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "9da0c9a7-7fa3-4ae8-aa35-8fc5d300af0d", "order_number": 35, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:17.649503+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/9da0c9a7-7fa3-4ae8-aa35-8fc5d300af0d/accept", "status_code": 200, 
+"elapsed_ms": 17.68, "request_id": "6fcc5d9d-9231-46ca-9a6f-686cf56b13f8"}
+INFO:     172.19.0.1:45986 - "GET /orders/9da0c9a7-7fa3-4ae8-aa35-8fc5d300af0d HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/de26aca6-f49c-46d8-9791-96c1d45112c6/accept HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:52:17.680232+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/9da0c9a7-7fa3-4ae8-aa35-8fc5d300af0d", "status_code": 200, 
+"elapsed_ms": 7.02, "request_id": "f44f6f43-1f75-4c6e-b364-59f50df746cd"}
+INFO:     172.19.0.1:45986 - "GET /orders/de26aca6-f49c-46d8-9791-96c1d45112c6 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/3d6864e2-17db-4353-bf26-d64dcbd63895/accept HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:52:20.539055+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "de26aca6-f49c-46d8-9791-96c1d45112c6", "order_number": 34, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:20.545246+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/de26aca6-f49c-46d8-9791-96c1d45112c6/accept", "status_code": 200, 
+"elapsed_ms": 19.69, "request_id": "e53e162e-6173-48d2-b2ea-9eba1832dbed"}
+{"ts": "2026-03-17T23:52:20.569263+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/de26aca6-f49c-46d8-9791-96c1d45112c6", "status_code": 200, 
+"elapsed_ms": 6.74, "request_id": "dbfb14fc-39b0-4352-b35f-d0992741c8f0"}
+{"ts": "2026-03-17T23:52:23.329661+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "3d6864e2-17db-4353-bf26-d64dcbd63895", "order_number": 33, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:23.340128+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/3d6864e2-17db-4353-bf26-d64dcbd63895/accept", "status_code": 200, 
+"elapsed_ms": 20.34, "request_id": "62a4e9e1-4f3a-40de-aef3-f98050f9dd4a"}
+{"ts": "2026-03-17T23:52:23.367181+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/3d6864e2-17db-4353-bf26-d64dcbd63895", "status_code": 200, 
+"elapsed_ms": 7.43, "request_id": "6782331c-d16d-423f-9ae5-f7c0560fe6a8"}
+{"ts": "2026-03-17T23:52:26.263968+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "9ab1f368-50fe-4d87-9bd8-59fbd57c07f4", "order_number": 32, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:26.271580+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/9ab1f368-50fe-4d87-9bd8-59fbd57c07f4/accept", "status_code": 200, 
+"elapsed_ms": 22.54, "request_id": "f5fb9bbe-720d-4b7a-b848-58a0297dc4eb"}
+{"ts": "2026-03-17T23:52:26.320790+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/9ab1f368-50fe-4d87-9bd8-59fbd57c07f4", "status_code": 200, 
+"elapsed_ms": 6.97, "request_id": "e23e1b66-d0a4-4828-be29-6f1dee929f32"}
+{"ts": "2026-03-17T23:52:28.948663+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "993128c4-8874-4423-878a-d92eb0dc514b", "order_number": 31, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+INFO:     172.19.0.1:45986 - "GET /orders/3d6864e2-17db-4353-bf26-d64dcbd63895 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/9ab1f368-50fe-4d87-9bd8-59fbd57c07f4/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/9ab1f368-50fe-4d87-9bd8-59fbd57c07f4 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/993128c4-8874-4423-878a-d92eb0dc514b/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/993128c4-8874-4423-878a-d92eb0dc514b HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/691087ce-60a2-4007-b278-f9b6d2400e3b/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/691087ce-60a2-4007-b278-f9b6d2400e3b HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/7cd99036-572d-43d0-ac2f-828b8d4661bd/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/7cd99036-572d-43d0-ac2f-828b8d4661bd HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/e12b76f6-bde9-41bf-af60-1bd1308f7676/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/e12b76f6-bde9-41bf-af60-1bd1308f7676 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "POST /orders/adb39e24-9a55-426e-82dd-5993d4a5f773/accept HTTP/1.1" 200 OK
+INFO:     172.19.0.1:45986 - "GET /orders/adb39e24-9a55-426e-82dd-5993d4a5f773 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52736 - "POST /auth/send-otp HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:52:28.954534+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/993128c4-8874-4423-878a-d92eb0dc514b/accept", "status_code": 200, 
+"elapsed_ms": 25.69, "request_id": "d0c5db8e-4cd8-46a3-b51f-2b24f5e647d1"}
+{"ts": "2026-03-17T23:52:28.993715+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/993128c4-8874-4423-878a-d92eb0dc514b", "status_code": 200, 
+"elapsed_ms": 8.28, "request_id": "f1defb74-e79f-45fa-b296-a5da8372099c"}
+{"ts": "2026-03-17T23:52:33.766532+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "691087ce-60a2-4007-b278-f9b6d2400e3b", "order_number": 30, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:33.774521+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/691087ce-60a2-4007-b278-f9b6d2400e3b/accept", "status_code": 200, 
+"elapsed_ms": 21.54, "request_id": "5f9ad369-d6c7-4a3c-87c8-7de2ee8d2055"}
+{"ts": "2026-03-17T23:52:33.805184+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/691087ce-60a2-4007-b278-f9b6d2400e3b", "status_code": 200, 
+"elapsed_ms": 9.71, "request_id": "f7e533b2-53d6-4927-98e3-a2df21f8c97c"}
+{"ts": "2026-03-17T23:52:37.556029+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "7cd99036-572d-43d0-ac2f-828b8d4661bd", "order_number": 29, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:37.565440+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/7cd99036-572d-43d0-ac2f-828b8d4661bd/accept", "status_code": 200, 
+"elapsed_ms": 23.61, "request_id": "d7c195b9-f6a7-4e5a-bf02-93798d1c72ff"}
+{"ts": "2026-03-17T23:52:37.654818+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/7cd99036-572d-43d0-ac2f-828b8d4661bd", "status_code": 200, 
+"elapsed_ms": 18.83, "request_id": "001f4c1b-fefa-4b6c-86e9-bea7ff6fd85d"}
+{"ts": "2026-03-17T23:52:40.482098+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "e12b76f6-bde9-41bf-af60-1bd1308f7676", "order_number": 28, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:40.489623+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/e12b76f6-bde9-41bf-af60-1bd1308f7676/accept", "status_code": 200, 
+"elapsed_ms": 19.54, "request_id": "08c87edd-1e76-4f43-9fb5-c13f6618e591"}
+{"ts": "2026-03-17T23:52:40.541063+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/e12b76f6-bde9-41bf-af60-1bd1308f7676", "status_code": 200, 
+"elapsed_ms": 7.89, "request_id": "1d95efb6-b184-404c-8f64-866cf1d9d72a"}
+{"ts": "2026-03-17T23:52:43.657082+00:00", "level": "INFO", "logger": "app.services.order_service", "message": 
+"order.accepted", "event": "order.accepted", "order_id": "adb39e24-9a55-426e-82dd-5993d4a5f773", "order_number": 27, 
+"status": "ACCEPTED", "actor_user_id": "6bb39ac8-3492-463e-a973-bc8855a75309", "actor_role": "FRONTDESK"}
+{"ts": "2026-03-17T23:52:43.663895+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders/adb39e24-9a55-426e-82dd-5993d4a5f773/accept", "status_code": 200, 
+"elapsed_ms": 27.87, "request_id": "9b09595c-9e51-418d-b241-dd01e0d6e134"}
+{"ts": "2026-03-17T23:52:43.717489+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/adb39e24-9a55-426e-82dd-5993d4a5f773", "status_code": 200, 
+"elapsed_ms": 8.55, "request_id": "69590078-d4de-4023-aa5a-9b8345d8f916"}
+{"ts": "2026-03-17T23:53:48.730715+00:00", "level": "INFO", "logger": "app.services.auth_service", "message": 
+"auth.otp_sent", "event": "auth.otp_sent", "phone_number_last4": "3346"}
+{"ts": "2026-03-17T23:53:48.731234+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/auth/send-otp", "status_code": 200, "elapsed_ms": 2.23, "request_id": 
+"118ca28e-07cd-4e55-884f-c57bab1c21d8"}
+{"ts": "2026-03-17T23:53:53.407442+00:00", "level": "INFO", "logger": "app.services.auth_service", "message": 
+"auth.login_success", "event": "auth.login_success", "user_id": "a7ea98c9-e02b-433e-b92f-9121d957a691", "role": 
+"CLIENT"}
+INFO:     172.19.0.1:52736 - "POST /auth/verify-otp HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:53:53.408431+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/auth/verify-otp", "status_code": 200, "elapsed_ms": 7.44, "request_id": 
+"d43623b8-77db-4b45-b808-73291409d076"}
+{"ts": "2026-03-17T23:53:53.516084+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/menu", "status_code": 200, "elapsed_ms": 16.54, "request_id": 
+"835fe712-febf-4bba-876e-a025ed11f876"}
+{"ts": "2026-03-17T23:53:53.519753+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 10.93, "request_id": 
+"a1410a43-2ad3-4d0f-888c-b7657ea016a5"}
+INFO:     172.19.0.1:52736 - "GET /menu HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52750 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52736 - "GET /menu HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:53:53.572276+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/menu", "status_code": 200, "elapsed_ms": 11.41, "request_id": 
+"3238a9ab-825c-4934-8b5e-4fc495b9cf22"}
+INFO:     172.19.0.1:52750 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52736 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52750 - "GET /orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691 HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:53:53.582483+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 4.09, "request_id": 
+"cd2c3d19-203a-4fd9-8ac1-10c2002d6ec5"}
+{"ts": "2026-03-17T23:53:57.818887+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 5.34, "request_id": 
+"90cf8433-d79a-43c3-bc6f-b15f2882e955"}
+{"ts": "2026-03-17T23:53:57.835957+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691", "status_code": 200, 
+"elapsed_ms": 22.5, "request_id": "e2be1f8b-e7af-410b-ad6a-b3e8e0d1c822"}
+{"ts": "2026-03-17T23:54:00.474406+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 5.14, "request_id": 
+"3606a0fd-8486-431e-a56c-b9ec252c3369"}
+{"ts": "2026-03-17T23:54:00.479745+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691", "status_code": 200, 
+"elapsed_ms": 10.36, "request_id": "31875616-964a-4a28-bf50-f30e969eb0d3"}
+INFO:     172.19.0.1:52736 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52750 - "GET /orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691 HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:54:16.704133+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders", "status_code": 500, "elapsed_ms": 10.21, "request_id": 
+"08e7ca07-3d5c-4e29-aaf1-64c74f89492e"}
+INFO:     172.19.0.1:48280 - "POST /orders HTTP/1.1" 500 Internal Server Error
+INFO:     172.19.0.1:36466 - "GET /orders/latest?limit=50 HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:55:10.355100+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/latest", "status_code": 200, "elapsed_ms": 16.68, "request_id": 
+"e4689196-cf85-4d7c-9ab1-6d3ae499d351"}
+{"ts": "2026-03-17T23:55:10.833050+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/admin/drivers/available", "status_code": 200, "elapsed_ms": 5.06, 
+"request_id": "51debb36-5d49-4f75-98bd-d1c342f9776b"}
+{"ts": "2026-03-17T23:55:33.776988+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/auth/me", "status_code": 200, "elapsed_ms": 5.4, "request_id": 
+"ef013fd4-9991-4cc2-a64b-74b95d1d20f4"}
+{"ts": "2026-03-17T23:55:33.778773+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 7.29, "request_id": 
+"6a8b06b4-763f-4d74-988f-2215e866f45a"}
+{"ts": "2026-03-17T23:55:33.785811+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/menu", "status_code": 200, "elapsed_ms": 12.61, "request_id": 
+"22d0a27c-94e7-496d-bdf9-3287b76b8a2f"}
+{"ts": "2026-03-17T23:55:33.834569+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 7.4, "request_id": 
+"3aaeec9a-5782-46c2-8469-66a0f9fc74b1"}
+{"ts": "2026-03-17T23:55:33.838178+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/menu", "status_code": 200, "elapsed_ms": 11.22, "request_id": 
+"3c19aa90-f2a0-4397-be01-ba8dd3540bc6"}
+{"ts": "2026-03-17T23:56:18.522271+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 7.04, "request_id": 
+"1b2d135e-46fb-43ff-b325-cc90c6f2d37c"}
+{"ts": "2026-03-17T23:56:18.523762+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691", "status_code": 200, 
+"elapsed_ms": 8.69, "request_id": "868f92ca-dd0a-461e-b8d7-19bdd3ed408f"}
+{"ts": "2026-03-17T23:56:19.505050+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 5.7, "request_id": 
+"3dc47f79-9852-4b35-8253-5c2d9645b6c2"}
+{"ts": "2026-03-17T23:56:19.508333+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691", "status_code": 200, 
+"elapsed_ms": 8.91, "request_id": "a476402d-3a4c-4909-b302-c4988d483d15"}
+{"ts": "2026-03-17T23:56:25.020102+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders", "status_code": 500, "elapsed_ms": 10.93, "request_id": 
+"d6e8fa65-1f0c-4ffd-a579-282ac3c73442"}
+{"ts": "2026-03-17T23:56:56.522612+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/auth/me", "status_code": 200, "elapsed_ms": 19.66, "request_id": 
+"34c02eef-08af-417a-85c5-6fb96bcb9fdd"}
+INFO:     172.19.0.1:36466 - "GET /admin/drivers/available HTTP/1.1" 200 OK
+INFO:     172.19.0.1:44520 - "GET /auth/me HTTP/1.1" 200 OK
+INFO:     172.19.0.1:44506 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:44504 - "GET /menu HTTP/1.1" 200 OK
+INFO:     172.19.0.1:44506 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:44504 - "GET /menu HTTP/1.1" 200 OK
+INFO:     172.19.0.1:60172 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:60176 - "GET /orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:60172 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:60176 - "GET /orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:39010 - "POST /orders HTTP/1.1" 500 Internal Server Error
+INFO:     172.19.0.1:52398 - "GET /auth/me HTTP/1.1" 200 OK
+{"ts": "2026-03-17T23:56:56.664302+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/menu", "status_code": 200, "elapsed_ms": 22.4, "request_id": 
+"5b8876ae-deb9-4390-b8f2-d29eda5bf19f"}
+INFO:     172.19.0.1:52398 - "GET /menu HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52410 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52410 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52398 - "GET /menu HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52398 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52410 - "GET /orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52398 - "GET /promotions/active HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52410 - "GET /orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691 HTTP/1.1" 200 OK
+INFO:     172.19.0.1:52398 - "POST /orders HTTP/1.1" 500 Internal Server Error
+{"ts": "2026-03-17T23:56:56.666049+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 11.43, "request_id": 
+"b9d87880-cddc-46bb-b283-3b8330c91906"}
+{"ts": "2026-03-17T23:56:56.714836+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 7.26, "request_id": 
+"e48a4293-3ecc-4b72-8fe0-334d11e189e0"}
+{"ts": "2026-03-17T23:56:56.719707+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/menu", "status_code": 200, "elapsed_ms": 12.01, "request_id": 
+"0a531c50-6b99-44f8-b614-b4aa0c39bf3f"}
+{"ts": "2026-03-17T23:56:59.205945+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 7.99, "request_id": 
+"de431823-ccd1-47ad-a236-403290349199"}
+{"ts": "2026-03-17T23:56:59.209924+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691", "status_code": 200, 
+"elapsed_ms": 11.73, "request_id": "47dc3af9-42e6-4a82-8baa-17e86d3b5a24"}
+{"ts": "2026-03-17T23:56:59.925930+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/promotions/active", "status_code": 200, "elapsed_ms": 5.4, "request_id": 
+"a2311828-d391-4719-a8de-d0cd1790fd51"}
+{"ts": "2026-03-17T23:56:59.931675+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "GET", "path": "/orders/user/a7ea98c9-e02b-433e-b92f-9121d957a691", "status_code": 200, 
+"elapsed_ms": 11.04, "request_id": "cceb7a94-36e5-4359-b77e-9c76fe76ec40"}
+{"ts": "2026-03-17T23:57:03.630792+00:00", "level": "INFO", "logger": "app.main", "message": "http.request", "event": 
+"http.request", "method": "POST", "path": "/orders", "status_code": 500, "elapsed_ms": 10.16, "request_id": 
+"da7e39a8-d616-4c0c-bf61-441af37cf20e"}

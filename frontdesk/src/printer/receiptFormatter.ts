@@ -1,47 +1,101 @@
 import { OrderRead } from '@/types/api';
+import { getDeliveryAddress } from '@/utils/orderPresentation';
+import { ReceiptArabicLookup } from '@/printer/receiptLocalization';
 
 const money = (value: string | number) => `${Number(value).toFixed(2)} JOD`;
 
-export const buildReceiptText = (order: OrderRead) => {
+type ReceiptTextOptions = {
+  isArabic?: boolean;
+  shopName?: string;
+  shopNameArabic?: string;
+  arabicLookup?: ReceiptArabicLookup;
+};
+
+export const buildReceiptText = (order: OrderRead, options?: ReceiptTextOptions) => {
+  const isArabic = Boolean(options?.isArabic);
+  const arabicLookup = options?.arabicLookup;
   const divider = '--------------------------';
   const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = order.items.reduce((sum, item) => {
+  const itemsTotal = order.items.reduce((sum, item) => {
     const lineBase = Number(item.price_snapshot) * item.quantity;
-    const addonsTotal = item.addons.reduce((addonSum, addon) => addonSum + Number(addon.price_snapshot), 0);
+    const addonsTotal =
+      item.addons.reduce((addonSum, addon) => addonSum + Number(addon.price_snapshot), 0) * item.quantity;
     return sum + lineBase + addonsTotal;
   }, 0);
+  const deliveryFee = order.order_type === 'delivery' ? Number(order.delivery_fee ?? 0) : 0;
+  const totalPrice = itemsTotal + deliveryFee;
+  const createdAt = new Date(order.created_at);
+  const dateText = Number.isNaN(createdAt.getTime())
+    ? new Date().toLocaleString(isArabic ? 'ar-JO' : 'en-US')
+    : createdAt.toLocaleString(isArabic ? 'ar-JO' : 'en-US');
+  const orderTypeText = isArabic
+    ? order.order_type === 'pickup'
+      ? 'استلام من الفرع'
+      : 'توصيل'
+    : order.order_type === 'pickup'
+      ? 'Pickup'
+      : 'Delivery';
+  const address = getDeliveryAddress(order);
+  const shopName = options?.shopName?.trim() || 'TAKE A SIP';
+  const shopNameArabic = options?.shopNameArabic?.trim() || 'تيك اي سيب';
+
+  const getItemName = (item: OrderRead['items'][number]) =>
+    isArabic
+      ? (item.item_id_snapshot ? arabicLookup?.itemNamesById[item.item_id_snapshot] : undefined) ||
+        item.item_name_snapshot
+      : item.item_name_snapshot;
+
+  const getSizeName = (item: OrderRead['items'][number]) =>
+    isArabic
+      ? (item.size_id_snapshot ? arabicLookup?.sizeNamesById[item.size_id_snapshot] : undefined) || item.size_snapshot
+      : item.size_snapshot;
+
+  const getAddonName = (addon: OrderRead['items'][number]['addons'][number]) =>
+    isArabic
+      ? (addon.addon_id_snapshot ? arabicLookup?.addonNamesById[addon.addon_id_snapshot] : undefined) ||
+        addon.addon_name_snapshot
+      : addon.addon_name_snapshot;
 
   const lines: string[] = [
-    'COFFEE SHOP',
+    isArabic ? shopNameArabic : shopName,
     divider,
     '',
-    `Order #${order.order_number}`,
+    isArabic ? `رقم الطلب: ${order.order_number}` : `Order #${order.order_number}`,
+    isArabic ? `التاريخ: ${dateText}` : `Date: ${dateText}`,
     '',
-    `Customer: ${order.customer_name || 'N/A'}`,
-    `Phone: ${order.customer_phone || 'N/A'}`,
+    isArabic ? `العميل: ${order.customer_name || 'غير متوفر'}` : `Customer: ${order.customer_name || 'N/A'}`,
+    isArabic ? `الهاتف: ${order.customer_phone || 'غير متوفر'}` : `Phone: ${order.customer_phone || 'N/A'}`,
     '',
-    `Type: ${order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}`,
-    order.order_type === 'delivery' ? `Address: ${order.delivery_address || 'N/A'}` : '',
-    order.notes ? `Notes: ${order.notes}` : 'Notes: -',
+    isArabic ? `نوع الطلب: ${orderTypeText}` : `Type: ${orderTypeText}`,
+    order.order_type === 'delivery'
+      ? isArabic
+        ? `العنوان: ${address || 'غير متوفر'}`
+        : `Address: ${address || 'N/A'}`
+      : '',
+    order.notes ? (isArabic ? `ملاحظات: ${order.notes}` : `Notes: ${order.notes}`) : isArabic ? 'ملاحظات: -' : 'Notes: -',
     '',
     divider,
     '',
   ];
 
   order.items.forEach((item) => {
-    lines.push(`${item.quantity}x ${item.item_name_snapshot} (${item.size_snapshot}) (${money(item.price_snapshot)})`);
+    lines.push(`${item.quantity}x ${getItemName(item)} (${getSizeName(item)}) (${money(item.price_snapshot)})`);
     item.addons.forEach((addon) => {
-      lines.push(`   + ${addon.addon_name_snapshot} (${money(addon.price_snapshot)})`);
+      lines.push(`   + ${getAddonName(addon)} (${money(addon.price_snapshot)})`);
     });
     lines.push('');
   });
 
   lines.push(divider);
   lines.push('');
-  lines.push(`Total Items: ${totalItems}`);
-  lines.push(`Total Price: ${money(totalPrice)}`);
+  lines.push(isArabic ? `إجمالي العناصر: ${totalItems}` : `Total Items: ${totalItems}`);
+  lines.push(isArabic ? `مجموع العناصر: ${money(itemsTotal)}` : `Items Total: ${money(itemsTotal)}`);
+  if (order.order_type === 'delivery') {
+    lines.push(isArabic ? `رسوم التوصيل: ${money(deliveryFee)}` : `Delivery Fee: ${money(deliveryFee)}`);
+  }
+  lines.push(isArabic ? `السعر الإجمالي: ${money(totalPrice)}` : `Total Price: ${money(totalPrice)}`);
   lines.push(divider);
-  lines.push('Thank you');
+  lines.push(isArabic ? 'شكرا لكم' : 'Thank you');
 
   return lines.join('\n');
 };

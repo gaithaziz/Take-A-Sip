@@ -2,15 +2,17 @@ import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { OrderRead, UserSummary } from '@/types/api';
+import { getDeliveryAddress, getOrderStatusLabel, getOrderTypeLabel, isDriverAssignmentStatus } from '@/utils/orderPresentation';
 
 type Props = {
   order: OrderRead;
   onAccept: () => void;
+  onReject: () => void;
   drivers: UserSummary[];
   onAssignDriver: (driverUserId: string) => Promise<void>;
 };
 
-export const OrderDetailsScreen = ({ order, onAccept, drivers, onAssignDriver }: Props) => {
+export const OrderDetailsScreen = ({ order, onAccept, onReject, drivers, onAssignDriver }: Props) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.dir() === 'rtl';
 
@@ -27,10 +29,13 @@ export const OrderDetailsScreen = ({ order, onAccept, drivers, onAssignDriver }:
           {t('details.phone')}: {order.customer_phone || '-'}
         </Text>
         <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('details.type')}: {order.order_type}
+          {t('details.type')}: {getOrderTypeLabel(order.order_type, t)}
         </Text>
         <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('details.address')}: {order.order_type === 'delivery' ? order.delivery_address || '-' : '-'}
+          {t('orders.status')}: {getOrderStatusLabel(order.status, t)}
+        </Text>
+        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
+          {t('details.address')}: {order.order_type === 'delivery' ? getDeliveryAddress(order) || '-' : '-'}
         </Text>
         <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
           {t('details.notes')}: {order.notes || '-'}
@@ -59,7 +64,12 @@ export const OrderDetailsScreen = ({ order, onAccept, drivers, onAssignDriver }:
           <Text style={styles.acceptText}>{t('details.accept')}</Text>
         </Pressable>
       ) : null}
-      {order.order_type === 'delivery' && order.status === 'ACCEPTED' ? (
+      {(order.status === 'NEW' || order.status === 'ACCEPTED' || order.status === 'ASSIGNED' || order.status === 'ASSIGNED_TO_DRIVER') ? (
+        <Pressable style={styles.rejectButton} onPress={onReject}>
+          <Text style={styles.rejectText}>{t('details.reject')}</Text>
+        </Pressable>
+      ) : null}
+      {order.order_type === 'delivery' && isDriverAssignmentStatus(order.status) ? (
         <View style={styles.assignWrap}>
           <Text style={[styles.sectionTitle, isRTL ? styles.rtlText : styles.ltrText]}>{t('details.assignDriver')}</Text>
           {drivers.length === 0 ? (
@@ -87,60 +97,62 @@ export const OrderDetailsScreen = ({ order, onAccept, drivers, onAssignDriver }:
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EFF3F9',
+    backgroundColor: '#F7F2EA',
   },
   content: {
-    padding: 14,
-    paddingBottom: 24,
+    padding: 16,
+    paddingBottom: 28,
   },
   orderNumber: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
-    color: '#0C2340',
-    marginBottom: 12,
-  },
-  infoBlock: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderColor: '#D8DFE8',
-    borderWidth: 1,
-    padding: 12,
+    color: '#3A2A1B',
     marginBottom: 14,
   },
-  line: {
-    fontSize: 17,
-    color: '#2F3A47',
-    marginBottom: 6,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#0C2340',
-  },
-  itemCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderColor: '#D8DFE8',
+  infoBlock: {
+    backgroundColor: '#FFFEFB',
+    borderRadius: 14,
+    borderColor: '#E6D8C8',
     borderWidth: 1,
-    padding: 12,
-    marginBottom: 10,
+    padding: 14,
+    marginBottom: 16,
   },
-  itemTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0C2340',
+  line: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#4A463F',
     marginBottom: 4,
   },
+  sectionTitle: {
+    fontSize: 21,
+    fontWeight: '700',
+    marginBottom: 10,
+    color: '#3A2A1B',
+  },
+  itemCard: {
+    backgroundColor: '#FFFEFB',
+    borderRadius: 14,
+    borderColor: '#E6D8C8',
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+  },
+  itemTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: '#3A2A1B',
+    marginBottom: 6,
+  },
   itemLine: {
-    color: '#2F3A47',
-    fontSize: 16,
+    color: '#4C4A46',
+    fontSize: 15,
+    lineHeight: 22,
   },
   acceptButton: {
-    marginTop: 12,
-    height: 56,
+    marginTop: 14,
+    height: 54,
     borderRadius: 10,
-    backgroundColor: '#0C2340',
+    backgroundColor: '#6B3F1F',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -148,17 +160,32 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 8,
   },
+  rejectButton: {
+    marginTop: 10,
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: '#FFF7F5',
+    borderColor: '#D26D5F',
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectText: {
+    color: '#C13A2B',
+    fontSize: 18,
+    fontWeight: '700',
+  },
   assignButton: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#0C2340',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#6B3F1F',
+    backgroundColor: '#FFFEFB',
     minHeight: 46,
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
   assignButtonText: {
-    color: '#0C2340',
+    color: '#6B3F1F',
     fontWeight: '700',
   },
   acceptText: {

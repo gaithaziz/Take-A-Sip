@@ -30,6 +30,15 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
   const [ratingExpandedByOrder, setRatingExpandedByOrder] = useState<Record<string, boolean>>({});
   const [submittingRatingId, setSubmittingRatingId] = useState<string | null>(null);
 
+  const normalizeSnapshot = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
+  const matchesSnapshotName = (snapshot: string, candidates: Array<string | null | undefined>) => {
+    const normalizedSnapshot = normalizeSnapshot(snapshot);
+    if (!normalizedSnapshot) {
+      return false;
+    }
+    return candidates.some((candidate) => normalizeSnapshot(candidate) === normalizedSnapshot);
+  };
+
   const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
@@ -65,17 +74,33 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
       );
 
       const rebuiltLines = order.items.map((line) => {
-        const matchedSize = catalog.find(
-          (entry) => entry.item.name_en === line.item_name_snapshot && entry.size.name_en === line.size_snapshot,
-        );
+        const matchedBySnapshotIds =
+          line.size_id_snapshot
+            ? catalog.find(
+                (entry) =>
+                  entry.size.id === line.size_id_snapshot &&
+                  (!line.item_id_snapshot || entry.item.id === line.item_id_snapshot),
+              )
+            : null;
+        const matchedSize =
+          matchedBySnapshotIds ??
+          catalog.find(
+            (entry) =>
+              matchesSnapshotName(line.item_name_snapshot, [entry.item.name_en, entry.item.name_ar]) &&
+              matchesSnapshotName(line.size_snapshot, [entry.size.name_en, entry.size.name_ar]),
+          );
         if (!matchedSize) {
           return null;
         }
 
         const matchedAddons = line.addons.map((snapshotAddon) =>
-          matchedSize.size.addons.find(
-            (addon) => addon.is_active && addon.name_en === snapshotAddon.addon_name_snapshot,
-          ),
+          snapshotAddon.addon_id_snapshot
+            ? matchedSize.size.addons.find((addon) => addon.is_active && addon.id === snapshotAddon.addon_id_snapshot)
+            : matchedSize.size.addons.find(
+                (addon) =>
+                  addon.is_active &&
+                  matchesSnapshotName(snapshotAddon.addon_name_snapshot, [addon.name_en, addon.name_ar]),
+              ),
         );
         if (matchedAddons.some((addon) => !addon)) {
           return null;

@@ -1,0 +1,11 @@
+Starting project at C:\Users\user\Take-A-Sip\Take-A-Sip\mobile
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Tunnel connected.
+Tunnel ready.
+The following packages should be updated for best compatibility with the installed expo version:
+  expo-image-picker@55.0.11 - expected version: ~17.0.10
+  expo-location@55.1.2 - expected version: ~19.0.8
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8081
+Logs for your project will appear below.

@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 
+import i18next from '@/i18n';
 import { buildReceiptText } from '@/printer/receiptFormatter';
+import { buildReceiptArabicLookup, emptyReceiptArabicLookup } from '@/printer/receiptLocalization';
 import { sunmiPrinter } from '@/printer/sunmiPrinter';
+import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
+import { isFrontdeskActionableOrder } from '@/utils/orderPresentation';
 import { FrontdeskSocketMessage, OrderRead, UserSummary } from '@/types/api';
 import { FrontdeskSocket } from '@/websocket/frontdeskSocket';
 
@@ -14,7 +19,7 @@ type FailedPrintJob = {
   failedAt: number;
 };
 
-export const useFrontdeskOrders = (token: string | null) => {
+export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => Promise<void>) => {
   const isMountedRef = useRef(true);
   const [orders, setOrders] = useState<OrderRead[]>([]);
   const [failedPrints, setFailedPrints] = useState<FailedPrintJob[]>([]);
@@ -25,6 +30,9 @@ export const useFrontdeskOrders = (token: string | null) => {
   );
   const [banner, setBanner] = useState<string | null>(null);
   const socketRef = useRef<FrontdeskSocket | null>(null);
+  const arabicLookupRef = useRef(emptyReceiptArabicLookup);
+  const shopNameRef = useRef((process.env.EXPO_PUBLIC_SHOP_NAME || 'TAKE A SIP').trim());
+  const shopNameArabicRef = useRef((process.env.EXPO_PUBLIC_SHOP_NAME_AR || 'تيك اي سيب').trim());
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -35,22 +43,32 @@ export const useFrontdeskOrders = (token: string | null) => {
 
   const loadNewOrders = useCallback(async () => {
     try {
-      const newOrders = await orderService.listLatestOrders({ limit: 50 });
+      const latestOrders = await orderService.listLatestOrders({ limit: 50 });
       if (!isMountedRef.current) {
         return;
       }
-      setOrders(newOrders);
+      setOrders(latestOrders.filter(isFrontdeskActionableOrder));
       const drivers = await orderService.listAvailableDrivers();
       if (isMountedRef.current) {
         setAvailableDrivers(drivers);
       }
-    } catch {
+      try {
+        const menu = await menuService.getMenu();
+        arabicLookupRef.current = buildReceiptArabicLookup(menu);
+      } catch {
+        // Keep previous lookup; receipt will fallback to snapshots.
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+        await onUnauthorized();
+        return;
+      }
       if (!isMountedRef.current) {
         return;
       }
-      setBanner('Failed to load latest orders');
+      setBanner(i18next.t('banner.loadFailed'));
     }
-  }, []);
+  }, [onUnauthorized]);
 
   const handleSocketMessage = useCallback(async (message: FrontdeskSocketMessage) => {
     if (message.event === 'order.created') {
@@ -61,8 +79,8 @@ export const useFrontdeskOrders = (token: string | null) => {
       if (fullOrder.status !== 'NEW') {
         return;
       }
-      setOrders((prev) => [fullOrder, ...prev.filter((item) => item.id !== fullOrder.id)]);
-      setBanner(`New order #${fullOrder.order_number}`);
+      setOrders((prev) => [fullOrder, ...prev.filter((item) => item.id !== fullOrder.id)].filter(isFrontdeskActionableOrder));
+      setBanner(i18next.t('banner.newOrder', { number: fullOrder.order_number }));
       await sunmiPrinter.playAlert();
       return;
     }
@@ -72,7 +90,10 @@ export const useFrontdeskOrders = (token: string | null) => {
         return;
       }
       const fullOrder = await orderService.getOrder(message.order_id);
-      setOrders((prev) => [fullOrder, ...prev.filter((item) => item.id !== message.order_id)]);
+      setOrders((prev) => {
+        const next = [fullOrder, ...prev.filter((item) => item.id !== message.order_id)];
+        return next.filter(isFrontdeskActionableOrder);
+      });
     }
   }, []);
 
@@ -103,7 +124,7 @@ export const useFrontdeskOrders = (token: string | null) => {
           if (!isMountedRef.current) {
             return;
           }
-          setBanner('Failed to process realtime message');
+          setBanner(i18next.t('banner.realtimeFailed'));
         });
       },
       onClose: () => {
@@ -118,6 +139,9 @@ export const useFrontdeskOrders = (token: string | null) => {
         }
         setConnectionState('disconnected');
       },
+      onUnauthorized: () => {
+        void onUnauthorized();
+      },
     });
     socketRef.current = socket;
     setConnectionState('connecting');
@@ -128,22 +152,27 @@ export const useFrontdeskOrders = (token: string | null) => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [handleSocketMessage, loadNewOrders, token]);
+  }, [handleSocketMessage, loadNewOrders, onUnauthorized, token]);
 
   const acceptOrder = useCallback(async (order: OrderRead) => {
     try {
       await orderService.acceptOrder(order.id);
     } catch {
-      setBanner('Failed to accept order');
+      setBanner(i18next.t('banner.acceptFailed'));
       return;
     }
 
     try {
-      const receipt = buildReceiptText(order);
+      const receipt = buildReceiptText(order, {
+        isArabic: i18next.language === 'ar',
+        shopName: shopNameRef.current,
+        shopNameArabic: shopNameArabicRef.current,
+        arabicLookup: arabicLookupRef.current,
+      });
       await sunmiPrinter.printReceipt(receipt);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown print error';
-      setBanner(`Order accepted, print failed: ${message}`);
+      const message = error instanceof Error ? error.message : i18next.t('banner.unknownPrintError');
+      setBanner(i18next.t('banner.acceptedPrintFailed', { message }));
       setFailedPrints((prev) => [
         {
           order,
@@ -156,7 +185,7 @@ export const useFrontdeskOrders = (token: string | null) => {
     if (order.order_type === 'delivery') {
       try {
         const updated = await orderService.getOrder(order.id);
-        setOrders((prev) => [updated, ...prev.filter((item) => item.id !== order.id)]);
+        setOrders((prev) => [updated, ...prev.filter((item) => item.id !== order.id)].filter(isFrontdeskActionableOrder));
       } catch {
         setOrders((prev) => prev.filter((item) => item.id !== order.id));
       }
@@ -171,18 +200,23 @@ export const useFrontdeskOrders = (token: string | null) => {
       return;
     }
     try {
-      const receipt = buildReceiptText(job.order);
+      const receipt = buildReceiptText(job.order, {
+        isArabic: i18next.language === 'ar',
+        shopName: shopNameRef.current,
+        shopNameArabic: shopNameArabicRef.current,
+        arabicLookup: arabicLookupRef.current,
+      });
       await sunmiPrinter.printReceipt(receipt);
       setFailedPrints((prev) => prev.filter((item) => item.order.id !== orderId));
-      setBanner(`Reprint succeeded for #${job.order.order_number}`);
+      setBanner(i18next.t('banner.reprintSucceeded', { number: job.order.order_number }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown print error';
+      const message = error instanceof Error ? error.message : i18next.t('banner.unknownPrintError');
       setFailedPrints((prev) =>
         prev.map((item) =>
           item.order.id === orderId ? { ...item, reason: message, failedAt: Date.now() } : item,
         ),
       );
-      setBanner(`Reprint failed for #${job.order.order_number}: ${message}`);
+      setBanner(i18next.t('banner.reprintFailed', { number: job.order.order_number, message }));
     }
   }, [failedPrints]);
 
@@ -193,16 +227,26 @@ export const useFrontdeskOrders = (token: string | null) => {
   const assignDriver = useCallback(async (orderId: string, driverUserId: string) => {
     try {
       const updated = await orderService.assignDriver(orderId, driverUserId);
-      setOrders((prev) => [updated, ...prev.filter((item) => item.id !== orderId)]);
-      setBanner(`Driver assigned to #${updated.order_number}`);
+      setOrders((prev) => [updated, ...prev.filter((item) => item.id !== orderId)].filter(isFrontdeskActionableOrder));
+      setBanner(i18next.t('banner.driverAssigned', { number: updated.order_number }));
     } catch {
-      setBanner('Failed to assign driver');
+      setBanner(i18next.t('banner.assignFailed'));
+    }
+  }, []);
+
+  const rejectOrder = useCallback(async (order: OrderRead) => {
+    try {
+      await orderService.updateStatus(order.id, 'CANCELLED');
+      setOrders((prev) => prev.filter((item) => item.id !== order.id));
+      setBanner(i18next.t('banner.orderRejected', { number: order.order_number }));
+    } catch {
+      setBanner(i18next.t('banner.rejectFailed'));
     }
   }, []);
 
   const printTestReceipt = useCallback(async () => {
     if (!sunmiPrinter.isAvailable()) {
-      setBanner('Printer module is not available on this build');
+      setBanner(i18next.t('banner.printerModuleUnavailable'));
       return;
     }
     const sample = [
@@ -210,7 +254,7 @@ export const useFrontdeskOrders = (token: string | null) => {
       '--------------------------',
       '',
       'Printer Test',
-      `Time: ${new Date().toLocaleString()}`,
+      `${i18next.t('orders.time')}: ${new Date().toLocaleString(i18next.language === 'ar' ? 'ar-JO' : 'en-US')}`,
       '',
       'If this prints, Sunmi setup is OK.',
       '',
@@ -218,10 +262,10 @@ export const useFrontdeskOrders = (token: string | null) => {
     ].join('\n');
     try {
       await sunmiPrinter.printReceipt(sample);
-      setBanner('Printer test sent');
+      setBanner(i18next.t('banner.printerTestSent'));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      setBanner(`Printer test failed: ${message}`);
+      const message = error instanceof Error ? error.message : i18next.t('banner.unknownError');
+      setBanner(i18next.t('banner.printerTestFailed', { message }));
     }
   }, []);
 
@@ -239,6 +283,7 @@ export const useFrontdeskOrders = (token: string | null) => {
       dismissFailedOrder,
       availableDrivers,
       assignDriver,
+      rejectOrder,
       refresh: loadNewOrders,
     }),
     [
@@ -248,6 +293,7 @@ export const useFrontdeskOrders = (token: string | null) => {
       dismissFailedOrder,
       availableDrivers,
       assignDriver,
+      rejectOrder,
       failedPrints,
       isLoading,
       loadNewOrders,

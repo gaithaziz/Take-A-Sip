@@ -1,6 +1,21 @@
 import axios from 'axios';
+import { NativeModules } from 'react-native';
 
-const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+const inferLanApiBaseUrl = (): string | null => {
+  const scriptURL = NativeModules?.SourceCode?.scriptURL as string | undefined;
+  if (!scriptURL) {
+    return null;
+  }
+  // Avoid relying on global URL availability in React Native runtimes.
+  const match = scriptURL.match(/^[a-z]+:\/\/([^/:?#]+)/i);
+  const host = match?.[1];
+  if (!host) {
+    return null;
+  }
+  return `http://${host}:8000`;
+};
+
+const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL ?? inferLanApiBaseUrl() ?? 'http://localhost:8000';
 
 export const http = axios.create({
   baseURL,

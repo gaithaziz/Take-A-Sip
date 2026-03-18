@@ -13,6 +13,7 @@ class OrderStatus(str, enum.Enum):
     ACCEPTED = 'ACCEPTED'
     ASSIGNED = 'ASSIGNED'
     OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY'
+    DELIVERED = 'DELIVERED'
     COMPLETED = 'COMPLETED'
     CANCELLED = 'CANCELLED'
 
@@ -75,6 +76,12 @@ class OrderItem(UUIDPrimaryKeyMixin, Base):
     order_id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey('orders.id', ondelete='CASCADE'), nullable=False
     )
+    item_id_snapshot: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey('items.id', ondelete='SET NULL'), nullable=True
+    )
+    size_id_snapshot: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey('sizes.id', ondelete='SET NULL'), nullable=True
+    )
     item_name_snapshot: Mapped[str] = mapped_column(String(150), nullable=False)
     size_snapshot: Mapped[str] = mapped_column(String(150), nullable=False)
     price_snapshot: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
@@ -89,6 +96,9 @@ class OrderItemAddon(UUIDPrimaryKeyMixin, Base):
 
     order_item_id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey('order_items.id', ondelete='CASCADE'), nullable=False
+    )
+    addon_id_snapshot: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey('addons.id', ondelete='SET NULL'), nullable=True
     )
     addon_name_snapshot: Mapped[str] = mapped_column(String(150), nullable=False)
     price_snapshot: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)

@@ -117,9 +117,16 @@ async def test_admin_dashboard_analytics_and_security_guards(client, db_session)
         json={'status': 'OUT_FOR_DELIVERY'},
     )
     assert out_response.status_code == 200
-    completed_response = await client.post(
+    delivered_response = await client.post(
         f'/orders/{order_id}/status',
         headers=driver_headers,
+        json={'status': OrderStatus.DELIVERED.value},
+    )
+    assert delivered_response.status_code == 200
+
+    completed_response = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
         json={'status': OrderStatus.COMPLETED.value},
     )
     assert completed_response.status_code == 200

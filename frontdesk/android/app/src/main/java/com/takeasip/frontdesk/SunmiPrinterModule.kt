@@ -17,6 +17,10 @@ class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
 
   override fun getName(): String = "SunmiPrinterModule"
 
+  private fun requirePrinterService(): SunmiPrinterService {
+    return printerService ?: throw IllegalStateException("Sunmi printer service is not connected")
+  }
+
   @ReactMethod
   fun initPrinter(promise: Promise) {
     try {
@@ -38,7 +42,7 @@ class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun setAlignment(alignment: Int, promise: Promise) {
     try {
-      printerService?.setAlignment(alignment, null)
+      requirePrinterService().setAlignment(alignment, null)
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject("SET_ALIGNMENT_FAILED", e)
@@ -48,7 +52,7 @@ class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun printText(text: String, promise: Promise) {
     try {
-      printerService?.printText(text, null)
+      requirePrinterService().printText(text, null)
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject("PRINT_TEXT_FAILED", e)
@@ -58,7 +62,7 @@ class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun lineWrap(lines: Int, promise: Promise) {
     try {
-      printerService?.lineWrap(lines, null)
+      requirePrinterService().lineWrap(lines, null)
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject("LINE_WRAP_FAILED", e)
@@ -68,7 +72,7 @@ class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun cutPaper(promise: Promise) {
     try {
-      printerService?.cutPaper(null)
+      requirePrinterService().cutPaper(null)
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject("CUT_PAPER_FAILED", e)

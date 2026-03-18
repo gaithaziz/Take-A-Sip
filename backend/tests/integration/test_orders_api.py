@@ -49,7 +49,10 @@ async def test_create_order_and_fetch_history(client, db_session):
     assert create_response.status_code == 201
     created = create_response.json()
     assert created['status'] == 'NEW'
+    assert created['items'][0]['item_id_snapshot'] == str(item.id)
+    assert created['items'][0]['size_id_snapshot'] == str(size.id)
     assert created['items'][0]['item_name_snapshot'] == 'Latte'
+    assert created['items'][0]['addons'][0]['addon_id_snapshot'] == str(addon.id)
     assert created['customer_name'] == 'Sara Client'
     assert created['customer_phone'] == '+962790000222'
 
@@ -107,8 +110,11 @@ async def test_reorder_creates_new_order_from_snapshots(client, db_session):
 
     assert reordered['id'] != original['id']
     assert reordered['status'] == 'NEW'
+    assert reordered['items'][0]['item_id_snapshot'] == original['items'][0]['item_id_snapshot']
+    assert reordered['items'][0]['size_id_snapshot'] == original['items'][0]['size_id_snapshot']
     assert reordered['items'][0]['item_name_snapshot'] == original['items'][0]['item_name_snapshot']
     assert reordered['items'][0]['size_snapshot'] == original['items'][0]['size_snapshot']
+    assert reordered['items'][0]['addons'][0]['addon_id_snapshot'] == original['items'][0]['addons'][0]['addon_id_snapshot']
     assert reordered['items'][0]['addons'][0]['addon_name_snapshot'] == original['items'][0]['addons'][0]['addon_name_snapshot']
 
 

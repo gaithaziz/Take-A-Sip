@@ -18,7 +18,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 export const AppNavigator = () => {
   const { token, logout } = useAuth();
   const { t } = useTranslation();
-  const realtime = useFrontdeskOrders(token);
+  const realtime = useFrontdeskOrders(token, logout);
 
   return (
     <NavigationContainer>
@@ -39,6 +39,7 @@ export const AppNavigator = () => {
               clearBanner={realtime.clearBanner}
               refresh={realtime.refresh}
               acceptOrder={realtime.acceptOrder}
+              rejectOrder={realtime.rejectOrder}
               onPrinterTest={realtime.printTestReceipt}
               onReprint={realtime.reprintFailedOrder}
               onDismissFailed={realtime.dismissFailedOrder}
@@ -68,6 +69,12 @@ export const AppNavigator = () => {
                 const current =
                   realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
                 await realtime.acceptOrder(current);
+                navigation.goBack();
+              }}
+              onReject={async () => {
+                const current =
+                  realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
+                await realtime.rejectOrder(current);
                 navigation.goBack();
               }}
             />

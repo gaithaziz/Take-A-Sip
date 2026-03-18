@@ -7,7 +7,6 @@ import { BottomTabBar } from '@/components/BottomTabBar';
 import { LoadingState } from '@/components/LoadingState';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { useAuth } from '@/state/AuthContext';
-import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 
 import { AuthScreen } from '@/screens/AuthScreen';
@@ -148,9 +147,9 @@ const DriverTabs = () => {
 };
 
 export const AppNavigator = () => {
-  const { language } = useLanguage();
+  const { t } = useAppTranslation();
   const { token, user, isLoading } = useAuth();
-  const appName = language === 'ar' ? 'خذلك شفة' : 'Take A Sip';
+  const appName = t('common.appName');
 
   if (isLoading) {
     return (
@@ -199,3 +198,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
   },
 });
+

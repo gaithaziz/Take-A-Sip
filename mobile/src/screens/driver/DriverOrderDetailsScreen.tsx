@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -45,7 +45,10 @@ export const DriverOrderDetailsScreen = ({ route }: Props) => {
     if (!order) {
       return null;
     }
-    if (order.delivery_latitude && order.delivery_longitude) {
+    if (order.google_maps_url) {
+      return order.google_maps_url;
+    }
+    if (order.delivery_latitude != null && order.delivery_longitude != null) {
       return `https://www.google.com/maps/dir/?api=1&destination=${order.delivery_latitude},${order.delivery_longitude}`;
     }
     if (order.delivery_address_text || order.delivery_address) {
@@ -57,7 +60,7 @@ export const DriverOrderDetailsScreen = ({ route }: Props) => {
   }, [order]);
 
   const updateStatus = useCallback(
-    async (status: 'OUT_FOR_DELIVERY' | 'COMPLETED') => {
+    async (status: 'OUT_FOR_DELIVERY' | 'DELIVERED') => {
       if (!order) {
         return;
       }
@@ -73,6 +76,28 @@ export const DriverOrderDetailsScreen = ({ route }: Props) => {
     },
     [load, order, t],
   );
+
+  const openMaps = useCallback(async () => {
+    if (!order || !mapsUrl) {
+      Alert.alert(t('common.appName'), t('driver.noDestination'));
+      return;
+    }
+    try {
+      if (Platform.OS === 'ios') {
+        const googleAppUrl =
+          order.delivery_latitude != null && order.delivery_longitude != null
+            ? `comgooglemaps://?daddr=${order.delivery_latitude},${order.delivery_longitude}&directionsmode=driving`
+            : `comgooglemaps://?q=${encodeURIComponent(order.delivery_address_text || order.delivery_address || '')}`;
+        if (await Linking.canOpenURL('comgooglemaps://')) {
+          await Linking.openURL(googleAppUrl);
+          return;
+        }
+      }
+      await Linking.openURL(mapsUrl);
+    } catch (e) {
+      Alert.alert(t('common.appName'), getApiErrorMessage(e, t));
+    }
+  }, [mapsUrl, order, t]);
 
   if (loading) {
     return <LoadingState label={t('common.loading')} />;
@@ -104,13 +129,7 @@ export const DriverOrderDetailsScreen = ({ route }: Props) => {
         <AppButton
           title={t('driver.openMaps')}
           variant="secondary"
-          onPress={() => {
-            if (!mapsUrl) {
-              Alert.alert(t('common.appName'), t('driver.noDestination'));
-              return;
-            }
-            void Linking.openURL(mapsUrl);
-          }}
+          onPress={() => void openMaps()}
         />
         <AppButton
           title={t('driver.markOutForDelivery')}
@@ -119,8 +138,8 @@ export const DriverOrderDetailsScreen = ({ route }: Props) => {
           loading={statusLoading && order.status === 'ASSIGNED'}
         />
         <AppButton
-          title={t('driver.markCompleted')}
-          onPress={() => void updateStatus('COMPLETED')}
+          title={t('driver.markDelivered')}
+          onPress={() => void updateStatus('DELIVERED')}
           disabled={statusLoading || order.status !== 'OUT_FOR_DELIVERY'}
           loading={statusLoading && order.status === 'OUT_FOR_DELIVERY'}
         />

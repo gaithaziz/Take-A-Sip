@@ -36,6 +36,9 @@ docker compose up -d --build
 
 # 2) Get your PC LAN IP
 ipconfig
+192.168.1.228
+$env:EXPO_PUBLIC_API_BASE_URL="http://192.168.1.228:8000"
+npx expo start --host lan --clear
 
 # 3) Start mobile app
 cd mobile

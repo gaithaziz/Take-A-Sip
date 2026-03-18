@@ -9,7 +9,12 @@ export const orderService = {
     });
     return data.orders;
   },
-  listLatestOrders: async (params?: { status?: string; order_type?: 'pickup' | 'delivery'; limit?: number; offset?: number }) => {
+  listLatestOrders: async (params?: {
+    status?: string | string[];
+    order_type?: 'pickup' | 'delivery';
+    limit?: number;
+    offset?: number;
+  }) => {
     const { data } = await http.get<OrderListResponse>('/orders/latest', { params });
     return data.orders;
   },
@@ -27,6 +32,13 @@ export const orderService = {
   },
   assignDriver: async (orderId: string, driverUserId: string) => {
     const { data } = await http.post<OrderRead>(`/orders/${orderId}/assign-driver`, { driver_user_id: driverUserId });
+    return data;
+  },
+  updateStatus: async (
+    orderId: string,
+    status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'ASSIGNED_TO_DRIVER' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
+  ) => {
+    const { data } = await http.post<{ id: string; status: string }>(`/orders/${orderId}/status`, { status });
     return data;
   },
 };

@@ -1,5 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,18 +28,39 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
   const { addItem } = useCart();
   const insets = useSafeAreaInsets();
 
-  const [selectedTypeId, setSelectedTypeId] = useState(item.item_types[0]?.id ?? '');
+  const activeTypes = useMemo(() => item.item_types.filter((itemType) => itemType.is_active), [item.item_types]);
+  const [selectedTypeId, setSelectedTypeId] = useState(activeTypes[0]?.id ?? '');
   const selectedType = useMemo(
-    () => item.item_types.find((itemType) => itemType.id === selectedTypeId) ?? item.item_types[0],
-    [item.item_types, selectedTypeId],
+    () => activeTypes.find((itemType) => itemType.id === selectedTypeId) ?? activeTypes[0],
+    [activeTypes, selectedTypeId],
   );
-  const [selectedSizeId, setSelectedSizeId] = useState(selectedType?.sizes[0]?.id ?? '');
+  const activeSizes = useMemo(() => selectedType?.sizes.filter((size) => size.is_active) ?? [], [selectedType]);
+  const [selectedSizeId, setSelectedSizeId] = useState(activeSizes[0]?.id ?? '');
   const selectedSize = useMemo(
-    () => selectedType?.sizes.find((size) => size.id === selectedSizeId) ?? selectedType?.sizes[0],
-    [selectedType, selectedSizeId],
+    () => activeSizes.find((size) => size.id === selectedSizeId) ?? activeSizes[0],
+    [activeSizes, selectedSizeId],
   );
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
+
+  useEffect(() => {
+    if (activeTypes.length === 0) {
+      return;
+    }
+    if (!activeTypes.some((itemType) => itemType.id === selectedTypeId)) {
+      setSelectedTypeId(activeTypes[0].id);
+    }
+  }, [activeTypes, selectedTypeId]);
+
+  useEffect(() => {
+    if (activeSizes.length === 0) {
+      return;
+    }
+    if (!activeSizes.some((size) => size.id === selectedSizeId)) {
+      setSelectedSizeId(activeSizes[0].id);
+      setSelectedAddonIds([]);
+    }
+  }, [activeSizes, selectedSizeId]);
 
   const activeAddons = (selectedSize?.addons ?? []).filter((addon) => addon.is_active);
   const selectedAddons = activeAddons.filter((addon) => selectedAddonIds.includes(addon.id));
@@ -60,8 +81,9 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
 
   const handleTypeSelect = (typeId: string) => {
     setSelectedTypeId(typeId);
-    const nextType = item.item_types.find((itemType) => itemType.id === typeId);
-    setSelectedSizeId(nextType?.sizes[0]?.id ?? '');
+    const nextType = activeTypes.find((itemType) => itemType.id === typeId);
+    const nextTypeSizes = nextType?.sizes.filter((size) => size.is_active) ?? [];
+    setSelectedSizeId(nextTypeSizes[0]?.id ?? '');
     setSelectedAddonIds([]);
   };
 
@@ -110,9 +132,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
           <View style={styles.section}>
             <AppText variant="h3">{t('product.selectType')}</AppText>
             <View style={styles.choices}>
-              {item.item_types
-                .filter((itemType) => itemType.is_active)
-                .map((itemType) => (
+              {activeTypes.map((itemType) => (
                   <Pressable
                     key={itemType.id}
                     onPress={() => handleTypeSelect(itemType.id)}
@@ -130,9 +150,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
           <View style={styles.section}>
             <AppText variant="h3">{t('product.selectSize')}</AppText>
             <View style={styles.choices}>
-              {selectedType?.sizes
-                .filter((size) => size.is_active)
-                .map((size) => (
+              {activeSizes.map((size) => (
                   <Pressable
                     key={size.id}
                     onPress={() => handleSizeSelect(size.id)}

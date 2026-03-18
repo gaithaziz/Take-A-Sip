@@ -80,7 +80,7 @@ export const PastOrdersScreenView = ({
   onOpenDetails,
   t,
 }: PastOrdersScreenViewProps) => {
-  const data = loading || error ? [] : orders;
+  const data = orders;
 
   return (
     <FlatList
@@ -205,20 +205,30 @@ export const PastOrdersScreenView = ({
       )}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListHeaderComponent={
-        <View style={styles.header}>
-          <AppText variant="h1">{title}</AppText>
+        <View style={styles.headerWrap}>
+          <View style={styles.header}>
+            <AppText variant="h1">{title}</AppText>
+          </View>
+          {error && orders.length > 0 ? (
+            <AppCard style={styles.errorCard}>
+              <AppText variant="caption" color={theme.colors.error}>
+                {error}
+              </AppText>
+              <AppButton title={retryLabel} variant="ghost" fullWidth={false} onPress={onReload} />
+            </AppCard>
+          ) : null}
         </View>
       }
       ListEmptyComponent={
-        loading ? (
+        loading && orders.length === 0 ? (
           <PastOrdersListSkeleton isRTL={isRTL} />
-        ) : error ? (
+        ) : error && orders.length === 0 ? (
           <EmptyState title={retryLabel} subtitle={error} actionLabel={retryLabel} onAction={onReload} />
         ) : (
           <EmptyState title={emptyTitle} subtitle={emptySubtitle} />
         )
       }
-      refreshing={loading}
+      refreshing={loading && orders.length > 0}
       onRefresh={onReload}
       initialNumToRender={8}
       maxToRenderPerBatch={8}
@@ -243,6 +253,14 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: theme.spacing.md,
+  },
+  headerWrap: {
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  errorCard: {
+    gap: theme.spacing.xs,
+    borderColor: theme.colors.error,
   },
   separator: {
     height: theme.spacing.md,

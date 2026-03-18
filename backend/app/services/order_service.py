@@ -6,7 +6,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import Numeric, Select, and_, case, cast, func, or_, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Numeric, Select, and_, case, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -86,6 +87,17 @@ def _extract_delivery_fields(payload: OrderCreateRequest) -> tuple[str | None, f
     return address, lat, lng
 
 
+def _validate_delivery_coordinates(lat: float | None, lng: float | None) -> tuple[float, float]:
+    if lat is None or lng is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='delivery_lat and delivery_lng are required for delivery orders',
+        )
+    if lat < -90 or lat > 90 or lng < -180 or lng > 180:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid delivery coordinates')
+    return lat, lng
+
+
 def _validate_delivery_fields(order_type: OrderType, payload: OrderCreateRequest) -> tuple[str | None, float | None, float | None]:
     address, lat, lng = _extract_delivery_fields(payload)
     if order_type == OrderType.DELIVERY:
@@ -94,17 +106,23 @@ def _validate_delivery_fields(order_type: OrderType, payload: OrderCreateRequest
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='delivery_address is required for delivery orders',
             )
-        if lat is None or lng is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail='delivery_lat and delivery_lng are required for delivery orders',
-            )
-        if lat < -90 or lat > 90 or lng < -180 or lng > 180:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid delivery coordinates')
+        _validate_delivery_coordinates(lat, lng)
     return address, lat, lng
 
 
+async def get_delivery_quote(db: AsyncSession, customer_lat: float | None, customer_lng: float | None) -> dict:
+    lat, lng = _validate_delivery_coordinates(customer_lat, customer_lng)
+    distance_km, delivery_fee, band_id = await _resolve_delivery_pricing(db, lat, lng)
+    return {
+        'delivery_distance_km': distance_km,
+        'delivery_fee': delivery_fee,
+        'delivery_distance_band_id': band_id,
+    }
+
+
 async def _next_order_number(db: AsyncSession) -> int:
+    # Serialize order-number allocation to avoid race collisions under concurrent creates.
+    await db.execute(text('SELECT pg_advisory_xact_lock(91234567)'))
     result = await db.execute(select(func.coalesce(func.max(Order.order_number), 0) + 1))
     return int(result.scalar_one())
 
@@ -146,8 +164,8 @@ async def _get_store_coordinates(db: AsyncSession) -> tuple[float, float]:
     lng = getattr(settings, 'store_longitude', None)
     if lat is None or lng is None:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Store coordinates are not configured',
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Delivery is temporarily unavailable: store location is not configured',
         )
     return float(lat), float(lng)
 
@@ -194,99 +212,129 @@ async def _log_event(
     )
 
 
+def _is_order_number_unique_violation(exc: IntegrityError) -> bool:
+    payload = str(getattr(exc, 'orig', exc)).lower()
+    return 'order_number' in payload and 'unique' in payload
+
+
 async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest) -> Order:
     if user.is_banned:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is banned')
+    user_id = user.id
+    actor_user_id = str(user_id)
 
     order_type = _normalize_order_type(payload.order_type)
     delivery_address, delivery_lat, delivery_lng = _validate_delivery_fields(order_type, payload)
 
     size_ids = [line.size_id for line in payload.items]
-    sizes_by_id = await _load_sizes(db, size_ids)
-    now = datetime.now(timezone.utc)
-    schedules_index = await get_schedules_index(db)
 
-    missing_size_ids = [sid for sid in size_ids if sid not in sizes_by_id]
-    if missing_size_ids:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
+    max_retries = 3
+    order: Order | None = None
+    for attempt in range(max_retries):
+        try:
+            now = datetime.now(timezone.utc)
+            schedules_index = await get_schedules_index(db)
+            sizes_by_id = await _load_sizes(db, size_ids)
+            missing_size_ids = [sid for sid in size_ids if sid not in sizes_by_id]
+            if missing_size_ids:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
 
-    delivery_distance_km = None
-    delivery_fee = None
-    delivery_distance_band_id = None
-    if order_type == OrderType.DELIVERY and delivery_lat is not None and delivery_lng is not None:
-        delivery_distance_km, delivery_fee, delivery_distance_band_id = await _resolve_delivery_pricing(
-            db, delivery_lat, delivery_lng
-        )
+            delivery_distance_km = None
+            delivery_fee = None
+            delivery_distance_band_id = None
+            if order_type == OrderType.DELIVERY and delivery_lat is not None and delivery_lng is not None:
+                delivery_distance_km, delivery_fee, delivery_distance_band_id = await _resolve_delivery_pricing(
+                    db, delivery_lat, delivery_lng
+                )
 
-    order = Order(
-        order_number=await _next_order_number(db),
-        user_id=user.id,
-        status=OrderStatus.NEW,
-        order_type=order_type,
-        delivery_address=delivery_address,
-        delivery_latitude=Decimal(str(delivery_lat)) if delivery_lat is not None else None,
-        delivery_longitude=Decimal(str(delivery_lng)) if delivery_lng is not None else None,
-        delivery_distance_km=delivery_distance_km,
-        delivery_fee=delivery_fee,
-        delivery_distance_band_id=delivery_distance_band_id,
-        notes=payload.notes,
-    )
-    db.add(order)
-    await db.flush()
-
-    for line in payload.items:
-        size = sizes_by_id[line.size_id]
-        item_type = size.item_type
-        item = item_type.item
-
-        if not (
-            size.is_active
-            and item_type.is_active
-            and item.is_active
-            and item.section.is_active
-            and is_entity_available(schedules_index, 'section', item.section.id, now)
-            and is_entity_available(schedules_index, 'item', item.id, now)
-            and is_entity_available(schedules_index, 'type', item_type.id, now)
-            and is_entity_available(schedules_index, 'size', size.id, now)
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail='One of the menu elements is inactive',
+            order = Order(
+                order_number=await _next_order_number(db),
+                user_id=user_id,
+                status=OrderStatus.NEW,
+                order_type=order_type,
+                delivery_address=delivery_address,
+                delivery_latitude=Decimal(str(delivery_lat)) if delivery_lat is not None else None,
+                delivery_longitude=Decimal(str(delivery_lng)) if delivery_lng is not None else None,
+                delivery_distance_km=delivery_distance_km,
+                delivery_fee=delivery_fee,
+                delivery_distance_band_id=delivery_distance_band_id,
+                notes=payload.notes,
             )
+            db.add(order)
+            await db.flush()
 
-        order_item = OrderItem(
-            order_id=order.id,
-            item_name_snapshot=item.name_en,
-            size_snapshot=size.name_en,
-            price_snapshot=Decimal(size.price),
-            quantity=line.quantity,
-        )
-        db.add(order_item)
-        await db.flush()
+            for line in payload.items:
+                size = sizes_by_id[line.size_id]
+                item_type = size.item_type
+                item = item_type.item
 
-        available_addons = {addon.id: addon for addon in size.addons if addon.is_active}
-        for addon_id in line.addon_ids:
-            addon = available_addons.get(addon_id)
-            if addon is None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail='Addon not available for selected size',
-                )
-            if not is_entity_available(schedules_index, 'addon', addon.id, now):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail='Addon not available for selected size',
-                )
-            db.add(
-                OrderItemAddon(
-                    order_item_id=order_item.id,
-                    addon_name_snapshot=addon.name_en,
-                    price_snapshot=Decimal(addon.price),
-                )
-            )
+                if not (
+                    size.is_active
+                    and item_type.is_active
+                    and item.is_active
+                    and item.section.is_active
+                    and is_entity_available(schedules_index, 'section', item.section.id, now)
+                    and is_entity_available(schedules_index, 'item', item.id, now)
+                    and is_entity_available(schedules_index, 'type', item_type.id, now)
+                    and is_entity_available(schedules_index, 'size', size.id, now)
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail='One of the menu elements is inactive',
+                    )
 
-    await _log_event(db, order.id, 'order.created', user.id)
-    await db.commit()
+                order_item = OrderItem(
+                    order_id=order.id,
+                    item_id_snapshot=item.id,
+                    size_id_snapshot=size.id,
+                    item_name_snapshot=item.name_en,
+                    size_snapshot=size.name_en,
+                    price_snapshot=Decimal(size.price),
+                    quantity=line.quantity,
+                )
+                db.add(order_item)
+                await db.flush()
+
+                available_addons = {addon.id: addon for addon in size.addons if addon.is_active}
+                for addon_id in line.addon_ids:
+                    addon = available_addons.get(addon_id)
+                    if addon is None:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Addon not available for selected size',
+                        )
+                    if not is_entity_available(schedules_index, 'addon', addon.id, now):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Addon not available for selected size',
+                        )
+                    db.add(
+                        OrderItemAddon(
+                            order_item_id=order_item.id,
+                            addon_id_snapshot=addon.id,
+                            addon_name_snapshot=addon.name_en,
+                            price_snapshot=Decimal(addon.price),
+                        )
+                    )
+
+            await _log_event(db, order.id, 'order.created', user_id)
+            await db.commit()
+            break
+        except IntegrityError as exc:
+            await db.rollback()
+            if _is_order_number_unique_violation(exc) and attempt < (max_retries - 1):
+                log_structured(
+                    logger,
+                    logging.WARNING,
+                    'order.number_conflict_retry',
+                    {'attempt': attempt + 1, 'actor_user_id': actor_user_id},
+                )
+                continue
+            raise
+
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to create order')
+
     log_structured(
         logger,
         logging.INFO,
@@ -332,6 +380,8 @@ async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> 
     for source_item in source_order.items:
         order_item = OrderItem(
             order_id=order.id,
+            item_id_snapshot=source_item.item_id_snapshot,
+            size_id_snapshot=source_item.size_id_snapshot,
             item_name_snapshot=source_item.item_name_snapshot,
             size_snapshot=source_item.size_snapshot,
             price_snapshot=Decimal(source_item.price_snapshot),
@@ -344,6 +394,7 @@ async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> 
             db.add(
                 OrderItemAddon(
                     order_item_id=order_item.id,
+                    addon_id_snapshot=source_addon.addon_id_snapshot,
                     addon_name_snapshot=source_addon.addon_name_snapshot,
                     price_snapshot=Decimal(source_addon.price_snapshot),
                 )
@@ -521,7 +572,8 @@ _ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.NEW: {OrderStatus.ACCEPTED, OrderStatus.CANCELLED},
     OrderStatus.ACCEPTED: {OrderStatus.ASSIGNED, OrderStatus.COMPLETED, OrderStatus.CANCELLED},
     OrderStatus.ASSIGNED: {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED},
-    OrderStatus.OUT_FOR_DELIVERY: {OrderStatus.COMPLETED, OrderStatus.CANCELLED},
+    OrderStatus.OUT_FOR_DELIVERY: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
+    OrderStatus.DELIVERED: {OrderStatus.COMPLETED},
     OrderStatus.COMPLETED: set(),
     OrderStatus.CANCELLED: set(),
 }
@@ -533,11 +585,12 @@ def _role_can_set_status(role: UserRole, target: OrderStatus) -> bool:
             OrderStatus.NEW,
             OrderStatus.ACCEPTED,
             OrderStatus.ASSIGNED,
+            OrderStatus.DELIVERED,
             OrderStatus.CANCELLED,
             OrderStatus.COMPLETED,
         }
     if role == UserRole.DRIVER:
-        return target in {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.COMPLETED}
+        return target in {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED}
     return False
 
 
@@ -616,7 +669,13 @@ async def list_driver_latest_orders(db: AsyncSession, driver_id: UUID, limit: in
             Order.assigned_driver_id == driver_id,
             Order.order_type == OrderType.DELIVERY,
             Order.status.in_(
-                [OrderStatus.ASSIGNED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.COMPLETED, OrderStatus.CANCELLED]
+                [
+                    OrderStatus.ASSIGNED,
+                    OrderStatus.OUT_FOR_DELIVERY,
+                    OrderStatus.DELIVERED,
+                    OrderStatus.COMPLETED,
+                    OrderStatus.CANCELLED,
+                ]
             ),
         )
         .order_by(Order.created_at.desc())

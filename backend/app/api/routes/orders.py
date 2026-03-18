@@ -9,6 +9,8 @@ from app.models.user import User, UserRole
 from app.schemas.order import (
     AcceptOrderResponse,
     AssignDriverRequest,
+    DeliveryQuoteRequest,
+    DeliveryQuoteResponse,
     OrderRatingRead,
     OrderCreateRequest,
     OrderListResponse,
@@ -22,6 +24,7 @@ from app.services.order_service import (
     assign_driver,
     create_order,
     enforce_order_access,
+    get_delivery_quote,
     get_order_by_id,
     get_user_orders,
     list_driver_assigned_orders,
@@ -58,6 +61,21 @@ async def create_order_endpoint(
         order_event_payload('order.created', order.id, order.order_number, order.status.value),
     )
     return OrderRead.model_validate(order_to_read_dict(order))
+
+
+@router.post('/delivery-quote', response_model=DeliveryQuoteResponse)
+async def delivery_quote_endpoint(
+    payload: DeliveryQuoteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DeliveryQuoteResponse:
+    if current_user.role != UserRole.CLIENT:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Only clients can request delivery quote')
+
+    lat = payload.delivery_latitude if payload.delivery_latitude is not None else payload.delivery_lat
+    lng = payload.delivery_longitude if payload.delivery_longitude is not None else payload.delivery_lng
+    quote = await get_delivery_quote(db, lat, lng)
+    return DeliveryQuoteResponse.model_validate(quote)
 
 
 @router.get('', response_model=OrderListResponse)

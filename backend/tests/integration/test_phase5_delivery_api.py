@@ -129,9 +129,17 @@ async def test_delivery_order_full_lifecycle(client, db_session):
     assert out_response.status_code == 200
     assert out_response.json()['status'] == 'OUT_FOR_DELIVERY'
 
-    complete_response = await client.post(
+    delivered_response = await client.post(
         f'/orders/{order_id}/status',
         headers=driver_headers,
+        json={'status': 'DELIVERED'},
+    )
+    assert delivered_response.status_code == 200
+    assert delivered_response.json()['status'] == 'DELIVERED'
+
+    complete_response = await client.post(
+        f'/orders/{order_id}/status',
+        headers=frontdesk_headers,
         json={'status': 'COMPLETED'},
     )
     assert complete_response.status_code == 200
@@ -164,3 +172,22 @@ async def test_delivery_order_rejected_when_no_distance_band_match(client, db_se
     )
     assert response.status_code == 400
     assert response.json()['detail'] == 'No active delivery distance band covers destination distance'
+
+
+async def test_delivery_quote_returns_distance_and_fee(client, db_session):
+    seeded = await _seed_delivery_context(db_session)
+    client_headers = {'Authorization': f"Bearer {create_access_token(str(seeded['client'].id), UserRole.CLIENT.value)}"}
+
+    response = await client.post(
+        '/orders/delivery-quote',
+        headers=client_headers,
+        json={
+            'delivery_lat': 31.9639,
+            'delivery_lng': 35.9206,
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['delivery_fee'] == '1.75'
+    assert payload['delivery_distance_band_id'] == str(seeded['band'].id)
+    assert Decimal(payload['delivery_distance_km']) > 0

@@ -1,4 +1,5 @@
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -43,6 +44,12 @@ export const DriverOrdersScreen = ({ navigation }: Props) => {
     void load();
   }, [load]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
   if (loading) {
     return <LoadingState label={t('common.loading')} />;
   }
@@ -52,7 +59,9 @@ export const DriverOrdersScreen = ({ navigation }: Props) => {
   }
 
   const activeOrders = orders.filter((order) => order.status === 'ASSIGNED' || order.status === 'OUT_FOR_DELIVERY');
-  const completedOrders = orders.filter((order) => order.status === 'COMPLETED' || order.status === 'CANCELLED');
+  const completedOrders = orders.filter(
+    (order) => order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'CANCELLED',
+  );
 
   return (
     <AppShell refreshing={loading} onRefresh={load}>
@@ -103,7 +112,10 @@ export const DriverOrdersScreen = ({ navigation }: Props) => {
                 <AppCard style={styles.card}>
                   <View style={[styles.row, mirroredRow(isRTL)]}>
                     <AppText variant="h3">#{order.order_number}</AppText>
-                    <BadgeChip label={t(`status.${order.status}`)} tone={order.status === 'COMPLETED' ? 'success' : 'error'} />
+                    <BadgeChip
+                      label={t(`status.${order.status}`)}
+                      tone={order.status === 'CANCELLED' ? 'error' : 'success'}
+                    />
                   </View>
                   <AppText>{order.customer_name ?? '-'}</AppText>
                   <AppText color={theme.colors.textSecondary}>{order.customer_phone ?? '-'}</AppText>

@@ -1,5 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -25,8 +25,11 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const { discount, total } = useCartPricing(subtotal);
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
-  const [deliveryLat, setDeliveryLat] = useState('');
-  const [deliveryLng, setDeliveryLng] = useState('');
+  const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<number | null>(null);
+  const [deliveryQuoteError, setDeliveryQuoteError] = useState<string | undefined>(undefined);
+  const [deliveryQuoteLoading, setDeliveryQuoteLoading] = useState(false);
   const [deliveryAddressError, setDeliveryAddressError] = useState<string | undefined>(undefined);
   const [deliveryLocationError, setDeliveryLocationError] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState('');
@@ -35,25 +38,68 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const insets = useSafeAreaInsets();
 
   const hasDeliveryAddress = deliveryAddress.trim().length > 0;
-  const latValue = Number(deliveryLat);
-  const lngValue = Number(deliveryLng);
-  const hasDeliveryCoords =
-    Number.isFinite(latValue) &&
-    Number.isFinite(lngValue) &&
-    latValue >= -90 &&
-    latValue <= 90 &&
-    lngValue >= -180 &&
-    lngValue <= 180;
-  const isDeliveryValid = orderType === 'pickup' || (hasDeliveryAddress && hasDeliveryCoords);
+  const hasDeliveryCoords = deliveryCoords !== null;
+  const hasDeliveryQuote = orderType === 'pickup' || (!deliveryQuoteLoading && deliveryFee !== null);
+  const isDeliveryValid = orderType === 'pickup' || (hasDeliveryAddress && hasDeliveryCoords && hasDeliveryQuote);
   const canPlaceOrder = Boolean(user) && items.length > 0 && isDeliveryValid && !loading;
+  const payableTotal = total + (orderType === 'delivery' ? deliveryFee ?? 0 : 0);
+
+  useEffect(() => {
+    if (orderType !== 'delivery' || !deliveryCoords) {
+      setDeliveryFee(null);
+      setDeliveryDistanceKm(null);
+      setDeliveryQuoteError(undefined);
+      setDeliveryQuoteLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadDeliveryQuote = async () => {
+      try {
+        setDeliveryFee(null);
+        setDeliveryDistanceKm(null);
+        setDeliveryQuoteLoading(true);
+        setDeliveryQuoteError(undefined);
+        const quote = await orderService.getDeliveryQuote({
+          delivery_lat: deliveryCoords.lat,
+          delivery_lng: deliveryCoords.lng,
+        });
+        if (cancelled) {
+          return;
+        }
+        const fee = Number(quote.delivery_fee);
+        const distance = Number(quote.delivery_distance_km);
+        setDeliveryFee(Number.isFinite(fee) ? fee : null);
+        setDeliveryDistanceKm(Number.isFinite(distance) ? distance : null);
+      } catch (e) {
+        if (cancelled) {
+          return;
+        }
+        setDeliveryFee(null);
+        setDeliveryDistanceKm(null);
+        setDeliveryQuoteError(getApiErrorMessage(e, t));
+      } finally {
+        if (!cancelled) {
+          setDeliveryQuoteLoading(false);
+        }
+      }
+    };
+
+    void loadDeliveryQuote();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deliveryCoords, orderType, t]);
 
   const payload = useMemo(
     () => ({
       order_type: orderType,
       delivery_address: orderType === 'delivery' && deliveryAddress.trim() ? deliveryAddress.trim() : undefined,
       delivery_address_text: orderType === 'delivery' && deliveryAddress.trim() ? deliveryAddress.trim() : undefined,
-      delivery_lat: orderType === 'delivery' && hasDeliveryCoords ? latValue : undefined,
-      delivery_lng: orderType === 'delivery' && hasDeliveryCoords ? lngValue : undefined,
+      delivery_lat: orderType === 'delivery' && hasDeliveryCoords ? deliveryCoords.lat : undefined,
+      delivery_lng: orderType === 'delivery' && hasDeliveryCoords ? deliveryCoords.lng : undefined,
       notes: notes.trim() ? notes.trim() : undefined,
       items: items.map((item) => ({
         size_id: item.size.id,
@@ -61,7 +107,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
         addon_ids: item.addons.map((addon) => addon.id),
       })),
     }),
-    [deliveryAddress, hasDeliveryCoords, items, latValue, lngValue, notes, orderType],
+    [deliveryAddress, hasDeliveryCoords, deliveryCoords, items, notes, orderType],
   );
 
   const placeOrder = async () => {
@@ -79,7 +125,13 @@ export const CheckoutScreen = ({ navigation }: Props) => {
     } else {
       setDeliveryLocationError(undefined);
     }
+    if (orderType === 'delivery' && !hasDeliveryQuote) {
+      setDeliveryLocationError(t('checkout.deliveryFeeUnavailable'));
+    }
     if (orderType === 'delivery' && (!deliveryAddress.trim() || !hasDeliveryCoords)) {
+      return;
+    }
+    if (orderType === 'delivery' && !hasDeliveryQuote) {
       return;
     }
 
@@ -109,8 +161,10 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       });
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
-      setDeliveryLat(String(lat.toFixed(6)));
-      setDeliveryLng(String(lng.toFixed(6)));
+      setDeliveryFee(null);
+      setDeliveryDistanceKm(null);
+      setDeliveryQuoteError(undefined);
+      setDeliveryCoords({ lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) });
       setDeliveryLocationError(undefined);
 
       const geocode = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
@@ -134,10 +188,18 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       title={t('checkout.title')}
       pickupLabel={t('checkout.pickup')}
       deliveryLabel={t('checkout.delivery')}
+      deliveryDetailsLabel={t('checkout.delivery')}
       deliveryAddressLabel={t('checkout.deliveryAddress')}
+      deliveryLocationLabel={t('checkout.deliveryLocation')}
+      mapHintLabel={t('checkout.selectOnMap')}
+      selectedLocationLabel={t('checkout.selectedLocation')}
       notesLabel={t('common.notes')}
       subtotalLabel={t('common.subtotal')}
       discountLabel={t('common.discount')}
+      deliveryFeeLabel={t('checkout.deliveryFee')}
+      estimatedDistanceLabel={t('checkout.estimatedDistance')}
+      calculatingDeliveryFeeLabel={t('checkout.calculatingDeliveryFee')}
+      deliveryFeeUnavailableLabel={t('checkout.deliveryFeeUnavailable')}
       totalLabel={t('common.total')}
       placeOrderLabel={t('checkout.placeOrder')}
       language={language}
@@ -145,18 +207,20 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       orderType={orderType}
       deliveryAddress={deliveryAddress}
       deliveryAddressError={deliveryAddressError}
-      deliveryLatLabel={t('checkout.deliveryLat')}
-      deliveryLngLabel={t('checkout.deliveryLng')}
-      deliveryLat={deliveryLat}
-      deliveryLng={deliveryLng}
+      selectedLat={deliveryCoords?.lat ?? null}
+      selectedLng={deliveryCoords?.lng ?? null}
       deliveryLocationError={deliveryLocationError}
+      deliveryQuoteError={deliveryQuoteError}
+      deliveryFee={deliveryFee}
+      deliveryDistanceKm={deliveryDistanceKm}
+      deliveryQuoteLoading={deliveryQuoteLoading}
       useCurrentLocationLabel={t('checkout.useCurrentLocation')}
       useCurrentLocationLoadingLabel={t('checkout.locating')}
       locating={locating}
       notes={notes}
       subtotal={subtotal}
       discount={discount}
-      total={total}
+      payableTotal={payableTotal}
       loading={loading}
       canPlaceOrder={canPlaceOrder}
       bottomInset={insets.bottom}
@@ -168,6 +232,9 @@ export const CheckoutScreen = ({ navigation }: Props) => {
           setDeliveryLocationError(undefined);
           return;
         }
+        setDeliveryFee(null);
+        setDeliveryDistanceKm(null);
+        setDeliveryQuoteError(undefined);
         if (!deliveryAddress.trim()) {
           setDeliveryAddressError(t('checkout.deliveryAddressRequired'));
         }
@@ -181,19 +248,12 @@ export const CheckoutScreen = ({ navigation }: Props) => {
           setDeliveryAddressError(undefined);
         }
       }}
-      onChangeDeliveryLat={(value) => {
-        setDeliveryLat(value);
-        const parsed = Number(value);
-        if (Number.isFinite(parsed) && parsed >= -90 && parsed <= 90 && Number.isFinite(Number(deliveryLng))) {
-          setDeliveryLocationError(undefined);
-        }
-      }}
-      onChangeDeliveryLng={(value) => {
-        setDeliveryLng(value);
-        const parsed = Number(value);
-        if (Number.isFinite(parsed) && parsed >= -180 && parsed <= 180 && Number.isFinite(Number(deliveryLat))) {
-          setDeliveryLocationError(undefined);
-        }
+      onSelectDeliveryLocation={(lat, lng) => {
+        setDeliveryFee(null);
+        setDeliveryDistanceKm(null);
+        setDeliveryQuoteError(undefined);
+        setDeliveryCoords({ lat, lng });
+        setDeliveryLocationError(undefined);
       }}
       onChangeNotes={setNotes}
       onPlaceOrder={placeOrder}

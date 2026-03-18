@@ -29,22 +29,38 @@ class OrderCreateRequest(AppBaseModel):
     items: list[OrderItemCreate] = Field(min_length=1)
 
 
+class DeliveryQuoteRequest(AppBaseModel):
+    delivery_latitude: float | None = None
+    delivery_longitude: float | None = None
+    delivery_lat: float | None = None
+    delivery_lng: float | None = None
+
+
+class DeliveryQuoteResponse(AppBaseModel):
+    delivery_distance_km: Decimal
+    delivery_fee: Decimal
+    delivery_distance_band_id: UUID
+
+
 class AssignDriverRequest(AppBaseModel):
     driver_user_id: UUID
 
 
 class UpdateOrderStatusRequest(AppBaseModel):
-    status: str = Field(pattern='^(NEW|ACCEPTED|ASSIGNED|OUT_FOR_DELIVERY|COMPLETED|CANCELLED)$')
+    status: str = Field(pattern='^(NEW|ACCEPTED|ASSIGNED|OUT_FOR_DELIVERY|DELIVERED|COMPLETED|CANCELLED)$')
 
 
 class OrderItemAddonRead(AppBaseModel):
     id: UUID
+    addon_id_snapshot: UUID | None = None
     addon_name_snapshot: str
     price_snapshot: Decimal
 
 
 class OrderItemRead(AppBaseModel):
     id: UUID
+    item_id_snapshot: UUID | None = None
+    size_id_snapshot: UUID | None = None
     item_name_snapshot: str
     size_snapshot: str
     price_snapshot: Decimal

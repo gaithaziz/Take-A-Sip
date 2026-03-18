@@ -118,14 +118,30 @@ export type CreateOrderPayload = {
   }>;
 };
 
+export type DeliveryQuotePayload = {
+  delivery_latitude?: number;
+  delivery_longitude?: number;
+  delivery_lat?: number;
+  delivery_lng?: number;
+};
+
+export type DeliveryQuoteResponse = {
+  delivery_distance_km: string;
+  delivery_fee: string;
+  delivery_distance_band_id: string;
+};
+
 export type OrderItemAddonRead = {
   id: string;
+  addon_id_snapshot?: string | null;
   addon_name_snapshot: string;
   price_snapshot: string;
 };
 
 export type OrderItemRead = {
   id: string;
+  item_id_snapshot?: string | null;
+  size_id_snapshot?: string | null;
   item_name_snapshot: string;
   size_snapshot: string;
   price_snapshot: string;
@@ -161,7 +177,7 @@ export type OrderRead = {
   assigned_at?: string | null;
   completed_at?: string | null;
   google_maps_url?: string | null;
-  status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'COMPLETED' | 'CANCELLED';
+  status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
   order_type: 'pickup' | 'delivery';
   created_at: string;
   notes: string | null;

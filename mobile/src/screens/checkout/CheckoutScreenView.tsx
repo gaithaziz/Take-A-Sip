@@ -1,4 +1,6 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import MapView, { MapPressEvent, Marker } from 'react-native-maps';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -16,12 +18,18 @@ type CheckoutScreenViewProps = {
   title: string;
   pickupLabel: string;
   deliveryLabel: string;
+  deliveryDetailsLabel: string;
   deliveryAddressLabel: string;
-  deliveryLatLabel: string;
-  deliveryLngLabel: string;
+  deliveryLocationLabel: string;
+  mapHintLabel: string;
+  selectedLocationLabel: string;
   notesLabel: string;
   subtotalLabel: string;
   discountLabel: string;
+  deliveryFeeLabel: string;
+  estimatedDistanceLabel: string;
+  calculatingDeliveryFeeLabel: string;
+  deliveryFeeUnavailableLabel: string;
   totalLabel: string;
   placeOrderLabel: string;
   language: LanguageCode;
@@ -29,24 +37,27 @@ type CheckoutScreenViewProps = {
   orderType: CheckoutOrderType;
   deliveryAddress: string;
   deliveryAddressError?: string;
-  deliveryLat: string;
-  deliveryLng: string;
+  selectedLat: number | null;
+  selectedLng: number | null;
   deliveryLocationError?: string;
+  deliveryQuoteError?: string;
+  deliveryFee: number | null;
+  deliveryDistanceKm: number | null;
+  deliveryQuoteLoading: boolean;
   useCurrentLocationLabel: string;
   useCurrentLocationLoadingLabel: string;
   locating: boolean;
   notes: string;
   subtotal: number;
   discount: number;
-  total: number;
+  payableTotal: number;
   loading: boolean;
   canPlaceOrder: boolean;
   bottomInset: number;
   onBack: () => void;
   onSelectOrderType: (next: CheckoutOrderType) => void;
   onChangeDeliveryAddress: (value: string) => void;
-  onChangeDeliveryLat: (value: string) => void;
-  onChangeDeliveryLng: (value: string) => void;
+  onSelectDeliveryLocation: (lat: number, lng: number) => void;
   onChangeNotes: (value: string) => void;
   onPlaceOrder: () => void;
   onUseCurrentLocation: () => void;
@@ -56,12 +67,18 @@ export const CheckoutScreenView = ({
   title,
   pickupLabel,
   deliveryLabel,
+  deliveryDetailsLabel,
   deliveryAddressLabel,
-  deliveryLatLabel,
-  deliveryLngLabel,
+  deliveryLocationLabel,
+  mapHintLabel,
+  selectedLocationLabel,
   notesLabel,
   subtotalLabel,
   discountLabel,
+  deliveryFeeLabel,
+  estimatedDistanceLabel,
+  calculatingDeliveryFeeLabel,
+  deliveryFeeUnavailableLabel,
   totalLabel,
   placeOrderLabel,
   language,
@@ -69,28 +86,60 @@ export const CheckoutScreenView = ({
   orderType,
   deliveryAddress,
   deliveryAddressError,
-  deliveryLat,
-  deliveryLng,
+  selectedLat,
+  selectedLng,
   deliveryLocationError,
+  deliveryQuoteError,
+  deliveryFee,
+  deliveryDistanceKm,
+  deliveryQuoteLoading,
   useCurrentLocationLabel,
   useCurrentLocationLoadingLabel,
   locating,
   notes,
   subtotal,
   discount,
-  total,
+  payableTotal,
   loading,
   canPlaceOrder,
   bottomInset,
   onBack,
   onSelectOrderType,
   onChangeDeliveryAddress,
-  onChangeDeliveryLat,
-  onChangeDeliveryLng,
+  onSelectDeliveryLocation,
   onChangeNotes,
   onPlaceOrder,
   onUseCurrentLocation,
 }: CheckoutScreenViewProps) => {
+  const mapRef = useRef<MapView | null>(null);
+  const mapCenter = useMemo(
+    () => ({
+      latitude: selectedLat ?? 31.9539,
+      longitude: selectedLng ?? 35.9106,
+    }),
+    [selectedLat, selectedLng],
+  );
+
+  useEffect(() => {
+    if (selectedLat === null || selectedLng === null) {
+      return;
+    }
+    mapRef.current?.animateToRegion(
+      {
+        latitude: selectedLat,
+        longitude: selectedLng,
+        latitudeDelta: 0.012,
+        longitudeDelta: 0.012,
+      },
+      300,
+    );
+  }, [selectedLat, selectedLng]);
+
+  const onMapPress = (event: MapPressEvent) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    onSelectDeliveryLocation(Number(latitude.toFixed(6)), Number(longitude.toFixed(6)));
+  };
+
   return (
     <View style={styles.page}>
       <TopAppBar title={title} onBack={onBack} />
@@ -149,26 +198,71 @@ export const CheckoutScreenView = ({
           </AppText>
           {orderType === 'delivery' ? (
             <>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {deliveryDetailsLabel}
+              </AppText>
               <AppInput
                 label={deliveryAddressLabel}
                 value={deliveryAddress}
                 onChangeText={onChangeDeliveryAddress}
                 error={deliveryAddressError}
               />
-              <AppInput
-                label={deliveryLatLabel}
-                value={deliveryLat}
-                keyboardType="numeric"
-                onChangeText={onChangeDeliveryLat}
-                error={deliveryLocationError}
-              />
-              <AppInput
-                label={deliveryLngLabel}
-                value={deliveryLng}
-                keyboardType="numeric"
-                onChangeText={onChangeDeliveryLng}
-                error={deliveryLocationError}
-              />
+              <View style={styles.mapWrap}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                  {deliveryLocationLabel}
+                </AppText>
+                <AppText variant="caption" color={theme.colors.textSecondary}>
+                  {mapHintLabel}
+                </AppText>
+                <MapView
+                  ref={mapRef}
+                  style={styles.map}
+                  initialRegion={{
+                    ...mapCenter,
+                    latitudeDelta: 0.012,
+                    longitudeDelta: 0.012,
+                  }}
+                  onPress={onMapPress}>
+                  {selectedLat !== null && selectedLng !== null ? (
+                    <Marker
+                      coordinate={{ latitude: selectedLat, longitude: selectedLng }}
+                      draggable
+                      onDragEnd={(event) => {
+                        const { latitude, longitude } = event.nativeEvent.coordinate;
+                        onSelectDeliveryLocation(Number(latitude.toFixed(6)), Number(longitude.toFixed(6)));
+                      }}
+                    />
+                  ) : null}
+                </MapView>
+                {selectedLat !== null && selectedLng !== null ? (
+                  <AppText variant="caption" color={theme.colors.textSecondary}>
+                    {selectedLocationLabel}: {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
+                  </AppText>
+                ) : null}
+                {deliveryLocationError ? (
+                  <AppText variant="caption" color={theme.colors.error}>
+                    {deliveryLocationError}
+                  </AppText>
+                ) : null}
+                {deliveryQuoteLoading ? (
+                  <AppText variant="caption" color={theme.colors.textSecondary}>
+                    {calculatingDeliveryFeeLabel}
+                  </AppText>
+                ) : null}
+                {deliveryQuoteError ? (
+                  <AppText variant="caption" color={theme.colors.error}>
+                    {deliveryQuoteError || deliveryFeeUnavailableLabel}
+                  </AppText>
+                ) : null}
+                {!deliveryQuoteLoading && deliveryFee !== null ? (
+                  <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+                    <AppText variant="caption" color={theme.colors.textSecondary}>
+                      {estimatedDistanceLabel}: {deliveryDistanceKm?.toFixed(2)} km
+                    </AppText>
+                    <AppText variant="caption">{formatCurrency(deliveryFee, language)}</AppText>
+                  </View>
+                ) : null}
+              </View>
               <AppButton
                 title={locating ? useCurrentLocationLoadingLabel : useCurrentLocationLabel}
                 variant="secondary"
@@ -193,10 +287,18 @@ export const CheckoutScreenView = ({
               -{formatCurrency(discount, language)}
             </AppText>
           </View>
+          {orderType === 'delivery' ? (
+            <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+              <AppText>{deliveryFeeLabel}</AppText>
+              <AppText color={deliveryFee !== null ? theme.colors.textPrimary : theme.colors.textSecondary}>
+                {deliveryFee !== null ? formatCurrency(deliveryFee, language) : calculatingDeliveryFeeLabel}
+              </AppText>
+            </View>
+          ) : null}
           <View style={[styles.totalRow, mirroredRow(isRTL)]}>
             <AppText variant="h3">{totalLabel}</AppText>
             <AppText variant="price" color={theme.colors.primary700}>
-              {formatCurrency(total, language)}
+              {formatCurrency(payableTotal, language)}
             </AppText>
           </View>
           <AppButton
@@ -269,6 +371,16 @@ const styles = StyleSheet.create({
   },
   detailsCard: {
     gap: theme.spacing.md,
+  },
+  mapWrap: {
+    gap: theme.spacing.xs,
+  },
+  map: {
+    width: '100%',
+    height: 220,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   notesInput: {
     minHeight: 112,

@@ -1,0 +1,183 @@
+﻿TEST RUN INSTRUCTIONS (Backend + Mobile + Frontdesk)
+
+This is the single runbook for stable local testing.
+It avoids port/address collisions and covers the common failures we hit.
+
+--------------------------------------------------
+TEST CREDENTIALS (CURRENT)
+--------------------------------------------------
+OTP code for all accounts (mock provider): 123456
+
+- FRONTDESK: +962790070001
+- DRIVER: +962790099992
+- CLIENT (user): 0790000101
+- ADMIN: +962790099981
+
+Seeded fallback accounts (also OTP 123456):
+- FRONTDESK: 0790000001
+- CLIENT: 0790000101
+- ADMIN: 0790000000
+
+--------------------------------------------------
+PORT PLAN (NO COLLISION)
+--------------------------------------------------
+- Backend API: 8000
+- Postgres: 5433
+- Mobile Metro (Expo Go): 8081
+- Frontdesk Metro (Sunmi dev build): 8082
+
+--------------------------------------------------
+0) ONE-TIME PREREQUISITES
+--------------------------------------------------
+- Docker Desktop running
+- Node + npm installed
+- adb installed (Android platform-tools)
+- Sunmi USB debugging ON
+- Phone and PC on same Wi-Fi for Expo Go (mobile app)
+
+Repo root:
+  C:\Users\user\Take-A-Sip\Take-A-Sip
+
+--------------------------------------------------
+1) START BACKEND (DOCKER)
+--------------------------------------------------
+From repo root:
+  docker compose up -d postgres backend
+
+Health check:
+  Invoke-RestMethod http://localhost:8000/health
+Expected:
+  {"status":"ok"}
+
+--------------------------------------------------
+2) VERIFY/SET BACKEND CONFIG (IMPORTANT)
+--------------------------------------------------
+Backend env file:
+  backend\.env
+
+Must include:
+  otp_test_code=123456
+  store_latitude=31.9539
+  store_longitude=35.9106
+
+If you changed backend\.env, restart backend:
+  docker compose restart backend
+
+--------------------------------------------------
+3) RUN MOBILE APP (EXPO GO OVER WIFI)
+--------------------------------------------------
+Mobile env file is persistent now:
+  mobile\.env
+
+Should contain your current PC Wi-Fi IP:
+  EXPO_PUBLIC_API_BASE_URL=http://192.168.1.228:8000
+
+If your PC IP changed, update that value first.
+Find IP:
+  ipconfig
+
+Start mobile Metro:
+  cd mobile
+  npx expo start --host lan --port 8081 --clear
+
+On phone:
+- Open Expo Go
+- Scan QR
+- If app was already open, fully close and reopen Expo Go first
+
+--------------------------------------------------
+4) RUN FRONTDESK ON SUNMI (USB)
+--------------------------------------------------
+Plug Sunmi USB and verify:
+  adb devices
+
+Set USB reverse tunnels:
+  adb reverse --remove-all
+  adb reverse tcp:8081 tcp:8082
+  adb reverse tcp:8082 tcp:8082
+  adb reverse tcp:8000 tcp:8000
+  adb reverse --list
+
+Start frontdesk Metro:
+  cd frontdesk
+  $env:EXPO_PUBLIC_API_BASE_URL="http://127.0.0.1:8000"
+  npx expo start --host lan --port 8082 --clear
+
+Notes:
+- The 8081->8082 reverse is required for Sunmi dev client script loading.
+- Frontdesk API uses 127.0.0.1:8000 through USB reverse.
+
+--------------------------------------------------
+5) FRONTDESK BUILD / REBUILD (WHEN NEEDED)
+--------------------------------------------------
+If native or dev build changed:
+  cd frontdesk\android
+  $env:EXPO_PUBLIC_API_BASE_URL="http://127.0.0.1:8000"
+  .\gradlew.bat installDebug
+
+If frontdesk is stuck in bad auth/session state:
+  adb shell pm clear com.takeasip.frontdesk
+
+--------------------------------------------------
+6) DELIVERY BANDS (REQUIRED FOR DELIVERY ORDERS)
+--------------------------------------------------
+Delivery confirm fails if distance bands are missing.
+Current active ranges should cover 0-100 km.
+
+If needed, re-create via Admin app/API.
+Expected active coverage:
+- 0.000 -> 3.000
+- 3.000 -> 7.000
+- 7.000 -> 12.000
+- 12.000 -> 100.000
+
+--------------------------------------------------
+7) QUICK SANITY CHECK FLOW
+--------------------------------------------------
+1. Mobile app: login as CLIENT (0790000101 / 123456)
+2. Mobile app: place pickup or delivery order
+3. Frontdesk app: order appears in list
+4. Frontdesk app: accept order
+5. Driver app/account: sees assigned delivery when applicable
+
+--------------------------------------------------
+8) TROUBLESHOOTING (FAST)
+--------------------------------------------------
+A) Mobile OTP shows "Network error"
+- Confirm backend health:
+    Invoke-RestMethod http://localhost:8000/health
+- Confirm mobile\.env IP is correct
+- Restart mobile Metro with clear cache:
+    cd mobile
+    npx expo start --host lan --port 8081 --clear
+- Fully close Expo Go and rescan QR
+
+B) Frontdesk shows "Unable to load script"
+- Ensure these reverses exist:
+    adb reverse tcp:8081 tcp:8082
+    adb reverse tcp:8082 tcp:8082
+- Restart frontdesk Metro on 8082
+
+C) Frontdesk shows "Disconnected"
+- Reset app/session and tunnels:
+    adb shell pm clear com.takeasip.frontdesk
+    adb reverse --remove-all
+    adb reverse tcp:8081 tcp:8082
+    adb reverse tcp:8082 tcp:8082
+    adb reverse tcp:8000 tcp:8000
+- Login with FRONTDESK or ADMIN only
+
+D) Confirm order shows server error
+- If pickup fails: restart backend and retry
+- If delivery fails: verify delivery distance bands + store coordinates exist
+
+E) Wrong account role on frontdesk
+- Allowed roles: FRONTDESK, ADMIN
+- CLIENT/DRIVER will be rejected by design
+
+--------------------------------------------------
+9) STOP EVERYTHING
+--------------------------------------------------
+- Stop Metro terminals (Ctrl+C)
+- Stop backend containers:
+    docker compose down

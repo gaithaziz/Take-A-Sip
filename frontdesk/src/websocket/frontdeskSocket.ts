@@ -5,6 +5,7 @@ type SocketHandlers = {
   onMessage: (message: FrontdeskSocketMessage) => void;
   onClose: () => void;
   onError: () => void;
+  onUnauthorized?: () => void;
 };
 
 export class FrontdeskSocket {
@@ -52,8 +53,14 @@ export class FrontdeskSocket {
       this.handlers.onError();
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
       this.cleanupKeepAlive();
+      if (event.code === 1008) {
+        this.shouldReconnect = false;
+        if (this.handlers.onUnauthorized) {
+          this.handlers.onUnauthorized();
+        }
+      }
       this.handlers.onClose();
       this.scheduleReconnect();
       this.ws = null;

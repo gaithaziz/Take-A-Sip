@@ -35,9 +35,9 @@ export const useCartPricing = (subtotal: number): CartPricing => {
         setLoading(true);
         const [promotionsData, ordersData] = await Promise.all([
           promotionService.getActive(),
-          orderService.getUserOrders(user.id),
+          orderService.getMyOrders(),
         ]);
-        const completedOrders = ordersData.orders.filter((order) => order.status === 'COMPLETED').length;
+        const hasPriorOrder = ordersData.orders.some((order) => order.status !== 'CANCELLED');
         const eligible = promotionsData.promotions.filter((promotion) => {
           if (!promotion.is_active) {
             return false;
@@ -46,7 +46,7 @@ export const useCartPricing = (subtotal: number): CartPricing => {
             return true;
           }
           if (promotion.type === 'FIRST_TIME') {
-            return completedOrders === 0;
+            return !hasPriorOrder;
           }
           // Loyalty rule details are not available in current mobile endpoints.
           return false;

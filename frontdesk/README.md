@@ -45,8 +45,11 @@ Manual equivalent:
 
 ```powershell
 adb devices
+adb reverse tcp:8081 tcp:8082
 adb reverse tcp:8000 tcp:8000
 ```
+
+If Metro is running on port `8082`, the `8081 -> 8082` reverse is required because the Android dev client probes Metro on `localhost:8081`.
 
 Use app build config with:
 

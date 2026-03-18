@@ -1,10 +1,22 @@
-import { CreateOrderPayload, OrderListResponse, OrderRatingRead, OrderRead, SubmitOrderRatingPayload } from '@/types/api';
+import {
+  CreateOrderPayload,
+  DeliveryQuotePayload,
+  DeliveryQuoteResponse,
+  OrderListResponse,
+  OrderRatingRead,
+  OrderRead,
+  SubmitOrderRatingPayload,
+} from '@/types/api';
 
 import { http } from './http';
 
 export const orderService = {
   async create(payload: CreateOrderPayload): Promise<OrderRead> {
     const { data } = await http.post('/orders', payload);
+    return data;
+  },
+  async getDeliveryQuote(payload: DeliveryQuotePayload): Promise<DeliveryQuoteResponse> {
+    const { data } = await http.post('/orders/delivery-quote', payload);
     return data;
   },
   async getUserOrders(userId: string): Promise<OrderListResponse> {
@@ -29,13 +41,13 @@ export const orderService = {
   },
   async updateStatus(
     orderId: string,
-    status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'COMPLETED' | 'CANCELLED',
+    status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
   ): Promise<{ id: string; status: string }> {
     const { data } = await http.post(`/orders/${orderId}/status`, { status });
     return data;
   },
   async getDriverAssigned(
-    status?: 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'COMPLETED' | 'CANCELLED',
+    status?: 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
     limit = 20,
     offset = 0,
   ): Promise<OrderListResponse> {
