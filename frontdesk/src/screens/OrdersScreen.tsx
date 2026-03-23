@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { FlatList, LayoutAnimation, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { isRtlLanguage } from '@/i18n';
 import { OrderBanner } from '@/components/OrderBanner';
 import { OrderCard } from '@/components/OrderCard';
 import { OrderRead } from '@/types/api';
+import { formatLocalizedNumber } from '@/utils/localeFormat';
 import { needsDriverAssignment } from '@/utils/orderPresentation';
+import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskLabelValueText } from '@/ui/frontdeskPrimitives';
+import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
 type Props = {
   onOpenOrder: (order: OrderRead) => void;
@@ -23,6 +27,7 @@ type Props = {
   refresh: () => Promise<void>;
   acceptOrder: (order: OrderRead) => Promise<void>;
   rejectOrder: (order: OrderRead) => Promise<void>;
+  cancelOrder: (order: OrderRead) => Promise<void>;
 };
 
 export const OrdersScreen = ({
@@ -40,20 +45,34 @@ export const OrdersScreen = ({
   refresh,
   acceptOrder,
   rejectOrder,
+  cancelOrder,
 }: Props) => {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
-  const isRTL = i18n.dir() === 'rtl';
+  const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPrintingTest, setIsPrintingTest] = useState(false);
   const [activeReprintOrderId, setActiveReprintOrderId] = useState<string | null>(null);
   const [activeAcceptOrderId, setActiveAcceptOrderId] = useState<string | null>(null);
   const [activeRejectOrderId, setActiveRejectOrderId] = useState<string | null>(null);
+  const [activeCancelOrderId, setActiveCancelOrderId] = useState<string | null>(null);
+  const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
   const dockBottom = Math.max(10, insets.bottom + 6);
-  const listBottomPadding = 86 + dockBottom;
+  const listBottomPadding = 132 + dockBottom;
+  const previousFailedCountRef = useRef(failedPrints.length);
 
   const newOrders = orders.filter((order) => order.status === 'NEW');
   const assignmentOrders = orders.filter(needsDriverAssignment);
+  const localizedNewCount = formatLocalizedNumber(newOrders.length, i18n.language);
+  const localizedAssignmentCount = formatLocalizedNumber(assignmentOrders.length, i18n.language);
+  const connectionIcon = connectionState === 'connected' ? '[OK]' : connectionState === 'connecting' ? '[..]' : '[X]';
+
+  useEffect(() => {
+    if (previousFailedCountRef.current !== failedPrints.length) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      previousFailedCountRef.current = failedPrints.length;
+    }
+  }, [failedPrints.length]);
 
   const onRefresh = async () => {
     setIsRefreshing(true);
@@ -100,10 +119,19 @@ export const OrdersScreen = ({
     }
   };
 
+  const handleCancel = async (order: OrderRead) => {
+    setActiveCancelOrderId(order.id);
+    try {
+      await cancelOrder(order);
+    } finally {
+      setActiveCancelOrderId((current) => (current === order.id ? null : current));
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
-        <Text style={[styles.title, isRTL ? styles.rtlText : styles.ltrText]}>{t('orders.title')}</Text>
+      <View style={[styles.topBar, isRTL ? styles.topBarRtl : styles.topBarLtr]}>
+        <FrontdeskCompositeText style={styles.title} isRTL={isRTL} runs={[{ text: t('orders.title'), direction: 'rtl' }]} />
       </View>
 
       <View
@@ -113,61 +141,97 @@ export const OrdersScreen = ({
           isRTL ? styles.connectionPillRtl : null,
         ]}
       >
-        <Text style={[styles.connectionText, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('orders.connection')}: {t(`orders.connectionState.${connectionState}`)}
-        </Text>
+        <FrontdeskCompositeText
+          style={styles.connectionText}
+          isRTL={isRTL}
+          numberOfLines={1}
+          runs={[
+            { text: `${t('orders.connection')}: `, direction: 'rtl' },
+            { text: t(`orders.connectionState.${connectionState}`), direction: 'rtl' },
+            { text: ' ', direction: 'rtl' },
+            { text: connectionIcon, direction: 'ltr' },
+          ]}
+        />
       </View>
 
       <View style={[styles.summaryRow, isRTL ? styles.summaryRowRtl : null]}>
-        <View style={styles.summaryChip}>
-          <Text style={styles.summaryText}>{t('orders.newCount', { count: newOrders.length })}</Text>
-        </View>
-        <View style={styles.summaryChip}>
-          <Text style={styles.summaryText}>{t('orders.assignmentCount', { count: assignmentOrders.length })}</Text>
-        </View>
+        <FrontdeskCard elevated={false} style={[styles.summaryChip, isRTL ? styles.summaryChipRtl : null]}>
+          <FrontdeskLabelValueText
+            label={t('orders.newLabel')}
+            value={localizedNewCount}
+            isRTL={isRTL}
+            style={styles.summaryText}
+            valueDirection="ltr"
+          />
+        </FrontdeskCard>
+        <FrontdeskCard elevated={false} style={[styles.summaryChip, isRTL ? styles.summaryChipRtl : null]}>
+          <FrontdeskLabelValueText
+            label={t('orders.assignmentLabel')}
+            value={localizedAssignmentCount}
+            isRTL={isRTL}
+            style={styles.summaryText}
+            valueDirection="ltr"
+          />
+        </FrontdeskCard>
       </View>
 
       <OrderBanner message={banner} onClose={clearBanner} isRTL={isRTL} closeLabel={t('orders.closeBanner')} />
 
       {failedPrints.length > 0 ? (
-        <View style={styles.failedSection}>
-          <Text style={[styles.failedTitle, isRTL ? styles.rtlText : styles.ltrText]}>
+        <FrontdeskCard elevated={false} style={[styles.failedSection, isRTL ? styles.failedSectionRtl : null]}>
+          <Text style={[styles.failedTitle, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>
             {t('orders.failedPrints')}
           </Text>
           {failedPrints.map((job) => (
-            <View key={job.order.id} style={styles.failedCard}>
-              <Text style={[styles.failedText, isRTL ? styles.rtlText : styles.ltrText]}>
-                #{job.order.order_number} - {job.reason}
-              </Text>
+            <FrontdeskCard elevated={false} key={job.order.id} style={[styles.failedCard, isRTL ? styles.failedCardRtl : null]}>
+              <FrontdeskCompositeText
+                style={styles.failedText}
+                isRTL={isRTL}
+                numberOfLines={2}
+                runs={[
+                  { text: `#${job.order.order_number}`, direction: 'ltr' },
+                  { text: ' - ', direction: 'ltr' },
+                  { text: job.reason, direction: 'rtl' },
+                ]}
+              />
               <View style={[styles.failedActions, isRTL ? styles.failedActionsRtl : null]}>
-                <Pressable
-                  style={styles.smallButton}
+                <FrontdeskButton
+                  label={activeReprintOrderId === job.order.id ? t('orders.printing') : t('orders.reprint')}
                   disabled={activeReprintOrderId === job.order.id}
                   onPress={() => void handleReprint(job.order.id)}
-                >
-                  <Text style={styles.smallButtonText}>
-                    {activeReprintOrderId === job.order.id ? t('orders.printing') : t('orders.reprint')}
-                  </Text>
-                </Pressable>
-                <Pressable style={styles.smallGhostButton} onPress={() => onDismissFailed(job.order.id)}>
-                  <Text style={styles.smallGhostButtonText}>{t('orders.dismiss')}</Text>
-                </Pressable>
+                  variant="primary"
+                  isRTL={isRTL}
+                  minHeight={frontdeskTheme.touch.min}
+                  style={styles.smallAction}
+                />
+                <FrontdeskButton
+                  label={t('orders.dismiss')}
+                  onPress={() => onDismissFailed(job.order.id)}
+                  variant="ghost"
+                  isRTL={isRTL}
+                  minHeight={frontdeskTheme.touch.min}
+                  style={styles.smallAction}
+                />
               </View>
-            </View>
+            </FrontdeskCard>
           ))}
-        </View>
+        </FrontdeskCard>
       ) : null}
 
       <FlatList
         data={orders}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPadding }]}
+        contentContainerStyle={[
+          styles.listContent,
+          density === 'comfortable' ? styles.listContentComfortable : styles.listContentCompact,
+          { paddingBottom: listBottomPadding },
+        ]}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void onRefresh()} />}
         ListEmptyComponent={
           isLoading ? (
-            <Text style={[styles.empty, isRTL ? styles.rtlText : styles.ltrText]}>{t('orders.loading')}</Text>
+            <Text style={[styles.empty, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('orders.loading')}</Text>
           ) : (
-            <Text style={[styles.empty, isRTL ? styles.rtlText : styles.ltrText]}>{t('orders.empty')}</Text>
+            <Text style={[styles.empty, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('orders.empty')}</Text>
           )
         }
         renderItem={({ item }) => (
@@ -176,19 +240,23 @@ export const OrdersScreen = ({
             onPress={() => onOpenOrder(item)}
             onAccept={() => void handleAccept(item)}
             onReject={() => void handleReject(item)}
+            onCancel={() => void handleCancel(item)}
             isAccepting={activeAcceptOrderId === item.id}
             isRejecting={activeRejectOrderId === item.id}
+            isCancelling={activeCancelOrderId === item.id}
             isRTL={isRTL}
+            density={density}
             t={t}
+            language={i18n.language}
             labels={{
               order: t('orders.order'),
               type: t('orders.type'),
               items: t('orders.items'),
               phone: t('orders.phone'),
               time: t('orders.time'),
-              status: t('orders.status'),
               accept: t('orders.accept'),
               reject: t('orders.reject'),
+              cancel: t('orders.cancel'),
               needsAssignment: t('orders.needsAssignment'),
               assignedTo: t('details.assignedTo'),
             }}
@@ -196,24 +264,45 @@ export const OrdersScreen = ({
         )}
       />
 
-      <View style={[styles.bottomDock, { bottom: dockBottom }, isRTL ? styles.bottomDockRtl : null]}>
-        <Pressable
-          style={[styles.dockButton, styles.dockSecondary]}
-          onPress={() => void i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en')}
-        >
-          <Text style={styles.dockText}>{i18n.language.toUpperCase()}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.dockButton, styles.dockPrimary]}
-          disabled={isPrintingTest}
-          onPress={() => void handlePrinterTest()}
-        >
-          <Text style={styles.dockPrimaryText}>{isPrintingTest ? t('orders.printing') : t('orders.printerTest')}</Text>
-        </Pressable>
-        <Pressable style={[styles.dockButton, styles.dockDanger]} onPress={onLogout}>
-          <Text style={styles.dockDangerText}>{t('orders.logout')}</Text>
-        </Pressable>
-      </View>
+      <FrontdeskCard elevated={false} style={[styles.bottomDock, { bottom: dockBottom }]}>
+        <View style={[styles.dockRow, isRTL ? styles.dockRowRtl : null]}>
+          <FrontdeskButton
+            label={density === 'compact' ? t('orders.densityCompact') : t('orders.densityComfortable')}
+            onPress={() => setDensity((current) => (current === 'compact' ? 'comfortable' : 'compact'))}
+            variant="secondary"
+            isRTL={isRTL}
+            minHeight={frontdeskTheme.touch.min}
+            style={styles.dockHalf}
+          />
+          <FrontdeskButton
+            label={i18n.language.toUpperCase()}
+            onPress={() => void i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en')}
+            variant="secondary"
+            isRTL={isRTL}
+            minHeight={frontdeskTheme.touch.min}
+            style={styles.dockHalf}
+          />
+        </View>
+        <View style={[styles.dockRow, isRTL ? styles.dockRowRtl : null]}>
+          <FrontdeskButton
+            label={isPrintingTest ? t('orders.printing') : t('orders.printerTest')}
+            onPress={() => void handlePrinterTest()}
+            disabled={isPrintingTest}
+            variant="primary"
+            isRTL={isRTL}
+            minHeight={frontdeskTheme.touch.min}
+            style={styles.dockHalf}
+          />
+          <FrontdeskButton
+            label={t('orders.logout')}
+            onPress={onLogout}
+            variant="danger"
+            isRTL={isRTL}
+            minHeight={frontdeskTheme.touch.min}
+            style={styles.dockHalf}
+          />
+        </View>
+      </FrontdeskCard>
     </View>
   );
 };
@@ -221,184 +310,155 @@ export const OrdersScreen = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F2EA',
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    backgroundColor: frontdeskTheme.colors.background,
+    paddingHorizontal: frontdeskTheme.spacing.md,
+    paddingTop: frontdeskTheme.spacing.md,
   },
   topBar: {
-    marginBottom: 10,
+    marginBottom: frontdeskTheme.spacing.sm,
+    width: '100%',
+  },
+  topBarRtl: {
+    alignItems: 'stretch',
+  },
+  topBarLtr: {
+    alignItems: 'stretch',
   },
   title: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#3A2A1B',
+    ...frontdeskTheme.typography.titleLg,
+    fontSize: 24,
+    lineHeight: 30,
+    color: frontdeskTheme.colors.textPrimary,
+    alignSelf: 'flex-end',
+    maxWidth: '100%',
   },
   connectionPill: {
-    marginBottom: 12,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    marginBottom: frontdeskTheme.spacing.md,
+    borderRadius: frontdeskTheme.radius.pill,
+    paddingHorizontal: frontdeskTheme.spacing.lg,
+    paddingVertical: frontdeskTheme.spacing.sm,
     alignSelf: 'flex-start',
+    borderWidth: 1,
   },
   connectionPillRtl: {
-    alignSelf: 'flex-end',
+    marginLeft: 'auto',
   },
   connected: {
-    backgroundColor: '#E7F3E8',
+    backgroundColor: frontdeskTheme.colors.successBg,
+    borderColor: '#B9D9BF',
   },
   disconnected: {
-    backgroundColor: '#F7E6E3',
+    backgroundColor: frontdeskTheme.colors.errorBg,
+    borderColor: '#E4B7B0',
   },
   connectionText: {
-    color: '#3D3A34',
+    ...frontdeskTheme.typography.body,
     fontWeight: '700',
+    color: '#3D3A34',
+    alignSelf: 'stretch',
   },
   summaryRow: {
     flexDirection: 'row',
-    marginBottom: 10,
-    gap: 8,
+    marginBottom: frontdeskTheme.spacing.sm,
+    gap: frontdeskTheme.spacing.sm,
   },
   summaryRowRtl: {
     flexDirection: 'row-reverse',
   },
   summaryChip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#FFFEFB',
-    borderColor: '#E6D8C8',
-    borderWidth: 1,
+    flex: 1,
+    borderRadius: frontdeskTheme.radius.pill,
+    paddingVertical: frontdeskTheme.spacing.sm,
+    paddingHorizontal: frontdeskTheme.spacing.md,
+    borderColor: frontdeskTheme.colors.border,
+  },
+  summaryChipRtl: {
+    alignItems: 'flex-end',
   },
   summaryText: {
-    color: '#5A4635',
+    ...frontdeskTheme.typography.body,
     fontWeight: '700',
+    color: '#5A4635',
+    alignSelf: 'flex-end',
+    maxWidth: '100%',
   },
   failedSection: {
-    backgroundColor: '#FFF7EC',
-    borderWidth: 1,
-    borderColor: '#E8CFA5',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: frontdeskTheme.colors.warningBg,
+    borderColor: frontdeskTheme.colors.warningBorder,
+    marginBottom: frontdeskTheme.spacing.md,
+    borderRadius: frontdeskTheme.radius.lg,
+  },
+  failedSectionRtl: {
+    alignItems: 'stretch',
   },
   failedTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...frontdeskTheme.typography.bodyStrong,
     color: '#7A4B00',
-    marginBottom: 6,
+    marginBottom: frontdeskTheme.spacing.xs,
+    alignSelf: 'flex-end',
+    maxWidth: '100%',
   },
   failedCard: {
-    backgroundColor: '#FFFEFB',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E8CFA5',
-    padding: 10,
-    marginBottom: 8,
+    borderColor: frontdeskTheme.colors.warningBorder,
+    marginBottom: frontdeskTheme.spacing.sm,
+    padding: frontdeskTheme.spacing.md,
+    borderRadius: frontdeskTheme.radius.lg,
+  },
+  failedCardRtl: {
+    alignItems: 'stretch',
   },
   failedText: {
+    ...frontdeskTheme.typography.body,
     color: '#6A4A15',
-    marginBottom: 6,
-    fontSize: 14,
+    marginBottom: frontdeskTheme.spacing.sm,
     fontWeight: '600',
+    alignSelf: 'flex-end',
+    maxWidth: '100%',
   },
   failedActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: frontdeskTheme.spacing.sm,
   },
   failedActionsRtl: {
     flexDirection: 'row-reverse',
   },
-  smallButton: {
-    backgroundColor: '#6B3F1F',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  smallButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  smallGhostButton: {
-    backgroundColor: '#FFFEFB',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#6B3F1F',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  smallGhostButtonText: {
-    color: '#6B3F1F',
-    fontWeight: '700',
+  smallAction: {
+    flex: 1,
   },
   empty: {
+    ...frontdeskTheme.typography.bodyStrong,
     textAlign: 'center',
-    marginTop: 40,
-    fontSize: 17,
-    color: '#6A6258',
+    marginTop: 28,
+    color: frontdeskTheme.colors.textTertiary,
   },
   listContent: {
-    paddingBottom: 86,
+    paddingBottom: 132,
+  },
+  listContentCompact: {
+    paddingTop: frontdeskTheme.spacing.xs,
+  },
+  listContentComfortable: {
+    paddingTop: frontdeskTheme.spacing.md,
   },
   bottomDock: {
     position: 'absolute',
     left: 12,
     right: 12,
     bottom: 10,
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: '#FFFEFB',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E6D8C8',
-    padding: 8,
-    shadowColor: '#4C3921',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    gap: frontdeskTheme.spacing.xs,
+    borderRadius: frontdeskTheme.radius.lg,
+    borderColor: frontdeskTheme.colors.border,
+    padding: frontdeskTheme.spacing.sm,
+    ...frontdeskTheme.elevation.dock,
   },
-  bottomDockRtl: {
+  dockRow: {
+    flexDirection: 'row',
+    gap: frontdeskTheme.spacing.xs,
+  },
+  dockRowRtl: {
     flexDirection: 'row-reverse',
   },
-  dockButton: {
-    minHeight: 44,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  dockSecondary: {
-    flexBasis: 64,
-    backgroundColor: '#F6EFE5',
-    borderWidth: 1,
-    borderColor: '#E6D8C8',
-  },
-  dockPrimary: {
+  dockHalf: {
     flex: 1,
-    backgroundColor: '#6B3F1F',
-  },
-  dockDanger: {
-    flexBasis: 86,
-    backgroundColor: '#FFF3F0',
-    borderWidth: 1,
-    borderColor: '#D9AEA7',
-  },
-  dockText: {
-    color: '#4C3A28',
-    fontWeight: '800',
-  },
-  dockPrimaryText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  dockDangerText: {
-    color: '#B84A39',
-    fontWeight: '800',
-  },
-  rtlText: {
-    textAlign: 'right',
-  },
-  ltrText: {
-    textAlign: 'left',
   },
 });

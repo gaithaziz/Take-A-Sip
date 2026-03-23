@@ -4,7 +4,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,11 +13,14 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { isRtlLanguage } from '@/i18n';
 import { useAuth } from '@/state/AuthContext';
+import { FrontdeskButton, FrontdeskCard } from '@/ui/frontdeskPrimitives';
+import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
 export const AuthScreen = () => {
   const { t, i18n } = useTranslation();
-  const isRTL = i18n.dir() === 'rtl';
+  const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
   const { sendOtp, verifyOtp } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -134,74 +136,110 @@ export const AuthScreen = () => {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >
-          <View style={styles.authCard}>
+          <FrontdeskCard style={[styles.authCard, isRTL ? styles.authCardRtl : null]}>
             <View style={[styles.topActions, isRTL ? styles.topActionsRtl : null]}>
-              <Pressable
-                style={styles.actionButton}
+              <FrontdeskButton
+                label={`${t('orders.language')}: ${i18n.language.toUpperCase()}`}
+                variant="secondary"
+                isRTL={isRTL}
+                minHeight={frontdeskTheme.touch.min}
                 onPress={() => void i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en')}
-              >
-                <Text style={[styles.actionText, isRTL ? styles.rtlText : styles.ltrText]}>
-                  {t('orders.language')}: {i18n.language.toUpperCase()}
-                </Text>
-              </Pressable>
+              />
             </View>
-            <Text style={[styles.title, isRTL ? styles.rtlText : styles.ltrText]}>{t('auth.title')}</Text>
+
+            <Text style={[styles.title, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('auth.title')}</Text>
+
             <TextInput
-              style={[styles.input, isRTL ? styles.rtlText : styles.ltrText]}
+              style={[styles.input, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}
               placeholder={t('auth.firstName')}
+              placeholderTextColor="#8A8175"
               value={firstName}
               onChangeText={setFirstName}
               returnKeyType="next"
             />
             <TextInput
-              style={[styles.input, isRTL ? styles.rtlText : styles.ltrText]}
+              style={[styles.input, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}
               placeholder={t('auth.lastName')}
+              placeholderTextColor="#8A8175"
               value={lastName}
               onChangeText={setLastName}
               returnKeyType="next"
             />
             <TextInput
-              style={[styles.input, isRTL ? styles.rtlText : styles.ltrText]}
+              style={[styles.input, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}
               placeholder={t('auth.phone')}
+              placeholderTextColor="#8A8175"
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
               editable={!otpSent}
               returnKeyType={otpSent ? 'next' : 'done'}
             />
+
             {otpSent ? (
               <>
                 <TextInput
-                  style={[styles.input, isRTL ? styles.rtlText : styles.ltrText]}
+                  style={[styles.input, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}
                   placeholder={t('auth.otp')}
+                  placeholderTextColor="#8A8175"
                   keyboardType="number-pad"
                   value={otp}
                   onChangeText={setOtp}
                   returnKeyType="done"
                 />
-                <Pressable style={styles.secondaryButton} disabled={isLoading} onPress={onSendOtp}>
-                  <Text style={styles.secondaryButtonText}>{t('auth.resendOtp')}</Text>
-                </Pressable>
-                <Pressable style={styles.secondaryButton} disabled={isLoading} onPress={onChangePhone}>
-                  <Text style={styles.secondaryButtonText}>{t('auth.changePhone')}</Text>
-                </Pressable>
+
+                <View style={styles.secondaryActions}>
+                  <FrontdeskButton
+                    label={t('auth.resendOtp')}
+                    variant="ghost"
+                    isRTL={isRTL}
+                    minHeight={frontdeskTheme.touch.min}
+                    disabled={isLoading}
+                    onPress={onSendOtp}
+                  />
+                  <FrontdeskButton
+                    label={t('auth.changePhone')}
+                    variant="ghost"
+                    isRTL={isRTL}
+                    minHeight={frontdeskTheme.touch.min}
+                    disabled={isLoading}
+                    onPress={onChangePhone}
+                  />
+                </View>
               </>
             ) : null}
-            {error ? <Text style={[styles.error, isRTL ? styles.rtlText : styles.ltrText]}>{error}</Text> : null}
+
+            {error ? (
+              <Text style={[styles.error, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]} numberOfLines={3}>
+                {error}
+              </Text>
+            ) : null}
+
             {!otpSent ? (
-              <Pressable style={styles.button} disabled={isLoading} onPress={onSendOtp}>
-                <Text style={styles.buttonText}>{t('auth.sendOtp')}</Text>
-              </Pressable>
+              <FrontdeskButton
+                label={t('auth.sendOtp')}
+                variant="primary"
+                isRTL={isRTL}
+                minHeight={frontdeskTheme.touch.large}
+                disabled={isLoading}
+                onPress={onSendOtp}
+              />
             ) : (
-              <Pressable style={styles.button} disabled={isLoading} onPress={onVerify}>
-                <Text style={styles.buttonText}>{t('auth.verifyOtp')}</Text>
-              </Pressable>
+              <FrontdeskButton
+                label={t('auth.verifyOtp')}
+                variant="primary"
+                isRTL={isRTL}
+                minHeight={frontdeskTheme.touch.large}
+                disabled={isLoading}
+                onPress={onVerify}
+              />
             )}
-          </View>
+          </FrontdeskCard>
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -215,91 +253,61 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
-    paddingBottom: 28,
-    backgroundColor: '#F7F2EA',
+    padding: frontdeskTheme.spacing.lg,
+    paddingBottom: 20,
+    backgroundColor: frontdeskTheme.colors.background,
+  },
+  scroll: {
+    flex: 1,
   },
   authCard: {
-    backgroundColor: '#FFFEFB',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E6D8C8',
-    padding: 16,
-    shadowColor: '#4C3921',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
+    borderRadius: frontdeskTheme.radius.xl,
+    borderColor: frontdeskTheme.colors.border,
+    padding: frontdeskTheme.spacing.lg,
+  },
+  authCardRtl: {
+    alignItems: 'stretch',
   },
   topActions: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: frontdeskTheme.spacing.md,
+    width: '100%',
   },
   topActionsRtl: {
-    flexDirection: 'row-reverse',
-  },
-  actionButton: {
-    backgroundColor: '#FFFEFB',
-    borderColor: '#E6D8C8',
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  actionText: {
-    fontWeight: '700',
-    color: '#4C3A28',
+    justifyContent: 'flex-end',
   },
   title: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#3A2A1B',
-    marginBottom: 14,
+    ...frontdeskTheme.typography.titleLg,
+    fontSize: 24,
+    lineHeight: 30,
+    color: frontdeskTheme.colors.textPrimary,
+    marginBottom: frontdeskTheme.spacing.lg,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   input: {
-    backgroundColor: '#FFFEFB',
+    backgroundColor: frontdeskTheme.colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#E6D8C8',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 17,
-    marginBottom: 10,
-  },
-  button: {
-    backgroundColor: '#6B3F1F',
-    height: 54,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -2,
-    marginBottom: 6,
-    paddingVertical: 8,
-  },
-  secondaryButtonText: {
-    color: '#6B3F1F',
+    borderColor: frontdeskTheme.colors.border,
+    borderRadius: frontdeskTheme.radius.md,
+    paddingHorizontal: frontdeskTheme.spacing.md,
+    paddingVertical: frontdeskTheme.spacing.md,
     fontSize: 15,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
+    marginBottom: frontdeskTheme.spacing.md,
+    minHeight: frontdeskTheme.touch.min,
+    color: frontdeskTheme.colors.textPrimary,
+  },
+  secondaryActions: {
+    gap: frontdeskTheme.spacing.sm,
+    marginTop: -2,
+    marginBottom: frontdeskTheme.spacing.sm,
   },
   error: {
     color: '#C62828',
-    marginBottom: 8,
-  },
-  rtlText: {
-    textAlign: 'right',
-  },
-  ltrText: {
-    textAlign: 'left',
+    marginBottom: frontdeskTheme.spacing.md,
+    ...frontdeskTheme.typography.body,
+    fontWeight: '600',
+    width: '100%',
+    alignSelf: 'stretch',
   },
 });

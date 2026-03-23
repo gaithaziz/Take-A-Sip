@@ -37,7 +37,7 @@ export const buildReceiptText = (order: OrderRead, options?: ReceiptTextOptions)
       : 'Delivery';
   const address = getDeliveryAddress(order);
   const shopName = options?.shopName?.trim() || 'TAKE A SIP';
-  const shopNameArabic = options?.shopNameArabic?.trim() || 'تيك اي سيب';
+  const shopNameArabic = options?.shopNameArabic?.trim() || 'خذلك شفة';
 
   const getItemName = (item: OrderRead['items'][number]) =>
     isArabic

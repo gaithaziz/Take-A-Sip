@@ -1,8 +1,9 @@
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
 
-import '@/i18n';
+import { initializeI18n } from '@/i18n';
 import { useKioskMode } from '@/hooks/useKioskMode';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { AuthScreen } from '@/screens/AuthScreen';
@@ -30,12 +31,42 @@ const AppContent = () => {
   return <AppNavigator />;
 };
 
+const AppShell = () => {
+  const [isI18nReady, setIsI18nReady] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void initializeI18n().finally(() => {
+      if (isMounted) {
+        setIsI18nReady(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (!isI18nReady) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+};
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <AppShell />
     </SafeAreaProvider>
   );
 }

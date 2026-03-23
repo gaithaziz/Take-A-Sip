@@ -6,7 +6,7 @@ type SunmiPrinterNativeModule = {
   printText?: (text: string) => Promise<void>;
   lineWrap?: (lines: number) => Promise<void>;
   cutPaper?: () => Promise<void>;
-  beep?: () => Promise<void>;
+  beep?: (durationMs?: number) => Promise<void>;
 };
 
 const moduleRef = NativeModules.SunmiPrinterModule as SunmiPrinterNativeModule | undefined;
@@ -32,7 +32,7 @@ const withTimeout = async <T>(promise: Promise<T> | undefined, timeoutMs: number
 
 export const sunmiPrinter = {
   isAvailable: () => Platform.OS === 'android' && Boolean(moduleRef),
-  printReceipt: async (content: string) => {
+  printReceipt: async (content: string, options?: { isArabic?: boolean }) => {
     if (!moduleRef) {
       throw new Error('SunmiPrinterModule is not available.');
     }
@@ -42,7 +42,7 @@ export const sunmiPrinter = {
       throw new Error('Printer init failed');
     }
     try {
-      await withTimeout(moduleRef.setAlignment?.(0), 3000, 'Printer alignment');
+      await withTimeout(moduleRef.setAlignment?.(options?.isArabic ? 2 : 0), 3000, 'Printer alignment');
     } catch {
       throw new Error('Printer alignment failed');
     }
@@ -63,12 +63,17 @@ export const sunmiPrinter = {
     }
   },
   playAlert: async () => {
-    Vibration.vibrate(500);
+    Vibration.vibrate([0, 110, 70, 170]);
     if (moduleRef?.beep) {
       try {
-        await moduleRef.beep();
+        await moduleRef.beep(760);
       } catch {
-        // Keep vibration as fallback if beep fails.
+        try {
+          // Backward compatibility with builds where beep() takes no args.
+          await (moduleRef.beep as (() => Promise<void>))();
+        } catch {
+          // Keep vibration as fallback if beep fails.
+        }
       }
     }
   },

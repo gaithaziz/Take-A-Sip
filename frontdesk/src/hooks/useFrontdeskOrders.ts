@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 
 import i18next from '@/i18n';
@@ -7,11 +7,13 @@ import { buildReceiptArabicLookup, emptyReceiptArabicLookup } from '@/printer/re
 import { sunmiPrinter } from '@/printer/sunmiPrinter';
 import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
+import { formatOrderReference } from '@/utils/localeFormat';
 import { isFrontdeskActionableOrder } from '@/utils/orderPresentation';
 import { FrontdeskSocketMessage, OrderRead, UserSummary } from '@/types/api';
 import { FrontdeskSocket } from '@/websocket/frontdeskSocket';
 
 const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+const ALERT_INTERVAL_MS = 8000;
 
 type FailedPrintJob = {
   order: OrderRead;
@@ -32,14 +34,55 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
   const socketRef = useRef<FrontdeskSocket | null>(null);
   const arabicLookupRef = useRef(emptyReceiptArabicLookup);
   const shopNameRef = useRef((process.env.EXPO_PUBLIC_SHOP_NAME || 'TAKE A SIP').trim());
-  const shopNameArabicRef = useRef((process.env.EXPO_PUBLIC_SHOP_NAME_AR || 'تيك اي سيب').trim());
+  const shopNameArabicRef = useRef((process.env.EXPO_PUBLIC_SHOP_NAME_AR || 'خذلك شفة').trim());
+  const alertLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const alertedNewOrderIdsRef = useRef<Set<string>>(new Set());
+
+  const stopAlertLoop = useCallback(() => {
+    if (alertLoopRef.current) {
+      clearInterval(alertLoopRef.current);
+      alertLoopRef.current = null;
+    }
+  }, []);
+
+  const startAlertLoop = useCallback(() => {
+    if (alertLoopRef.current) {
+      return;
+    }
+    alertLoopRef.current = setInterval(() => {
+      void sunmiPrinter.playAlert();
+    }, ALERT_INTERVAL_MS);
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
+      stopAlertLoop();
       isMountedRef.current = false;
     };
-  }, []);
+  }, [stopAlertLoop]);
+
+  useEffect(() => {
+    const newOrderIds = new Set(orders.filter((item) => item.status === 'NEW').map((item) => item.id));
+
+    const hasUnseenNewOrder = Array.from(newOrderIds).some((id) => !alertedNewOrderIdsRef.current.has(id));
+    if (hasUnseenNewOrder) {
+      Array.from(newOrderIds).forEach((id) => alertedNewOrderIdsRef.current.add(id));
+      void sunmiPrinter.playAlert();
+    }
+
+    alertedNewOrderIdsRef.current.forEach((id) => {
+      if (!newOrderIds.has(id)) {
+        alertedNewOrderIdsRef.current.delete(id);
+      }
+    });
+
+    if (newOrderIds.size > 0) {
+      startAlertLoop();
+    } else {
+      stopAlertLoop();
+    }
+  }, [orders, startAlertLoop, stopAlertLoop]);
 
   const loadNewOrders = useCallback(async () => {
     try {
@@ -73,15 +116,16 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
   const handleSocketMessage = useCallback(async (message: FrontdeskSocketMessage) => {
     if (message.event === 'order.created') {
       const fullOrder = await orderService.getOrder(message.order_id);
-      if (!isMountedRef.current) {
-        return;
-      }
-      if (fullOrder.status !== 'NEW') {
+      if (!isMountedRef.current || fullOrder.status !== 'NEW') {
         return;
       }
       setOrders((prev) => [fullOrder, ...prev.filter((item) => item.id !== fullOrder.id)].filter(isFrontdeskActionableOrder));
-      setBanner(i18next.t('banner.newOrder', { number: fullOrder.order_number }));
-      await sunmiPrinter.playAlert();
+      setBanner(i18next.t('banner.newOrder', { number: formatOrderReference(fullOrder.order_number, i18next.language) }));
+      if (!alertedNewOrderIdsRef.current.has(fullOrder.id)) {
+        alertedNewOrderIdsRef.current.add(fullOrder.id);
+        void sunmiPrinter.playAlert();
+      }
+      startAlertLoop();
       return;
     }
 
@@ -95,10 +139,12 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
         return next.filter(isFrontdeskActionableOrder);
       });
     }
-  }, []);
+  }, [startAlertLoop]);
 
   useEffect(() => {
     if (!token) {
+      stopAlertLoop();
+      alertedNewOrderIdsRef.current.clear();
       return;
     }
 
@@ -151,8 +197,9 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       isMounted = false;
       socket.disconnect();
       socketRef.current = null;
+      stopAlertLoop();
     };
-  }, [handleSocketMessage, loadNewOrders, onUnauthorized, token]);
+  }, [handleSocketMessage, loadNewOrders, onUnauthorized, stopAlertLoop, token]);
 
   const acceptOrder = useCallback(async (order: OrderRead) => {
     try {
@@ -162,14 +209,15 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       return;
     }
 
+    const isArabic = i18next.language === 'ar';
     try {
       const receipt = buildReceiptText(order, {
-        isArabic: i18next.language === 'ar',
+        isArabic,
         shopName: shopNameRef.current,
         shopNameArabic: shopNameArabicRef.current,
         arabicLookup: arabicLookupRef.current,
       });
-      await sunmiPrinter.printReceipt(receipt);
+      await sunmiPrinter.printReceipt(receipt, { isArabic });
     } catch (error) {
       const message = error instanceof Error ? error.message : i18next.t('banner.unknownPrintError');
       setBanner(i18next.t('banner.acceptedPrintFailed', { message }));
@@ -199,16 +247,17 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     if (!job) {
       return;
     }
+    const isArabic = i18next.language === 'ar';
     try {
       const receipt = buildReceiptText(job.order, {
-        isArabic: i18next.language === 'ar',
+        isArabic,
         shopName: shopNameRef.current,
         shopNameArabic: shopNameArabicRef.current,
         arabicLookup: arabicLookupRef.current,
       });
-      await sunmiPrinter.printReceipt(receipt);
+      await sunmiPrinter.printReceipt(receipt, { isArabic });
       setFailedPrints((prev) => prev.filter((item) => item.order.id !== orderId));
-      setBanner(i18next.t('banner.reprintSucceeded', { number: job.order.order_number }));
+      setBanner(i18next.t('banner.reprintSucceeded', { number: formatOrderReference(job.order.order_number, i18next.language) }));
     } catch (error) {
       const message = error instanceof Error ? error.message : i18next.t('banner.unknownPrintError');
       setFailedPrints((prev) =>
@@ -216,7 +265,12 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
           item.order.id === orderId ? { ...item, reason: message, failedAt: Date.now() } : item,
         ),
       );
-      setBanner(i18next.t('banner.reprintFailed', { number: job.order.order_number, message }));
+      setBanner(
+        i18next.t('banner.reprintFailed', {
+          number: formatOrderReference(job.order.order_number, i18next.language),
+          message,
+        }),
+      );
     }
   }, [failedPrints]);
 
@@ -228,19 +282,35 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     try {
       const updated = await orderService.assignDriver(orderId, driverUserId);
       setOrders((prev) => [updated, ...prev.filter((item) => item.id !== orderId)].filter(isFrontdeskActionableOrder));
-      setBanner(i18next.t('banner.driverAssigned', { number: updated.order_number }));
+      setBanner(i18next.t('banner.driverAssigned', { number: formatOrderReference(updated.order_number, i18next.language) }));
     } catch {
       setBanner(i18next.t('banner.assignFailed'));
     }
   }, []);
 
   const rejectOrder = useCallback(async (order: OrderRead) => {
+    if (order.status !== 'NEW') {
+      return;
+    }
     try {
       await orderService.updateStatus(order.id, 'CANCELLED');
       setOrders((prev) => prev.filter((item) => item.id !== order.id));
-      setBanner(i18next.t('banner.orderRejected', { number: order.order_number }));
+      setBanner(i18next.t('banner.orderRejected', { number: formatOrderReference(order.order_number, i18next.language) }));
     } catch {
       setBanner(i18next.t('banner.rejectFailed'));
+    }
+  }, []);
+
+  const cancelOrder = useCallback(async (order: OrderRead) => {
+    if (order.status !== 'ACCEPTED' && order.status !== 'ASSIGNED' && order.status !== 'ASSIGNED_TO_DRIVER') {
+      return;
+    }
+    try {
+      await orderService.updateStatus(order.id, 'CANCELLED');
+      setOrders((prev) => prev.filter((item) => item.id !== order.id));
+      setBanner(i18next.t('banner.orderCancelled', { number: formatOrderReference(order.order_number, i18next.language) }));
+    } catch {
+      setBanner(i18next.t('banner.cancelFailed'));
     }
   }, []);
 
@@ -261,7 +331,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       '--------------------------',
     ].join('\n');
     try {
-      await sunmiPrinter.printReceipt(sample);
+      await sunmiPrinter.printReceipt(sample, { isArabic: i18next.language === 'ar' });
       setBanner(i18next.t('banner.printerTestSent'));
     } catch (error) {
       const message = error instanceof Error ? error.message : i18next.t('banner.unknownError');
@@ -278,22 +348,24 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       banner,
       clearBanner: () => setBanner(null),
       acceptOrder,
+      rejectOrder,
+      cancelOrder,
       printTestReceipt,
       reprintFailedOrder,
       dismissFailedOrder,
       availableDrivers,
       assignDriver,
-      rejectOrder,
       refresh: loadNewOrders,
     }),
     [
       acceptOrder,
+      rejectOrder,
+      cancelOrder,
       banner,
       connectionState,
       dismissFailedOrder,
       availableDrivers,
       assignDriver,
-      rejectOrder,
       failedPrints,
       isLoading,
       loadNewOrders,
@@ -305,3 +377,4 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
 
   return value;
 };
+

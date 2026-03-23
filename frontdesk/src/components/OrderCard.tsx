@@ -1,17 +1,24 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { OrderRead } from '@/types/api';
+import { formatLocalizedNumber, formatLocalizedTime } from '@/utils/localeFormat';
 import { getOrderStatusLabel, getOrderTypeLabel, needsDriverAssignment } from '@/utils/orderPresentation';
+import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskLabelValueText, StatusChip } from '@/ui/frontdeskPrimitives';
+import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
 type Props = {
   order: OrderRead;
   onPress: () => void;
   onAccept: () => void;
   onReject: () => void;
+  onCancel: () => void;
   isAccepting: boolean;
   isRejecting: boolean;
+  isCancelling: boolean;
   isRTL: boolean;
+  density: 'compact' | 'comfortable';
   t: (key: string, options?: Record<string, unknown>) => string;
+  language: string;
   labels: {
     order: string;
     type: string;
@@ -19,201 +26,251 @@ type Props = {
     phone: string;
     time: string;
     accept: string;
+    reject: string;
+    cancel: string;
     needsAssignment: string;
     assignedTo: string;
-    status: string;
-    reject: string;
   };
 };
 
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+const canCancel = (status: OrderRead['status']) =>
+  status === 'ACCEPTED' || status === 'ASSIGNED' || status === 'ASSIGNED_TO_DRIVER';
 
-export const OrderCard = ({ order, onPress, onAccept, onReject, isAccepting, isRejecting, isRTL, t, labels }: Props) => {
-  const itemsSummary = order.items.map((item) => `${item.quantity}x ${item.item_name_snapshot}`).join(', ');
-  const isBusy = isAccepting || isRejecting;
-  const statusMark =
-    order.status === 'NEW'
-      ? 'N'
-      : order.status === 'ACCEPTED' || order.status === 'ASSIGNED' || order.status === 'ASSIGNED_TO_DRIVER'
-        ? 'A'
-        : order.status === 'CANCELLED'
-          ? 'X'
-          : '•';
-  const statusTone =
-    order.status === 'NEW'
-      ? styles.statusNew
-      : order.status === 'ACCEPTED' || order.status === 'ASSIGNED' || order.status === 'ASSIGNED_TO_DRIVER'
-        ? styles.statusAccepted
-        : order.status === 'CANCELLED'
-          ? styles.statusCancelled
-          : styles.statusNeutral;
+const getStatusTone = (status: OrderRead['status']): 'new' | 'accepted' | 'cancelled' | 'neutral' => {
+  if (status === 'NEW') {
+    return 'new';
+  }
+  if (status === 'ACCEPTED' || status === 'ASSIGNED' || status === 'ASSIGNED_TO_DRIVER') {
+    return 'accepted';
+  }
+  if (status === 'CANCELLED') {
+    return 'cancelled';
+  }
+  return 'neutral';
+};
+
+export const OrderCard = ({
+  order,
+  onPress,
+  onAccept,
+  onReject,
+  onCancel,
+  isAccepting,
+  isRejecting,
+  isCancelling,
+  isRTL,
+  density,
+  t,
+  language,
+  labels,
+}: Props) => {
+  const itemsSummary = order.items
+    .map((item) => `${formatLocalizedNumber(item.quantity, language)}x ${item.item_name_snapshot}`)
+    .join(', ');
+  const isBusy = isAccepting || isRejecting || isCancelling;
+  const localizedOrderNumber = Number.isFinite(Number(order.order_number))
+    ? formatLocalizedNumber(Number(order.order_number), language)
+    : order.order_number;
+
+  const isCompact = density === 'compact';
 
   return (
-    <View style={styles.card}>
-      <Pressable style={styles.touchableBody} onPress={onPress}>
-        <View style={[styles.headerRow, isRTL ? styles.headerRowRtl : null]}>
-          <Text style={[styles.orderNo, isRTL ? styles.rtlText : styles.ltrText]}>
-            {labels.order} #{order.order_number}
-          </Text>
-          <View style={[styles.statusChip, statusTone]}>
-            <Text style={styles.statusChipText}>
-              {statusMark} {getOrderStatusLabel(order.status, t)}
-            </Text>
-          </View>
+    <FrontdeskCard style={[styles.card, isCompact ? styles.cardCompact : styles.cardComfortable, isRTL ? styles.cardRtl : null]}>
+      <Pressable style={[styles.touchableBody, isRTL ? styles.touchableBodyRtl : null]} onPress={onPress}>
+        <View style={[styles.headerRow, isCompact ? styles.headerRowCompact : styles.headerRowComfortable, isRTL ? styles.headerRowRtl : null]}>
+          <FrontdeskCompositeText
+            style={[
+              styles.orderNo,
+              isCompact ? styles.orderNoCompact : styles.orderNoComfortable,
+            ]}
+            isRTL={isRTL}
+            numberOfLines={1}
+            runs={[
+              { text: `${labels.order} `, direction: isRTL ? 'rtl' : 'ltr' },
+              { text: `#${localizedOrderNumber}`, direction: 'ltr' },
+            ]}
+          />
+          <StatusChip variant={getStatusTone(order.status)} isRTL={isRTL} text={getOrderStatusLabel(order.status, t)} />
         </View>
-        <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
-          {labels.type}: {getOrderTypeLabel(order.order_type, t)}
-        </Text>
-        <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
-          {labels.items}: {itemsSummary || '-'}
-        </Text>
-        <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
-          {labels.phone}: {order.customer_phone || '-'}
-        </Text>
-        <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
-          {labels.time}: {formatTime(order.created_at)}
-        </Text>
+        <FrontdeskLabelValueText
+          label={labels.type}
+          value={getOrderTypeLabel(order.order_type, t)}
+          isRTL={isRTL}
+          style={[styles.meta, isCompact ? styles.metaCompact : styles.metaComfortable]}
+          numberOfLines={1}
+        />
+        <FrontdeskLabelValueText
+          label={labels.items}
+          value={itemsSummary || '-'}
+          isRTL={isRTL}
+          style={[styles.meta, isCompact ? styles.metaCompact : styles.metaComfortable]}
+          valueDirection="ltr"
+          numberOfLines={2}
+        />
+        <FrontdeskLabelValueText
+          label={labels.phone}
+          value={order.customer_phone || '-'}
+          isRTL={isRTL}
+          style={[styles.meta, isCompact ? styles.metaCompact : styles.metaComfortable]}
+          valueDirection="ltr"
+          numberOfLines={1}
+        />
+        <FrontdeskLabelValueText
+          label={labels.time}
+          value={formatLocalizedTime(order.created_at, language)}
+          isRTL={isRTL}
+          style={[styles.meta, isCompact ? styles.metaCompact : styles.metaComfortable]}
+          valueDirection="ltr"
+          numberOfLines={1}
+        />
         {needsDriverAssignment(order) ? (
-          <Text style={[styles.assignmentMeta, isRTL ? styles.rtlText : styles.ltrText]}>{labels.needsAssignment}</Text>
-        ) : order.assigned_driver_id ? (
-          <Text style={[styles.meta, isRTL ? styles.rtlText : styles.ltrText]}>
-            {labels.assignedTo}: {order.assigned_driver_name || order.assigned_driver_id}
+          <Text style={[styles.assignmentMeta, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]} numberOfLines={1}>
+            {labels.needsAssignment}
           </Text>
+        ) : order.assigned_driver_id ? (
+          <FrontdeskLabelValueText
+            label={labels.assignedTo}
+            value={order.assigned_driver_name || order.assigned_driver_id}
+            isRTL={isRTL}
+            style={styles.meta}
+            numberOfLines={1}
+          />
         ) : null}
       </Pressable>
-      {(order.status === 'NEW' || order.status === 'ACCEPTED') && (
-        <View style={[styles.actionsRow, isRTL ? styles.actionsRowRtl : null]}>
+
+      {(order.status === 'NEW' || canCancel(order.status)) && (
+        <View style={[styles.actionsRow, isCompact ? styles.actionsRowCompact : styles.actionsRowComfortable, isRTL ? styles.actionsRowRtl : null]}>
           {order.status === 'NEW' ? (
-            <Pressable style={styles.acceptButton} disabled={isBusy} onPress={onAccept}>
-              <Text style={styles.acceptText}>{isAccepting ? t('orders.accepting') : labels.accept}</Text>
-            </Pressable>
-          ) : null}
-          <Pressable style={styles.rejectButton} disabled={isBusy} onPress={onReject}>
-            <Text style={styles.rejectText}>{isRejecting ? t('orders.rejecting') : labels.reject}</Text>
-          </Pressable>
+            <>
+              <FrontdeskButton
+                label={isAccepting ? t('orders.accepting') : labels.accept}
+                onPress={onAccept}
+                disabled={isBusy}
+                variant="primary"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.medium : frontdeskTheme.touch.large}
+                style={styles.flexButton}
+              />
+              <FrontdeskButton
+                label={isRejecting ? t('orders.rejecting') : labels.reject}
+                onPress={onReject}
+                disabled={isBusy}
+                variant="danger"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.medium : frontdeskTheme.touch.large}
+                style={styles.flexButton}
+              />
+            </>
+          ) : (
+            <FrontdeskButton
+              label={isCancelling ? t('orders.cancelling') : labels.cancel}
+              onPress={onCancel}
+              disabled={isBusy}
+              variant="danger"
+              isRTL={isRTL}
+              minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+          )}
         </View>
       )}
-    </View>
+    </FrontdeskCard>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFEFB',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E9E0D4',
-    marginBottom: 12,
-    shadowColor: '#4C3921',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
+    borderColor: frontdeskTheme.colors.border,
+    borderRadius: frontdeskTheme.radius.xl,
+  },
+  cardCompact: {
+    paddingVertical: frontdeskTheme.spacing.xs,
+    paddingHorizontal: frontdeskTheme.spacing.sm,
+    marginBottom: frontdeskTheme.spacing.xs,
+  },
+  cardComfortable: {
+    paddingVertical: frontdeskTheme.spacing.md,
+    paddingHorizontal: frontdeskTheme.spacing.md,
+    marginBottom: frontdeskTheme.spacing.sm,
   },
   touchableBody: {
-    borderRadius: 10,
+    borderRadius: frontdeskTheme.radius.md,
+    width: '100%',
+  },
+  touchableBodyRtl: {
+    alignItems: 'flex-end',
+  },
+  cardRtl: {
+    alignItems: 'stretch',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    width: '100%',
+  },
+  headerRowCompact: {
+    marginBottom: frontdeskTheme.spacing.xs,
+    gap: frontdeskTheme.spacing.xs,
+  },
+  headerRowComfortable: {
+    marginBottom: frontdeskTheme.spacing.sm,
+    gap: frontdeskTheme.spacing.sm,
   },
   headerRowRtl: {
     flexDirection: 'row-reverse',
+    justifyContent: 'flex-start',
   },
   orderNo: {
-    flex: 1,
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#3A2A1B',
+    ...frontdeskTheme.typography.titleMd,
+    color: frontdeskTheme.colors.textPrimary,
+    flexShrink: 1,
+    minWidth: 0,
   },
-  statusChip: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
+  orderNoCompact: {
+    fontSize: 16,
+    lineHeight: 20,
   },
-  statusNew: {
-    backgroundColor: '#FFF2D9',
-    borderColor: '#E8C891',
-  },
-  statusAccepted: {
-    backgroundColor: '#EAF3FF',
-    borderColor: '#BBD3F2',
-  },
-  statusCancelled: {
-    backgroundColor: '#FCEBE7',
-    borderColor: '#E9B8AD',
-  },
-  statusNeutral: {
-    backgroundColor: '#EEF1F5',
-    borderColor: '#CED7E3',
-  },
-  statusChipText: {
-    color: '#4A3A25',
-    fontSize: 12,
-    fontWeight: '800',
+  orderNoComfortable: {
+    fontSize: 18,
+    lineHeight: 24,
   },
   meta: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#4C4A46',
-    marginBottom: 3,
+    ...frontdeskTheme.typography.body,
+    color: frontdeskTheme.colors.textSecondary,
+    alignSelf: 'flex-end',
+    maxWidth: '100%',
+  },
+  metaCompact: {
+    marginBottom: frontdeskTheme.spacing.xxs,
+  },
+  metaComfortable: {
+    marginBottom: frontdeskTheme.spacing.xs,
   },
   assignmentMeta: {
-    marginTop: 6,
-    marginBottom: 4,
-    fontSize: 15,
+    marginTop: frontdeskTheme.spacing.xs,
+    marginBottom: frontdeskTheme.spacing.xs,
+    ...frontdeskTheme.typography.body,
     color: '#8C5C09',
     fontWeight: '700',
+    alignSelf: 'flex-end',
+    maxWidth: '100%',
   },
   actionsRow: {
-    marginTop: 12,
     flexDirection: 'row',
-    gap: 8,
+  },
+  actionsRowCompact: {
+    marginTop: frontdeskTheme.spacing.xs,
+    gap: frontdeskTheme.spacing.xs,
+  },
+  actionsRowComfortable: {
+    marginTop: frontdeskTheme.spacing.sm,
+    gap: frontdeskTheme.spacing.sm,
   },
   actionsRowRtl: {
     flexDirection: 'row-reverse',
   },
-  acceptButton: {
-    backgroundColor: '#6B3F1F',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 50,
+  flexButton: {
     flex: 1,
-  },
-  acceptText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  rejectButton: {
-    backgroundColor: '#FFF7F5',
-    borderRadius: 10,
-    borderColor: '#D26D5F',
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 50,
-    flex: 1,
-  },
-  rejectText: {
-    color: '#C13A2B',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  rtlText: {
-    textAlign: 'right',
-  },
-  ltrText: {
-    textAlign: 'left',
   },
 });

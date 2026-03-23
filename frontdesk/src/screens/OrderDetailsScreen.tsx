@@ -1,94 +1,149 @@
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { isRtlLanguage } from '@/i18n';
 import { OrderRead, UserSummary } from '@/types/api';
+import { formatLocalizedNumber } from '@/utils/localeFormat';
 import { getDeliveryAddress, getOrderStatusLabel, getOrderTypeLabel, isDriverAssignmentStatus } from '@/utils/orderPresentation';
+import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskLabelValueText, SectionHeader } from '@/ui/frontdeskPrimitives';
+import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
 type Props = {
   order: OrderRead;
   onAccept: () => void;
   onReject: () => void;
+  onCancel: () => void;
   drivers: UserSummary[];
   onAssignDriver: (driverUserId: string) => Promise<void>;
 };
 
-export const OrderDetailsScreen = ({ order, onAccept, onReject, drivers, onAssignDriver }: Props) => {
+const canCancel = (status: OrderRead['status']) =>
+  status === 'ACCEPTED' || status === 'ASSIGNED' || status === 'ASSIGNED_TO_DRIVER';
+
+export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, drivers, onAssignDriver }: Props) => {
   const { t, i18n } = useTranslation();
-  const isRTL = i18n.dir() === 'rtl';
+  const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
+  const localizedOrderNumber = Number.isFinite(Number(order.order_number))
+    ? formatLocalizedNumber(Number(order.order_number), i18n.language)
+    : order.order_number;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={[styles.orderNumber, isRTL ? styles.rtlText : styles.ltrText]}>
-        {t('details.order')} #{order.order_number}
-      </Text>
-      <View style={styles.infoBlock}>
-        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('details.customer')}: {order.customer_name || '-'}
-        </Text>
-        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('details.phone')}: {order.customer_phone || '-'}
-        </Text>
-        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('details.type')}: {getOrderTypeLabel(order.order_type, t)}
-        </Text>
-        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('orders.status')}: {getOrderStatusLabel(order.status, t)}
-        </Text>
-        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('details.address')}: {order.order_type === 'delivery' ? getDeliveryAddress(order) || '-' : '-'}
-        </Text>
-        <Text style={[styles.line, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('details.notes')}: {order.notes || '-'}
-        </Text>
-      </View>
+      <FrontdeskCompositeText
+        style={styles.orderNumber}
+        isRTL={isRTL}
+        numberOfLines={1}
+        runs={[
+          { text: `${t('details.order')} `, direction: isRTL ? 'rtl' : 'ltr' },
+          { text: `#${localizedOrderNumber}`, direction: 'ltr' },
+        ]}
+      />
 
-      <Text style={[styles.sectionTitle, isRTL ? styles.rtlText : styles.ltrText]}>{t('details.items')}</Text>
+      <FrontdeskCard style={[styles.infoBlock, isRTL ? styles.infoBlockRtl : null]}>
+        <FrontdeskLabelValueText label={t('details.customer')} value={order.customer_name || '-'} isRTL={isRTL} style={styles.line} numberOfLines={2} />
+        <FrontdeskLabelValueText
+          label={t('details.phone')}
+          value={order.customer_phone || '-'}
+          isRTL={isRTL}
+          style={styles.line}
+          valueDirection="ltr"
+          numberOfLines={1}
+        />
+        <FrontdeskLabelValueText label={t('details.type')} value={getOrderTypeLabel(order.order_type, t)} isRTL={isRTL} style={styles.line} numberOfLines={1} />
+        <FrontdeskLabelValueText label={t('orders.status')} value={getOrderStatusLabel(order.status, t)} isRTL={isRTL} style={styles.line} numberOfLines={1} />
+        <FrontdeskLabelValueText
+          label={t('details.address')}
+          value={order.order_type === 'delivery' ? getDeliveryAddress(order) || '-' : '-'}
+          isRTL={isRTL}
+          style={styles.line}
+          numberOfLines={2}
+        />
+        <FrontdeskLabelValueText label={t('details.notes')} value={order.notes || '-'} isRTL={isRTL} style={styles.line} numberOfLines={3} />
+      </FrontdeskCard>
+
+      <SectionHeader title={t('details.items')} isRTL={isRTL} />
       {order.items.map((item) => (
-        <View style={styles.itemCard} key={item.id}>
-          <Text style={[styles.itemTitle, isRTL ? styles.rtlText : styles.ltrText]}>
-            {item.quantity}x {item.item_name_snapshot}
-          </Text>
-          <Text style={[styles.itemLine, isRTL ? styles.rtlText : styles.ltrText]}>
-            {t('details.size')}: {item.size_snapshot}
-          </Text>
+        <FrontdeskCard style={[styles.itemCard, isRTL ? styles.itemCardRtl : null]} key={item.id}>
+          <FrontdeskCompositeText
+            style={styles.itemTitle}
+            isRTL={isRTL}
+            numberOfLines={2}
+            runs={[{ text: `${formatLocalizedNumber(item.quantity, i18n.language)}x ${item.item_name_snapshot}`, direction: 'ltr' }]}
+          />
+          <FrontdeskLabelValueText label={t('details.size')} value={item.size_snapshot} isRTL={isRTL} style={styles.itemLine} numberOfLines={1} />
           {item.addons.map((addon) => (
-            <Text key={addon.id} style={[styles.itemLine, isRTL ? styles.rtlText : styles.ltrText]}>
-              + {addon.addon_name_snapshot}
-            </Text>
+            <FrontdeskCompositeText
+              key={addon.id}
+              style={styles.itemLine}
+              isRTL={isRTL}
+              numberOfLines={1}
+              runs={[{ text: `+ ${addon.addon_name_snapshot}`, direction: 'ltr' }]}
+            />
           ))}
-        </View>
+        </FrontdeskCard>
       ))}
 
       {order.status === 'NEW' ? (
-        <Pressable style={styles.acceptButton} onPress={onAccept}>
-          <Text style={styles.acceptText}>{t('details.accept')}</Text>
-        </Pressable>
+        <View style={[styles.actionsRow, isRTL ? styles.actionsRowRtl : null]}>
+          <FrontdeskButton
+            label={t('details.accept')}
+            onPress={onAccept}
+            variant="primary"
+            isRTL={isRTL}
+            minHeight={frontdeskTheme.touch.large}
+            style={styles.flexButton}
+          />
+          <FrontdeskButton
+            label={t('details.reject')}
+            onPress={onReject}
+            variant="danger"
+            isRTL={isRTL}
+            minHeight={frontdeskTheme.touch.large}
+            style={styles.flexButton}
+          />
+        </View>
       ) : null}
-      {(order.status === 'NEW' || order.status === 'ACCEPTED' || order.status === 'ASSIGNED' || order.status === 'ASSIGNED_TO_DRIVER') ? (
-        <Pressable style={styles.rejectButton} onPress={onReject}>
-          <Text style={styles.rejectText}>{t('details.reject')}</Text>
-        </Pressable>
+
+      {canCancel(order.status) ? (
+        <FrontdeskButton
+          label={t('details.cancel')}
+          onPress={onCancel}
+          variant="danger"
+          isRTL={isRTL}
+          minHeight={frontdeskTheme.touch.medium}
+          style={styles.singleAction}
+        />
       ) : null}
+
       {order.order_type === 'delivery' && isDriverAssignmentStatus(order.status) ? (
-        <View style={styles.assignWrap}>
-          <Text style={[styles.sectionTitle, isRTL ? styles.rtlText : styles.ltrText]}>{t('details.assignDriver')}</Text>
+        <View style={[styles.assignWrap, isRTL ? styles.assignWrapRtl : null]}>
+          <SectionHeader title={t('details.assignDriver')} isRTL={isRTL} />
           {drivers.length === 0 ? (
-            <Text style={[styles.itemLine, isRTL ? styles.rtlText : styles.ltrText]}>{t('details.noDrivers')}</Text>
+            <Text style={[styles.itemLine, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('details.noDrivers')}</Text>
           ) : (
             drivers.map((driver) => (
-              <Pressable key={driver.id} style={styles.assignButton} onPress={() => void onAssignDriver(driver.id)}>
-                <Text style={styles.assignButtonText}>
-                  {driver.first_name} {driver.last_name}
-                </Text>
-              </Pressable>
+              <FrontdeskButton
+                key={driver.id}
+                label={`${driver.first_name} ${driver.last_name}`}
+                onPress={() => void onAssignDriver(driver.id)}
+                variant="ghost"
+                isRTL={isRTL}
+                minHeight={frontdeskTheme.touch.medium}
+                textStyle={isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr}
+              />
             ))
           )}
         </View>
       ) : null}
+
       {order.assigned_driver_id ? (
-        <Text style={[styles.itemLine, isRTL ? styles.rtlText : styles.ltrText]}>
-          {t('details.assignedTo')}: {order.assigned_driver_name || order.assigned_driver_id}
-        </Text>
+        <FrontdeskLabelValueText
+          label={t('details.assignedTo')}
+          value={order.assigned_driver_name || order.assigned_driver_id}
+          isRTL={isRTL}
+          style={styles.itemLine}
+          numberOfLines={2}
+        />
       ) : null}
     </ScrollView>
   );
@@ -97,106 +152,75 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, drivers, onAssig
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F2EA',
+    backgroundColor: frontdeskTheme.colors.background,
   },
   content: {
-    padding: 16,
-    paddingBottom: 28,
+    padding: frontdeskTheme.spacing.md,
+    paddingBottom: 20,
   },
   orderNumber: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#3A2A1B',
-    marginBottom: 14,
+    ...frontdeskTheme.typography.titleLg,
+    fontSize: 24,
+    lineHeight: 30,
+    color: frontdeskTheme.colors.textPrimary,
+    marginBottom: frontdeskTheme.spacing.md,
+    alignSelf: 'flex-end',
+    maxWidth: '100%',
   },
   infoBlock: {
-    backgroundColor: '#FFFEFB',
-    borderRadius: 14,
-    borderColor: '#E6D8C8',
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 16,
+    marginBottom: frontdeskTheme.spacing.lg,
+    borderColor: frontdeskTheme.colors.border,
+  },
+  infoBlockRtl: {
+    alignItems: 'stretch',
   },
   line: {
-    fontSize: 16,
-    lineHeight: 24,
+    ...frontdeskTheme.typography.bodyStrong,
     color: '#4A463F',
-    marginBottom: 4,
-  },
-  sectionTitle: {
-    fontSize: 21,
-    fontWeight: '700',
-    marginBottom: 10,
-    color: '#3A2A1B',
+    marginBottom: frontdeskTheme.spacing.xs,
+    alignSelf: 'stretch',
+    width: '100%',
   },
   itemCard: {
-    backgroundColor: '#FFFEFB',
-    borderRadius: 14,
-    borderColor: '#E6D8C8',
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 12,
+    marginBottom: frontdeskTheme.spacing.md,
+    borderColor: frontdeskTheme.colors.borderSoft,
+  },
+  itemCardRtl: {
+    alignItems: 'stretch',
   },
   itemTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#3A2A1B',
-    marginBottom: 6,
+    ...frontdeskTheme.typography.bodyStrong,
+    fontSize: 16,
+    color: frontdeskTheme.colors.textPrimary,
+    marginBottom: frontdeskTheme.spacing.xs,
+    alignSelf: 'stretch',
+    width: '100%',
   },
   itemLine: {
-    color: '#4C4A46',
-    fontSize: 15,
-    lineHeight: 22,
+    ...frontdeskTheme.typography.body,
+    color: frontdeskTheme.colors.textSecondary,
+    alignSelf: 'stretch',
+    width: '100%',
   },
-  acceptButton: {
-    marginTop: 14,
-    height: 54,
-    borderRadius: 10,
-    backgroundColor: '#6B3F1F',
-    alignItems: 'center',
-    justifyContent: 'center',
+  actionsRow: {
+    marginTop: frontdeskTheme.spacing.md,
+    flexDirection: 'row',
+    gap: frontdeskTheme.spacing.md,
+  },
+  actionsRowRtl: {
+    flexDirection: 'row-reverse',
+  },
+  singleAction: {
+    marginTop: frontdeskTheme.spacing.md,
+  },
+  flexButton: {
+    flex: 1,
   },
   assignWrap: {
-    marginTop: 12,
-    gap: 8,
+    marginTop: frontdeskTheme.spacing.md,
+    gap: frontdeskTheme.spacing.sm,
   },
-  rejectButton: {
-    marginTop: 10,
-    height: 52,
-    borderRadius: 10,
-    backgroundColor: '#FFF7F5',
-    borderColor: '#D26D5F',
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rejectText: {
-    color: '#C13A2B',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  assignButton: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#6B3F1F',
-    backgroundColor: '#FFFEFB',
-    minHeight: 46,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  assignButtonText: {
-    color: '#6B3F1F',
-    fontWeight: '700',
-  },
-  acceptText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  rtlText: {
-    textAlign: 'right',
-  },
-  ltrText: {
-    textAlign: 'left',
+  assignWrapRtl: {
+    alignItems: 'stretch',
   },
 });

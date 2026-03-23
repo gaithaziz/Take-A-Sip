@@ -1,183 +1,226 @@
-﻿TEST RUN INSTRUCTIONS (Backend + Mobile + Frontdesk)
+﻿TAKE-A-SIP TEST RUN GUIDE (NO COLLISIONS, NO GUESSWORK)
 
-This is the single runbook for stable local testing.
-It avoids port/address collisions and covers the common failures we hit.
+This guide is for running all services together with:
+- Mobile Metro on 8081
+- Frontdesk Metro on 8082
+- Sunmi device connected over USB
 
---------------------------------------------------
-TEST CREDENTIALS (CURRENT)
---------------------------------------------------
-OTP code for all accounts (mock provider): 123456
+==================================================
+TEST CREDENTIALS
+==================================================
+OTP code for all test accounts: 123456
 
 - FRONTDESK: +962790070001
 - DRIVER: +962790099992
-- CLIENT (user): 0790000101
+- CLIENT: 0790000101
 - ADMIN: +962790099981
 
-Seeded fallback accounts (also OTP 123456):
+Seeded fallback (same OTP 123456):
 - FRONTDESK: 0790000001
 - CLIENT: 0790000101
 - ADMIN: 0790000000
 
---------------------------------------------------
-PORT PLAN (NO COLLISION)
---------------------------------------------------
+==================================================
+PORT PLAN
+==================================================
 - Backend API: 8000
 - Postgres: 5433
-- Mobile Metro (Expo Go): 8081
-- Frontdesk Metro (Sunmi dev build): 8082
+- Mobile Metro: 8081
+- Frontdesk Metro: 8082
 
---------------------------------------------------
-0) ONE-TIME PREREQUISITES
---------------------------------------------------
+Why:
+- Mobile keeps default Metro 8081.
+- Frontdesk runs on 8082.
+- Sunmi dev client may request 8081, so we reverse device 8081 -> host 8082.
+
+==================================================
+PREREQUISITES
+==================================================
 - Docker Desktop running
-- Node + npm installed
-- adb installed (Android platform-tools)
-- Sunmi USB debugging ON
-- Phone and PC on same Wi-Fi for Expo Go (mobile app)
-
-Repo root:
+- Node and npm installed
+- Android platform-tools installed
+- Sunmi USB debugging enabled
+- Repo root:
   C:\Users\user\Take-A-Sip\Take-A-Sip
 
---------------------------------------------------
-1) START BACKEND (DOCKER)
---------------------------------------------------
-From repo root:
-  docker compose up -d postgres backend
+ADB path used everywhere:
+  C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe
 
-Health check:
+==================================================
+A) FULL START (FIRST RUN / AFTER RESTART / AFTER OFFLINE)
+==================================================
+Open 3 terminals.
+
+1) TERMINAL A - BACKEND
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip
+  docker compose up -d postgres backend
   Invoke-RestMethod http://localhost:8000/health
+
 Expected:
   {"status":"ok"}
 
---------------------------------------------------
-2) VERIFY/SET BACKEND CONFIG (IMPORTANT)
---------------------------------------------------
-Backend env file:
-  backend\.env
 
-Must include:
-  otp_test_code=123456
-  store_latitude=31.9539
-  store_longitude=35.9106
-
-If you changed backend\.env, restart backend:
-  docker compose restart backend
-
---------------------------------------------------
-3) RUN MOBILE APP (EXPO GO OVER WIFI)
---------------------------------------------------
-Mobile env file is persistent now:
-  mobile\.env
-
-Should contain your current PC Wi-Fi IP:
-  EXPO_PUBLIC_API_BASE_URL=http://192.168.1.228:8000
-
-If your PC IP changed, update that value first.
-Find IP:
-  ipconfig
-
-Start mobile Metro:
-  cd mobile
+2) TERMINAL B - MOBILE (8081)
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\mobile
   npx expo start --host lan --port 8081 --clear
 
-On phone:
-- Open Expo Go
-- Scan QR
-- If app was already open, fully close and reopen Expo Go first
 
---------------------------------------------------
-4) RUN FRONTDESK ON SUNMI (USB)
---------------------------------------------------
-Plug Sunmi USB and verify:
-  adb devices
+3) TERMINAL C - FRONTDESK + USB (8082)
+Set adb vars and recover device:
+  $env:ADB_MDNS_OPENSCREEN='0'
+  $env:ADB_LIBUSB='0'
+  $ADB='C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe'
 
-Set USB reverse tunnels:
-  adb reverse --remove-all
-  adb reverse tcp:8081 tcp:8082
-  adb reverse tcp:8082 tcp:8082
-  adb reverse tcp:8000 tcp:8000
-  adb reverse --list
+  taskkill /F /IM adb.exe 2>$null | Out-Null
+  Start-Sleep -Milliseconds 700
+  & $ADB start-server
+  & $ADB reconnect offline
+  & $ADB devices -l
 
-Start frontdesk Metro:
-  cd frontdesk
-  $env:EXPO_PUBLIC_API_BASE_URL="http://127.0.0.1:8000"
-  npx expo start --host lan --port 8082 --clear
+Pick ONLINE device serial:
+  $SERIAL = (& $ADB devices | Select-String "device$" | ForEach-Object { ($_ -split "`t")[0] } | Select-Object -First 1)
+  $SERIAL
+  if ([string]::IsNullOrWhiteSpace($SERIAL)) { throw "No ONLINE adb device found. Fix USB/debugging first." }
 
-Notes:
-- The 8081->8082 reverse is required for Sunmi dev client script loading.
-- Frontdesk API uses 127.0.0.1:8000 through USB reverse.
+Apply reverse map:
+  & $ADB -s $SERIAL reverse --remove-all
+  & $ADB -s $SERIAL reverse tcp:8081 tcp:8082
+  & $ADB -s $SERIAL reverse tcp:8082 tcp:8082
+  & $ADB -s $SERIAL reverse tcp:8000 tcp:8000
+  & $ADB -s $SERIAL reverse --list
 
---------------------------------------------------
-5) FRONTDESK BUILD / REBUILD (WHEN NEEDED)
---------------------------------------------------
-If native or dev build changed:
-  cd frontdesk\android
-  $env:EXPO_PUBLIC_API_BASE_URL="http://127.0.0.1:8000"
-  .\gradlew.bat installDebug
+Start Frontdesk Metro:
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  $env:EXPO_PUBLIC_API_BASE_URL='http://127.0.0.1:8000'
+  npx expo start --dev-client --host lan --port 8082 --clear
 
-If frontdesk is stuck in bad auth/session state:
-  adb shell pm clear com.takeasip.frontdesk
+Relaunch app on Sunmi:
+& "C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s "V2A4213923214" shell am force-stop com.takeasip.frontdesk
+& "C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s "V2A4213923214" shell monkey -p com.takeasip.frontdesk -c android.intent.category.LAUNCHER 1
 
---------------------------------------------------
-6) DELIVERY BANDS (REQUIRED FOR DELIVERY ORDERS)
---------------------------------------------------
-Delivery confirm fails if distance bands are missing.
-Current active ranges should cover 0-100 km.
 
-If needed, re-create via Admin app/API.
-Expected active coverage:
-- 0.000 -> 3.000
-- 3.000 -> 7.000
-- 7.000 -> 12.000
-- 12.000 -> 100.000
+If screen is still wrong once:
+  & $ADB -s $SERIAL shell pm clear com.takeasip.frontdesk
+  & $ADB -s $SERIAL shell monkey -p com.takeasip.frontdesk -c android.intent.category.LAUNCHER 1
 
---------------------------------------------------
-7) QUICK SANITY CHECK FLOW
---------------------------------------------------
-1. Mobile app: login as CLIENT (0790000101 / 123456)
-2. Mobile app: place pickup or delivery order
-3. Frontdesk app: order appears in list
-4. Frontdesk app: accept order
-5. Driver app/account: sees assigned delivery when applicable
+One-command alternative (auto recover + relaunch):
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  npm run usb:recover
 
---------------------------------------------------
-8) TROUBLESHOOTING (FAST)
---------------------------------------------------
-A) Mobile OTP shows "Network error"
-- Confirm backend health:
-    Invoke-RestMethod http://localhost:8000/health
-- Confirm mobile\.env IP is correct
-- Restart mobile Metro with clear cache:
-    cd mobile
-    npx expo start --host lan --port 8081 --clear
-- Fully close Expo Go and rescan QR
+==================================================
+B) QUICK DAILY RUN (NO USB/ADB CHANGES)
+==================================================
+Use this when:
+- Same cable and same PC session
+- device state is still "device"
+- reverse rules still exist
 
-B) Frontdesk shows "Unable to load script"
-- Ensure these reverses exist:
-    adb reverse tcp:8081 tcp:8082
-    adb reverse tcp:8082 tcp:8082
-- Restart frontdesk Metro on 8082
+Quick checks:
+  & $ADB -s $SERIAL get-state
+  & $ADB -s $SERIAL reverse --list
 
-C) Frontdesk shows "Disconnected"
-- Reset app/session and tunnels:
-    adb shell pm clear com.takeasip.frontdesk
-    adb reverse --remove-all
-    adb reverse tcp:8081 tcp:8082
-    adb reverse tcp:8082 tcp:8082
-    adb reverse tcp:8000 tcp:8000
-- Login with FRONTDESK or ADMIN only
+If state is "device" and reverse list contains:
+- tcp:8081 tcp:8082
+- tcp:8000 tcp:8000
+then only do:
 
-D) Confirm order shows server error
-- If pickup fails: restart backend and retry
-- If delivery fails: verify delivery distance bands + store coordinates exist
+1) Start metros:
+  mobile terminal:   npx expo start --host lan --port 8081 --clear
+  frontdesk terminal: npx expo start --dev-client --host lan --port 8082 --clear
 
-E) Wrong account role on frontdesk
-- Allowed roles: FRONTDESK, ADMIN
-- CLIENT/DRIVER will be rejected by design
+2) Relaunch frontdesk app:
+  & $ADB -s $SERIAL shell am force-stop com.takeasip.frontdesk
+  & $ADB -s $SERIAL shell monkey -p com.takeasip.frontdesk -c android.intent.category.LAUNCHER 1
 
---------------------------------------------------
-9) STOP EVERYTHING
---------------------------------------------------
-- Stop Metro terminals (Ctrl+C)
-- Stop backend containers:
-    docker compose down
+If it disconnects after edits/devtools reload:
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  npm run usb:recover
+
+If still broken once:
+  npm run usb:recover:clear
+
+If you have multiple adb installs/devices, force exact values first:
+  $env:ADB_PATH='C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe'
+  $env:ADB_SERIAL='V2A4213923214'
+  npm run usb:recover
+
+==================================================
+C) FRONTDESK REBUILD (ONLY WHEN NATIVE CODE CHANGES)
+==================================================
+Do this only after changes in android native files (printer/beep/module):
+
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  npx expo run:android
+
+Then relaunch app using monkey command.
+
+==================================================
+D) RTL / LANGUAGE NOTE (IMPORTANT)
+==================================================
+- After switching language EN <-> AR, relaunch frontdesk app once:
+  & $ADB -s $SERIAL shell am force-stop com.takeasip.frontdesk
+  & $ADB -s $SERIAL shell monkey -p com.takeasip.frontdesk -c android.intent.category.LAUNCHER 1
+
+- Do NOT rely on dev reload for this case.
+- Frontdesk Arabic now uses app-level RTL styling, not Android native forced RTL.
+- After RTL UI changes, verify:
+  - title starts from the physical right edge
+  - connection pill starts from the right edge
+  - summary chips start from the right edge
+  - mixed Arabic + numbers/Latin text keeps the correct order
+
+==================================================
+TROUBLESHOOTING
+==================================================
+1) "adb.exe: device offline"
+- Unplug/replug USB
+- Unlock Sunmi screen
+- Developer options:
+  - Revoke USB debugging authorizations
+  - Toggle USB debugging off/on
+- USB mode: File Transfer (MTP)
+- Accept RSA prompt
+- Re-run Section A Terminal C steps
+
+2) "unknown command tcp:8081" or "unknown command am/monkey"
+Cause:
+- $SERIAL is empty
+Fix:
+- Print $SERIAL
+- Re-run auto-detect serial step
+
+3) "Unable to load script"
+- Ensure frontdesk Metro is on 8082 and running
+- Ensure reverse exists:
+  & $ADB -s $SERIAL reverse --list
+- Must include:
+  - tcp:8081 tcp:8082
+  - tcp:8000 tcp:8000
+- Relaunch app
+- Fast fix:
+    cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+    npm run usb:recover
+
+4) "Cannot find native module ExpoLocation"
+Cause:
+- Frontdesk loaded wrong bundle
+Fix:
+  taskkill /F /IM node.exe 2>$null | Out-Null
+  Start only:
+  - mobile on 8081 from mobile folder
+  - frontdesk on 8082 from frontdesk folder
+  Re-apply reverse and relaunch app
+
+5) OTP send fails
+- Check backend health on http://localhost:8000/health
+- Ensure frontdesk env:
+  EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+- Ensure reverse tcp:8000 tcp:8000 exists
+
+==================================================
+STOP EVERYTHING
+==================================================
+- Stop Metro terminals with Ctrl+C
+- Stop backend:
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip
+  docker compose down

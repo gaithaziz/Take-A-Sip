@@ -2,6 +2,8 @@ package com.takeasip.frontdesk
 
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.Handler
+import android.os.Looper
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -80,13 +82,35 @@ class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun beep(promise: Promise) {
+  fun beep(durationMs: Int?, promise: Promise) {
     try {
-      val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
-      tone.startTone(ToneGenerator.TONE_PROP_BEEP, 300)
+      val safeDurationMs = (durationMs ?: 700).coerceIn(320, 1400)
+      val pulseMs = (safeDurationMs / 2).coerceIn(160, 480)
+      val alarmTone = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+      val notificationTone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+      val musicTone = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+      val tones = listOf(alarmTone, notificationTone, musicTone)
+
+      // Two-step alert chime sounds clearer and longer than a single short beep.
+      tones.forEach { it.startTone(ToneGenerator.TONE_PROP_BEEP2, pulseMs) }
+      Handler(Looper.getMainLooper()).postDelayed({
+        tones.forEach { it.startTone(ToneGenerator.TONE_PROP_ACK, pulseMs) }
+      }, (pulseMs + 90).toLong())
+
+      Handler(Looper.getMainLooper()).postDelayed({
+        try {
+          tones.forEach { tone ->
+            tone.stopTone()
+            tone.release()
+          }
+        } catch (_: Exception) {
+          // Ignore release failures.
+        }
+      }, ((pulseMs * 2) + 220).toLong())
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject("BEEP_FAILED", e)
     }
   }
+
 }

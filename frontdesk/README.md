@@ -59,6 +59,16 @@ EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 
 Because `EXPO_PUBLIC_*` is baked at build time, changing shell env after install does not change a built app.
 
+## RTL behavior notes
+
+- Arabic layout is handled at the app component/style level.
+- The app does **not** rely on Android native forced RTL for screen mirroring.
+- After RTL-related UI edits, always relaunch the app through the frontdesk dev client and verify:
+  - title starts from the physical right edge
+  - connection pill is right-anchored
+  - summary chips are right-anchored
+  - mixed Arabic plus Latin/number lines keep the correct visual order
+
 ## Sunmi native printer integration
 
 This repo includes the native wrapper files:

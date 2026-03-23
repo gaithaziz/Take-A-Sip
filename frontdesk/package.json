@@ -8,7 +8,9 @@
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "ios": "expo run:ios",
-    "usb:setup": "powershell -ExecutionPolicy Bypass -File ./scripts/usb-setup.ps1"
+    "usb:setup": "powershell -ExecutionPolicy Bypass -File ./scripts/usb-setup.ps1",
+    "usb:recover": "powershell -ExecutionPolicy Bypass -File ./scripts/frontdesk-usb-recover.ps1 -Relaunch",
+    "usb:recover:clear": "powershell -ExecutionPolicy Bypass -File ./scripts/frontdesk-usb-recover.ps1 -Relaunch -ClearData"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.1",

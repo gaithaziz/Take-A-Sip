@@ -1,4 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text } from 'react-native';
+
+import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
 type Props = {
   message: string | null;
@@ -8,51 +11,85 @@ type Props = {
 };
 
 export const OrderBanner = ({ message, onClose, isRTL = false, closeLabel = 'Close' }: Props) => {
-  if (!message) {
+  const [renderedMessage, setRenderedMessage] = useState<string | null>(message);
+  const fade = useRef(new Animated.Value(message ? 1 : 0)).current;
+  const translateY = useRef(new Animated.Value(message ? 0 : -8)).current;
+
+  useEffect(() => {
+    if (message) {
+      setRenderedMessage(message);
+      fade.setValue(0);
+      translateY.setValue(-8);
+      Animated.parallel([
+        Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 180, useNativeDriver: true }),
+      ]).start();
+      return;
+    }
+    if (!renderedMessage) {
+      return;
+    }
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: -6, duration: 150, useNativeDriver: true }),
+    ]).start(() => {
+      setRenderedMessage(null);
+    });
+  }, [fade, message, renderedMessage, translateY]);
+
+  if (!renderedMessage) {
     return null;
   }
+
   return (
-    <View style={[styles.wrap, isRTL ? styles.wrapRtl : null]}>
-      <Text style={[styles.text, isRTL ? styles.rtlText : styles.ltrText]}>{message}</Text>
+    <Animated.View
+      style={[
+        styles.wrap,
+        isRTL ? styles.wrapRtl : null,
+        {
+          opacity: fade,
+          transform: [{ translateY }],
+        },
+      ]}
+    >
+      <Text style={[styles.text, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]} numberOfLines={3}>
+        {renderedMessage}
+      </Text>
       <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel={closeLabel}>
-        <Text style={styles.close}>{closeLabel}</Text>
+        <Text style={[styles.close, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{closeLabel}</Text>
       </Pressable>
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    backgroundColor: '#FFF4DD',
-    borderColor: '#E8CFA5',
+    marginBottom: frontdeskTheme.spacing.md,
+    paddingHorizontal: frontdeskTheme.spacing.md,
+    paddingVertical: frontdeskTheme.spacing.md,
+    backgroundColor: frontdeskTheme.colors.warningBg,
+    borderColor: frontdeskTheme.colors.warningBorder,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: frontdeskTheme.radius.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 10,
+    gap: frontdeskTheme.spacing.md,
   },
   wrapRtl: {
     flexDirection: 'row-reverse',
+    justifyContent: 'flex-start',
   },
   text: {
-    flex: 1,
-    color: '#6F4D1B',
-    fontWeight: '700',
-    fontSize: 15,
+    ...frontdeskTheme.typography.bodyStrong,
+    color: frontdeskTheme.colors.warningText,
+    flexShrink: 1,
+    minWidth: 0,
   },
   close: {
-    fontSize: 14,
+    ...frontdeskTheme.typography.body,
     fontWeight: '800',
-    color: '#6F4D1B',
-  },
-  rtlText: {
-    textAlign: 'right',
-  },
-  ltrText: {
-    textAlign: 'left',
+    color: frontdeskTheme.colors.warningText,
+    minWidth: 42,
   },
 });

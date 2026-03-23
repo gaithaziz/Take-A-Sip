@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useTranslation } from 'react-i18next';
 
+import { isRtlLanguage } from '@/i18n';
 import { OrderDetailsScreen } from '@/screens/OrderDetailsScreen';
 import { OrdersScreen } from '@/screens/OrdersScreen';
 import { useFrontdeskOrders } from '@/hooks/useFrontdeskOrders';
@@ -17,8 +18,9 @@ const Stack = createStackNavigator<RootStackParamList>();
 
 export const AppNavigator = () => {
   const { token, logout } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const realtime = useFrontdeskOrders(token, logout);
+  const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
 
   return (
     <NavigationContainer>
@@ -26,6 +28,10 @@ export const AppNavigator = () => {
         screenOptions={{
           headerTitleAlign: 'center',
           animation: 'none',
+          gestureDirection: isRTL ? 'horizontal-inverted' : 'horizontal',
+          headerTitleStyle: {
+            writingDirection: isRTL ? 'rtl' : 'ltr',
+          },
         }}
       >
         <Stack.Screen name="Orders" options={{ headerShown: false }}>
@@ -40,6 +46,7 @@ export const AppNavigator = () => {
               refresh={realtime.refresh}
               acceptOrder={realtime.acceptOrder}
               rejectOrder={realtime.rejectOrder}
+              cancelOrder={realtime.cancelOrder}
               onPrinterTest={realtime.printTestReceipt}
               onReprint={realtime.reprintFailedOrder}
               onDismissFailed={realtime.dismissFailedOrder}
@@ -53,6 +60,9 @@ export const AppNavigator = () => {
           options={{
             title: t('details.title'),
             headerTitleAlign: 'center',
+            headerTitleStyle: {
+              writingDirection: isRTL ? 'rtl' : 'ltr',
+            },
           }}
         >
           {({ route, navigation }) => (
@@ -75,6 +85,12 @@ export const AppNavigator = () => {
                 const current =
                   realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
                 await realtime.rejectOrder(current);
+                navigation.goBack();
+              }}
+              onCancel={async () => {
+                const current =
+                  realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
+                await realtime.cancelOrder(current);
                 navigation.goBack();
               }}
             />
