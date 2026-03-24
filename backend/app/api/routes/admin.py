@@ -16,7 +16,7 @@ from app.schemas.delivery import (
     DeliveryDistanceBandUpdate,
 )
 from app.models.menu import Addon, Item, ItemType, Section, Size
-from app.models.promotion import LoyaltyRule, Promotion, PromotionType
+from app.models.promotion import LoyaltyRule, Promotion
 from app.models.user import User, UserRole
 from app.schemas.menu import (
     AddonCreate,
@@ -29,6 +29,7 @@ from app.schemas.menu import (
     ItemTypeUpdate,
     ItemUpdate,
     MenuResponse,
+    MenuDeleteResponse,
     ScheduleListResponse,
     ScheduleMenuRequest,
     ScheduleMenuResponse,
@@ -62,12 +63,14 @@ from app.schemas.user import (
     BanUserRequest,
     ProvisionStaffRequest,
     ProvisionStaffResponse,
+    StaffLifecycleResponse,
     UserModerationResponse,
     UserRead,
     UsersListResponse,
 )
 from app.services.menu_service import (
     create_menu_schedule,
+    delete_menu_entity,
     delete_menu_schedule,
     get_admin_menu_tree,
     list_menu_schedules,
@@ -79,14 +82,33 @@ from app.services.delivery_service import (
     list_distance_bands,
     update_distance_band,
 )
-from app.services.promotion_service import list_loyalty_rules, list_promotions
+from app.services.promotion_service import (
+    _load_target_lookup,
+    create_promotion_record,
+    ensure_promotion_type,
+    get_promotion_by_id,
+    list_loyalty_rules,
+    list_promotions,
+    serialize_promotion,
+    toggle_promotion_record,
+    update_promotion_record,
+)
 from app.services.order_service import (
     get_admin_dashboard_analytics,
     get_admin_rating_summary,
     get_revenue_summary,
     list_admin_ratings,
 )
-from app.services.user_service import ban_user, list_drivers, list_users, provision_staff_user, unban_user
+from app.services.user_service import (
+    archive_staff_user,
+    ban_user,
+    delete_staff_user,
+    list_drivers,
+    list_users,
+    provision_staff_user,
+    unarchive_staff_user,
+    unban_user,
+)
 
 router = APIRouter(prefix='/admin', tags=['admin'])
 
@@ -181,6 +203,12 @@ def _menu_models():
         'size': Size,
         'addon': Addon,
     }
+
+
+async def _ensure_menu_parent_exists(db: AsyncSession, model, entity_id: UUID, detail: str) -> None:
+    parent = await db.get(model, entity_id)
+    if parent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
 @router.post('/uploads/image')
@@ -293,7 +321,10 @@ async def update_item(
     item = await db.get(Item, item_id)
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Item not found')
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    values = payload.model_dump(exclude_unset=True)
+    if 'section_id' in values:
+        await _ensure_menu_parent_exists(db, Section, values['section_id'], 'Section not found')
+    for field, value in values.items():
         setattr(item, field, value)
     await db.commit()
     await db.refresh(item)
@@ -329,7 +360,10 @@ async def update_type(
     item_type = await db.get(ItemType, type_id)
     if item_type is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Type not found')
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    values = payload.model_dump(exclude_unset=True)
+    if 'item_id' in values:
+        await _ensure_menu_parent_exists(db, Item, values['item_id'], 'Item not found')
+    for field, value in values.items():
         setattr(item_type, field, value)
     await db.commit()
     await db.refresh(item_type)
@@ -366,7 +400,10 @@ async def update_size(
     size_entity = await db.get(Size, size_id)
     if size_entity is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    values = payload.model_dump(exclude_unset=True)
+    if 'type_id' in values:
+        await _ensure_menu_parent_exists(db, ItemType, values['type_id'], 'Type not found')
+    for field, value in values.items():
         setattr(size_entity, field, value)
     await db.commit()
     await db.refresh(size_entity)
@@ -403,11 +440,64 @@ async def update_addon(
     addon = await db.get(Addon, addon_id)
     if addon is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Add-on not found')
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    values = payload.model_dump(exclude_unset=True)
+    if 'size_id' in values:
+        await _ensure_menu_parent_exists(db, Size, values['size_id'], 'Size not found')
+    for field, value in values.items():
         setattr(addon, field, value)
     await db.commit()
     await db.refresh(addon)
     return _addon_to_read(addon)
+
+
+@router.delete('/menu/section/{section_id}', response_model=MenuDeleteResponse)
+async def delete_section(
+    section_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> MenuDeleteResponse:
+    counts = await delete_menu_entity(db, 'section', section_id)
+    return MenuDeleteResponse(id=section_id, kind='section', deleted_counts=counts)
+
+
+@router.delete('/menu/item/{item_id}', response_model=MenuDeleteResponse)
+async def delete_item(
+    item_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> MenuDeleteResponse:
+    counts = await delete_menu_entity(db, 'item', item_id)
+    return MenuDeleteResponse(id=item_id, kind='item', deleted_counts=counts)
+
+
+@router.delete('/menu/type/{type_id}', response_model=MenuDeleteResponse)
+async def delete_type(
+    type_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> MenuDeleteResponse:
+    counts = await delete_menu_entity(db, 'type', type_id)
+    return MenuDeleteResponse(id=type_id, kind='type', deleted_counts=counts)
+
+
+@router.delete('/menu/size/{size_id}', response_model=MenuDeleteResponse)
+async def delete_size(
+    size_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> MenuDeleteResponse:
+    counts = await delete_menu_entity(db, 'size', size_id)
+    return MenuDeleteResponse(id=size_id, kind='size', deleted_counts=counts)
+
+
+@router.delete('/menu/addon/{addon_id}', response_model=MenuDeleteResponse)
+async def delete_addon(
+    addon_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> MenuDeleteResponse:
+    counts = await delete_menu_entity(db, 'addon', addon_id)
+    return MenuDeleteResponse(id=addon_id, kind='addon', deleted_counts=counts)
 
 
 @router.patch('/menu/{entity_id}/toggle', response_model=ToggleResponse)
@@ -524,7 +614,8 @@ async def list_promotions_endpoint(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PromotionsListResponse:
     promotions = await list_promotions(db)
-    return PromotionsListResponse(promotions=[PromotionRead.model_validate(p) for p in promotions])
+    target_lookup = await _load_target_lookup(db, promotions)
+    return PromotionsListResponse(promotions=[PromotionRead.model_validate(serialize_promotion(p, target_lookup)) for p in promotions])
 
 
 @router.post('/promotions', response_model=PromotionRead)
@@ -533,23 +624,10 @@ async def create_promotion(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PromotionRead:
-    try:
-        promotion_type = PromotionType(payload.type)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Invalid promotion type') from exc
-    promotion = Promotion(
-        title_en=payload.title_en,
-        title_ar=payload.title_ar,
-        type=promotion_type,
-        value=payload.value,
-        starts_at=payload.starts_at,
-        ends_at=payload.ends_at,
-        is_active=payload.is_active,
-    )
-    db.add(promotion)
-    await db.commit()
-    await db.refresh(promotion)
-    return PromotionRead.model_validate(promotion)
+    ensure_promotion_type(payload.type)
+    promotion = await create_promotion_record(db, payload)
+    target_lookup = await _load_target_lookup(db, [promotion])
+    return PromotionRead.model_validate(serialize_promotion(promotion, target_lookup))
 
 
 @router.patch('/promotions/{promotion_id}', response_model=PromotionRead)
@@ -559,23 +637,15 @@ async def update_promotion(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PromotionRead:
-    promotion = await db.get(Promotion, promotion_id)
+    promotion = await get_promotion_by_id(db, promotion_id)
     if promotion is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Promotion not found')
     values = payload.model_dump(exclude_unset=True)
     if 'type' in values and values['type'] is not None:
-        try:
-            values['type'] = PromotionType(values['type'])
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail='Invalid promotion type',
-            ) from exc
-    for field, value in values.items():
-        setattr(promotion, field, value)
-    await db.commit()
-    await db.refresh(promotion)
-    return PromotionRead.model_validate(promotion)
+        ensure_promotion_type(values['type'])
+    promotion = await update_promotion_record(db, promotion, values)
+    target_lookup = await _load_target_lookup(db, [promotion])
+    return PromotionRead.model_validate(serialize_promotion(promotion, target_lookup))
 
 
 @router.patch('/promotions/{promotion_id}/toggle', response_model=PromotionRead)
@@ -584,13 +654,12 @@ async def toggle_promotion(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PromotionRead:
-    promotion = await db.get(Promotion, promotion_id)
+    promotion = await get_promotion_by_id(db, promotion_id)
     if promotion is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Promotion not found')
-    promotion.is_active = not promotion.is_active
-    await db.commit()
-    await db.refresh(promotion)
-    return PromotionRead.model_validate(promotion)
+    promotion = await toggle_promotion_record(db, promotion)
+    target_lookup = await _load_target_lookup(db, [promotion])
+    return PromotionRead.model_validate(serialize_promotion(promotion, target_lookup))
 
 
 @router.get('/loyalty-rules', response_model=LoyaltyRulesListResponse)
@@ -825,6 +894,45 @@ async def provision_staff_endpoint(
         role=user.role.value,
         created=created,
     )
+
+
+@router.post('/users/{user_id}/archive-staff', response_model=StaffLifecycleResponse)
+async def archive_staff_endpoint(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_roles(UserRole.ADMIN)),
+) -> StaffLifecycleResponse:
+    user = await archive_staff_user(db, user_id, actor.id)
+    return StaffLifecycleResponse(
+        id=user.id,
+        role=user.role.value,
+        is_active=user.is_active,
+        is_banned=user.is_banned,
+    )
+
+
+@router.post('/users/{user_id}/unarchive-staff', response_model=StaffLifecycleResponse)
+async def unarchive_staff_endpoint(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_roles(UserRole.ADMIN)),
+) -> StaffLifecycleResponse:
+    user = await unarchive_staff_user(db, user_id, actor.id)
+    return StaffLifecycleResponse(
+        id=user.id,
+        role=user.role.value,
+        is_active=user.is_active,
+        is_banned=user.is_banned,
+    )
+
+
+@router.delete('/users/{user_id}/staff', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_staff_endpoint(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_roles(UserRole.ADMIN)),
+) -> None:
+    await delete_staff_user(db, user_id, actor.id)
 
 
 @router.get('/analytics/revenue-summary', response_model=RevenueSummaryResponse)

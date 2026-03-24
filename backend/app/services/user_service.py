@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.order import Order
+from app.models.order import Order, OrderRating
 from app.models.user import User, UserRole
 from app.models.user_event import UserEvent
 
@@ -168,3 +168,84 @@ async def provision_staff_user(
     await db.commit()
     await db.refresh(user)
     return user, created
+
+
+async def _get_staff_user(db: AsyncSession, target_user_id: UUID) -> User:
+    result = await db.execute(select(User).where(User.id == target_user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='User not found')
+    if user.role == UserRole.CLIENT:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='This action is only available for staff accounts')
+    return user
+
+
+def _guard_self_staff_action(target_user_id: UUID, actor_user_id: UUID) -> None:
+    if target_user_id == actor_user_id:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='You cannot apply this action to your own account')
+
+
+async def archive_staff_user(db: AsyncSession, target_user_id: UUID, actor_user_id: UUID) -> User:
+    _guard_self_staff_action(target_user_id, actor_user_id)
+    user = await _get_staff_user(db, target_user_id)
+    user.is_active = False
+    db.add(
+        UserEvent(
+            user_id=user.id,
+            event_type='user.staff_archived',
+            actor_user_id=actor_user_id,
+            reason=None,
+        )
+    )
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def unarchive_staff_user(db: AsyncSession, target_user_id: UUID, actor_user_id: UUID) -> User:
+    _guard_self_staff_action(target_user_id, actor_user_id)
+    user = await _get_staff_user(db, target_user_id)
+    user.is_active = True
+    db.add(
+        UserEvent(
+            user_id=user.id,
+            event_type='user.staff_unarchived',
+            actor_user_id=actor_user_id,
+            reason=None,
+        )
+    )
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def delete_staff_user(db: AsyncSession, target_user_id: UUID, actor_user_id: UUID) -> None:
+    _guard_self_staff_action(target_user_id, actor_user_id)
+    user = await _get_staff_user(db, target_user_id)
+    if user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Archive the staff account before permanently deleting it',
+        )
+
+    order_count_result = await db.execute(select(func.count(Order.id)).where(Order.user_id == user.id))
+    rating_count_result = await db.execute(select(func.count(OrderRating.id)).where(OrderRating.user_id == user.id))
+    order_count = int(order_count_result.scalar_one() or 0)
+    rating_count = int(rating_count_result.scalar_one() or 0)
+    if order_count > 0 or rating_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='This staff account has customer history and cannot be permanently deleted',
+        )
+
+    db.add(
+        UserEvent(
+            user_id=user.id,
+            event_type='user.staff_deleted',
+            actor_user_id=actor_user_id,
+            reason=None,
+        )
+    )
+    await db.flush()
+    await db.delete(user)
+    await db.commit()

@@ -66,6 +66,21 @@ export type ToggleResponse = {
   is_active: boolean;
 };
 
+export type MenuDeleteCounts = {
+  sections: number;
+  items: number;
+  types: number;
+  sizes: number;
+  addons: number;
+  schedules: number;
+};
+
+export type MenuDeleteResponse = {
+  id: UUID;
+  kind: 'section' | 'item' | 'type' | 'size' | 'addon';
+  deleted_counts: MenuDeleteCounts;
+};
+
 export type ScheduleMenuRequest = {
   entity_type: 'section' | 'item' | 'type' | 'size' | 'addon';
   entity_id: UUID;

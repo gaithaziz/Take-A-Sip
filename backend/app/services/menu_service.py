@@ -3,11 +3,12 @@ from datetime import datetime, time, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.menu import Addon, Item, ItemType, MenuSchedule, Section, Size
+from app.schemas.menu import MenuDeleteCounts
 
 
 def _is_time_in_window(start, end, current) -> bool:
@@ -237,3 +238,136 @@ async def delete_menu_schedule(db: AsyncSession, schedule_id: UUID) -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Schedule not found')
     await db.delete(schedule)
     await db.commit()
+
+
+def _section_tree_options():
+    return (
+        selectinload(Section.items)
+        .selectinload(Item.item_types)
+        .selectinload(ItemType.sizes)
+        .selectinload(Size.addons)
+    )
+
+
+def _item_tree_options():
+    return (
+        selectinload(Item.item_types)
+        .selectinload(ItemType.sizes)
+        .selectinload(Size.addons)
+    )
+
+
+def _type_tree_options():
+    return selectinload(ItemType.sizes).selectinload(Size.addons)
+
+
+def _size_tree_options():
+    return selectinload(Size.addons)
+
+
+async def _load_entity_tree(db: AsyncSession, kind: str, entity_id: UUID):
+    if kind == 'section':
+        result = await db.execute(select(Section).where(Section.id == entity_id).options(_section_tree_options()))
+        return result.scalar_one_or_none()
+    if kind == 'item':
+        result = await db.execute(select(Item).where(Item.id == entity_id).options(_item_tree_options()))
+        return result.scalar_one_or_none()
+    if kind == 'type':
+        result = await db.execute(select(ItemType).where(ItemType.id == entity_id).options(_type_tree_options()))
+        return result.scalar_one_or_none()
+    if kind == 'size':
+        result = await db.execute(select(Size).where(Size.id == entity_id).options(_size_tree_options()))
+        return result.scalar_one_or_none()
+    if kind == 'addon':
+        return await db.get(Addon, entity_id)
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Unsupported menu entity type')
+
+
+def _collect_delete_targets(kind: str, entity) -> tuple[MenuDeleteCounts, dict[str, set[UUID]]]:
+    counts = MenuDeleteCounts()
+    ids: dict[str, set[UUID]] = {
+        'section': set(),
+        'item': set(),
+        'type': set(),
+        'size': set(),
+        'addon': set(),
+    }
+
+    if kind == 'section':
+        ids['section'].add(entity.id)
+        counts.sections = 1
+        for item in entity.items:
+            ids['item'].add(item.id)
+            counts.items += 1
+            for item_type in item.item_types:
+                ids['type'].add(item_type.id)
+                counts.types += 1
+                for size in item_type.sizes:
+                    ids['size'].add(size.id)
+                    counts.sizes += 1
+                    for addon in size.addons:
+                        ids['addon'].add(addon.id)
+                        counts.addons += 1
+        return counts, ids
+
+    if kind == 'item':
+        ids['item'].add(entity.id)
+        counts.items = 1
+        for item_type in entity.item_types:
+            ids['type'].add(item_type.id)
+            counts.types += 1
+            for size in item_type.sizes:
+                ids['size'].add(size.id)
+                counts.sizes += 1
+                for addon in size.addons:
+                    ids['addon'].add(addon.id)
+                    counts.addons += 1
+        return counts, ids
+
+    if kind == 'type':
+        ids['type'].add(entity.id)
+        counts.types = 1
+        for size in entity.sizes:
+            ids['size'].add(size.id)
+            counts.sizes += 1
+            for addon in size.addons:
+                ids['addon'].add(addon.id)
+                counts.addons += 1
+        return counts, ids
+
+    if kind == 'size':
+        ids['size'].add(entity.id)
+        counts.sizes = 1
+        for addon in entity.addons:
+            ids['addon'].add(addon.id)
+            counts.addons += 1
+        return counts, ids
+
+    ids['addon'].add(entity.id)
+    counts.addons = 1
+    return counts, ids
+
+
+async def delete_menu_entity(db: AsyncSession, kind: str, entity_id: UUID) -> MenuDeleteCounts:
+    entity = await _load_entity_tree(db, kind, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Entity not found')
+
+    counts, entity_ids = _collect_delete_targets(kind, entity)
+    schedule_filters = [
+        (MenuSchedule.entity_type == entity_kind) & MenuSchedule.entity_id.in_(list(ids))
+        for entity_kind, ids in entity_ids.items()
+        if ids
+    ]
+    schedules: list[MenuSchedule] = []
+    if schedule_filters:
+        result = await db.execute(select(MenuSchedule).where(or_(*schedule_filters)))
+        schedules = list(result.scalars().all())
+
+    counts.schedules = len(schedules)
+    for schedule in schedules:
+        await db.delete(schedule)
+
+    await db.delete(entity)
+    await db.commit()
+    return counts

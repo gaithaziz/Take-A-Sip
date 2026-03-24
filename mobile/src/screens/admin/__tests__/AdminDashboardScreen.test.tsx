@@ -14,19 +14,41 @@ const translationMap: Record<string, string> = {
   'common.error': 'Error',
   'common.retry': 'Retry',
   'admin.dashboardTitle': 'Admin Overview',
+  'admin.quickActions': 'Quick actions',
+  'admin.tapToOpen': 'Tap to open',
   'admin.menuSections': 'Menu Sections',
   'admin.promotionsTitle': 'Promotions',
   'admin.loyaltyTitle': 'Loyalty Rules',
   'admin.usersTitle': 'Users',
+  'admin.staffTitle': 'Staff',
+  'admin.deliveryTitle': 'Delivery',
+  'admin.schedulingTitle': 'Scheduling',
+  'admin.profileTitle': 'Profile',
   'admin.revenueSummary': 'Revenue Summary',
   'admin.revenueToday': 'Today',
   'admin.revenue7Days': 'Last 7 days',
   'admin.revenue30Days': 'Last 30 days',
   'admin.ordersCountLabel': 'orders',
+  'admin.ordersAnalyticsTitle': 'Order Analytics',
+  'admin.totalOrdersToday': 'Total orders today',
+  'admin.averageOrderValue': 'Average order value',
+  'admin.driverAnalyticsTitle': 'Driver Analytics',
+  'admin.deliveriesCompletedToday': 'Deliveries completed today',
+  'admin.noDriverDeliveries': 'No completed deliveries yet today.',
+  'admin.latestOrdersTitle': 'Latest Orders',
+  'admin.noLatestOrders': 'No recent orders found.',
   'admin.ratingsOverviewTitle': 'Ratings Overview',
   'admin.averageRating': 'Average rating',
   'admin.totalRatings': 'Total ratings',
   'admin.recentReviews': 'Recent reviews',
+  'admin.noReviewsTitle': 'No reviews yet',
+  'admin.noReviewsSubtitle': 'Completed order reviews will appear here.',
+  'admin.attentionTitle': 'Needs attention',
+  'admin.attentionNoPromotions': 'No promotions are live right now.',
+  'admin.attentionNoLoyaltyRules': 'No loyalty rules are configured yet.',
+  'admin.attentionNoRecentOrders': 'There are no recent orders to review.',
+  'admin.attentionNoRatings': 'No customer ratings have been submitted yet.',
+  'admin.none': 'None',
 };
 const mockTranslate = (key: string) => translationMap[key] ?? key;
 
@@ -66,8 +88,8 @@ describe('AdminDashboardScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetMenuTree.mockResolvedValue({ sections: [{ id: 's1' }] });
-    mockListPromotions.mockResolvedValue({ promotions: [{ id: 'p1' }] });
-    mockListLoyaltyRules.mockResolvedValue({ rules: [{ id: 'l1' }] });
+    mockListPromotions.mockResolvedValue({ promotions: [] });
+    mockListLoyaltyRules.mockResolvedValue({ rules: [] });
     mockListUsers.mockResolvedValue({ users: [{ id: 'u1' }] });
     mockGetDashboardAnalytics.mockResolvedValue({
       revenue: {
@@ -86,13 +108,13 @@ describe('AdminDashboardScreen', () => {
         average_order_value: '12.75',
       },
       ratings: {
-        average_rating: 4.2,
-        total_ratings: 6,
-        stars_breakdown: { '1': 0, '2': 1, '3': 1, '4': 2, '5': 2 },
+        average_rating: 0,
+        total_ratings: 0,
+        stars_breakdown: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
       },
       drivers: {
         deliveries_completed_today: 1,
-        deliveries_per_driver: [{ driver_id: 'd1', driver_name: 'Omar Driver', deliveries_completed_today: 1 }],
+        deliveries_per_driver: [],
       },
     });
     mockListRatings.mockResolvedValue({
@@ -103,17 +125,18 @@ describe('AdminDashboardScreen', () => {
     });
   });
 
-  it('renders KPI data and supports section navigation taps', async () => {
+  it('renders attention items and supports section navigation taps', async () => {
     const navigate = jest.fn();
     const { getByText } = render(
-      <AdminDashboardScreen navigation={{ navigate } as never} route={{} as never} />,
+      <AdminDashboardScreen navigation={{ navigate, getParent: jest.fn() } as never} route={{} as never} />,
     );
 
     await waitFor(() => {
       expect(getByText('Admin Overview')).toBeTruthy();
-      expect(getByText('Menu Sections')).toBeTruthy();
-      expect(getByText('Revenue Summary')).toBeTruthy();
-      expect(getByText('Ratings Overview')).toBeTruthy();
+      expect(getByText('Quick actions')).toBeTruthy();
+      expect(getByText('Needs attention')).toBeTruthy();
+      expect(getByText('No promotions are live right now.')).toBeTruthy();
+      expect(getByText('No loyalty rules are configured yet.')).toBeTruthy();
     });
 
     fireEvent.press(getByText('Promotions'));

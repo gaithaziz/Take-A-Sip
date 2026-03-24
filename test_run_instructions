@@ -4,6 +4,7 @@ This guide is for running all services together with:
 - Mobile Metro on 8081
 - Frontdesk Metro on 8082
 - Sunmi device connected over USB
+- Recommended stable frontdesk mode over LAN
 
 ==================================================
 TEST CREDENTIALS
@@ -40,11 +41,143 @@ PREREQUISITES
 - Node and npm installed
 - Android platform-tools installed
 - Sunmi USB debugging enabled
+- PC and Sunmi on same Wi-Fi for the recommended LAN flow
 - Repo root:
   C:\Users\user\Take-A-Sip\Take-A-Sip
 
 ADB path used everywhere:
   C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe
+
+Current PC Wi-Fi IPv4:
+  192.168.1.228
+
+==================================================
+RECOMMENDED STABLE FRONTDESK FLOW (LAN)
+==================================================
+Use this if the Sunmi keeps going offline after confirming orders.
+
+Why:
+- `npm run usb:recover` only repairs adb/USB temporarily.
+- The USB frontdesk flow depends on `adb reverse`.
+- If adb goes offline, frontdesk loses Metro/backend access.
+- LAN mode removes that dependency for daily use.
+
+One-time frontdesk build for LAN:
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  $env:EXPO_PUBLIC_API_BASE_URL='http://192.168.1.228:8000'
+  npx expo run:android --port 8082
+
+Daily run after the LAN build:
+
+1) TERMINAL A - BACKEND
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip
+  docker compose up -d postgres backend
+  Invoke-RestMethod http://localhost:8000/health
+
+2) TERMINAL B - FRONTDESK METRO
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  npx expo start --dev-client --host lan --port 8082 --clear
+
+3) On the Sunmi
+  Open the installed frontdesk app.
+
+Expected:
+- Frontdesk backend URL is `http://192.168.1.228:8000`
+- Metro is served over Wi-Fi/LAN
+- adb going offline does not break normal frontdesk connectivity
+
+Rebuild again only if:
+- your PC IP changes
+- you switch Wi-Fi networks
+- native Android files change
+
+Check the PC IP anytime with:
+  ipconfig
+
+==================================================
+WIRELESS ADB + WIFI BUILD FLOW
+==================================================
+Yes, you can build/install without keeping USB connected, but `npx expo run:android`
+still needs adb access. Over Wi-Fi, that means wireless adb.
+
+Important:
+- First setup usually needs one good USB session.
+- After wireless adb is enabled, install/build can work over Wi-Fi.
+- PC and Sunmi must be on the same Wi-Fi.
+
+Step 1 - Get one clean USB adb connection first
+  $ADB='C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe'
+  & $ADB devices -l
+
+If the device is offline:
+- unlock the Sunmi
+- set USB mode to File Transfer
+- accept RSA prompt
+- if needed, revoke USB debugging authorizations and re-enable USB debugging
+
+Step 2 - Find the Sunmi Wi-Fi IP
+While USB adb is working:
+  & $ADB -s V2A4213923214 shell ip addr show wlan0
+
+Look for a line containing `inet`, for example:
+  inet 192.168.1.150/24
+
+In that example, the Sunmi IP is:
+   192.168.1.212/24
+
+Alternative:
+- You can also check the Wi-Fi IP from the Sunmi Wi-Fi settings screen.
+
+Step 3 - Enable wireless adb
+  & $ADB -s V2A4213923214 tcpip 5555
+  & $ADB connect  192.168.1.212/24:5555
+  & $ADB devices -l
+
+Expected:
+- one USB device entry may remain
+- one Wi-Fi device entry like `<SUNMI_WIFI_IP>:5555` should appear as `device`
+
+Step 4 - Build/install frontdesk over Wi-Fi
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  $env:EXPO_PUBLIC_API_BASE_URL='http://192.168.1.228:8000'
+  $env:ADB_SERIAL=' 192.168.1.212/24:5555'
+  npx expo run:android --port 8082
+
+This uses:
+- backend on `192.168.1.228:8000`
+- frontdesk Metro/dev port `8082`
+- wireless adb for install/build
+
+Step 5 - Daily run after wireless install
+Backend:
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip
+  docker compose up -d postgres backend
+
+Frontdesk Metro:
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  $env:ADB_SERIAL=' 192.168.1.212/24:5555'
+  npx expo start --dev-client --host lan --port 8082 --clear
+
+Then open the frontdesk app on the Sunmi.
+
+Useful wireless adb commands
+Reconnect:
+  & $ADB connect  192.168.1.212/24:5555
+
+List devices:
+  & $ADB devices -l
+
+Force wireless target:
+  $env:ADB_SERIAL=' 192.168.1.212/24:5555'
+
+Disconnect wireless adb:
+  & $ADB disconnect  192.168.1.212/24:5555
+
+Notes:
+- If the Sunmi changes Wi-Fi network, its IP may change.
+- If the IP changes, reconnect using the new IP.
+- Wireless adb is for install/debug transport. Your frontdesk app should still use the LAN backend URL:
+    http://192.168.1.228:8000
 
 ==================================================
 A) FULL START (FIRST RUN / AFTER RESTART / AFTER OFFLINE)
@@ -66,6 +199,8 @@ Expected:
 
 
 3) TERMINAL C - FRONTDESK + USB (8082)
+Use this only if you explicitly want the USB reverse workflow.
+
 Set adb vars and recover device:
   $env:ADB_MDNS_OPENSCREEN='0'
   $env:ADB_LIBUSB='0'
@@ -145,14 +280,41 @@ If you have multiple adb installs/devices, force exact values first:
   npm run usb:recover
 
 ==================================================
-C) FRONTDESK REBUILD (ONLY WHEN NATIVE CODE CHANGES)
+C) FRONTDESK BUILD / REBUILD
 ==================================================
-Do this only after changes in android native files (printer/beep/module):
+Stable LAN build:
 
   cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
-  npx expo run:android
+  $env:EXPO_PUBLIC_API_BASE_URL='http://192.168.1.228:8000'
+  npx expo run:android --port 8082
 
-Then relaunch app using monkey command.
+Use this build for normal daily testing on the Sunmi.
+
+USB reverse build:
+
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  $env:EXPO_PUBLIC_API_BASE_URL='http://127.0.0.1:8000'
+  npx expo run:android --port 8082
+
+Use this only if you intentionally want adb reverse mode.
+
+Important:
+- `EXPO_PUBLIC_API_BASE_URL` is baked into the installed frontdesk build.
+- Changing the env later in the shell does not update the already installed app.
+
+Rebuild if:
+- your backend IP changed
+- you switched Wi-Fi networks
+- native Android files changed (printer/beep/module)
+
+If only JS/TS changed and the backend URL did not change:
+- restart Metro
+- relaunch the app
+- no full rebuild is usually needed
+
+Relaunch after rebuild if needed:
+  & "C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s "V2A4213923214" shell am force-stop com.takeasip.frontdesk
+  & "C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s "V2A4213923214" shell monkey -p com.takeasip.frontdesk -c android.intent.category.LAUNCHER 1
 
 ==================================================
 D) RTL / LANGUAGE NOTE (IMPORTANT)
@@ -217,6 +379,22 @@ Fix:
   EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 - Ensure reverse tcp:8000 tcp:8000 exists
 
+6) Device goes offline after confirming an order
+Cause:
+- adb/USB transport dropped
+- the USB frontdesk build depends on `adb reverse`
+- when adb dies, frontdesk loses connectivity and you end up using `npm run usb:recover`
+
+Best fix:
+- use the LAN build from Section C:
+  EXPO_PUBLIC_API_BASE_URL=http://192.168.1.228:8000
+- start frontdesk Metro with:
+  npx expo start --dev-client --host lan --port 8082 --clear
+
+Temporary fix only:
+  cd C:\Users\user\Take-A-Sip\Take-A-Sip\frontdesk
+  npm run usb:recover
+
 ==================================================
 STOP EVERYTHING
 ==================================================
@@ -224,3 +402,21 @@ STOP EVERYTHING
 - Stop backend:
   cd C:\Users\user\Take-A-Sip\Take-A-Sip
   docker compose down
+
+
+$env:ADB_MDNS_OPENSCREEN='0'
+$env:ADB_LIBUSB='0'
+$ADB='C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe'
+
+& $ADB start-server
+& $ADB devices -l
+
+$SERIAL = (& $ADB devices | Select-String "device$" | ForEach-Object { ($_ -split "`t")[0] } | Select-Object -First 1)
+$SERIAL
+if ([string]::IsNullOrWhiteSpace($SERIAL)) { throw "No ONLINE adb device found. Fix USB/debugging first." }
+
+& $ADB -s $SERIAL reverse --remove-all
+& $ADB -s $SERIAL reverse tcp:8081 tcp:8082
+& $ADB -s $SERIAL reverse tcp:8082 tcp:8082
+& $ADB -s $SERIAL reverse tcp:8000 tcp:8000
+& $ADB -s $SERIAL reverse --list

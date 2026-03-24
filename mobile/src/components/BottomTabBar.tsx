@@ -97,6 +97,21 @@ export const BottomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
 
   return (
     <View style={wrapperStyle}>
+      <View style={[styles.overflowHintRow, mirroredRow(isRTL)]}>
+        <Ionicons
+          name={isRTL ? 'chevron-forward' : 'chevron-back'}
+          size={theme.iconSizes.sm}
+          color={theme.colors.textMuted}
+        />
+        <AppText variant="caption" color={theme.colors.textSecondary} align="center">
+          {t('tabs.swipeForMore')}
+        </AppText>
+        <Ionicons
+          name={isRTL ? 'chevron-back' : 'chevron-forward'}
+          size={theme.iconSizes.sm}
+          color={theme.colors.textMuted}
+        />
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -120,6 +135,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: theme.spacing.md,
     gap: theme.spacing.sm,
+  },
+  overflowHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    paddingBottom: theme.spacing.xs,
   },
   compactContent: {
     flexDirection: 'row',

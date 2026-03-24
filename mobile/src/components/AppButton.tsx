@@ -8,6 +8,7 @@ type AppButtonProps = {
   title: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'ghost' | 'destructive';
+  textVariant?: 'button' | 'bodySmall' | 'caption';
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
@@ -23,6 +24,7 @@ export const AppButton = ({
   title,
   onPress,
   variant = 'primary',
+  textVariant = 'button',
   disabled,
   loading,
   fullWidth = true,
@@ -55,7 +57,19 @@ export const AppButton = ({
         isDisabled ? styles.disabled : null,
         style,
       ]}>
-      {loading ? <ActivityIndicator color={activityColor} /> : <AppText variant="button" style={labelStyles[variant]}>{title}</AppText>}
+      {loading ? (
+        <ActivityIndicator color={activityColor} />
+      ) : (
+        <AppText
+          variant={textVariant}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+          align="center"
+          style={labelStyles[variant]}>
+          {title}
+        </AppText>
+      )}
     </Pressable>
   );
 };

@@ -9,9 +9,12 @@ import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
+import { ActionRow } from '@/components/admin/ActionRow';
 import { AdminPageSection } from '@/components/admin/AdminPageSection';
+import { InfoLine } from '@/components/admin/InfoLine';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { adminService } from '@/services/adminService';
+import { useAuth } from '@/state/AuthContext';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 import { UserSummary } from '@/types/api';
@@ -19,10 +22,14 @@ import { getApiErrorMessage } from '@/utils/errors';
 import { mirroredRow } from '@/utils/layout';
 
 type StaffRole = 'DRIVER' | 'FRONTDESK' | 'ADMIN';
+type StaffFilter = StaffRole | 'ALL';
+
+const staffRoles: StaffRole[] = ['DRIVER', 'FRONTDESK', 'ADMIN'];
 
 export const AdminStaffScreen = () => {
   const { t } = useAppTranslation();
   const { isRTL } = useLanguage();
+  const { user: currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [staff, setStaff] = useState<UserSummary[]>([]);
@@ -31,7 +38,9 @@ export const AdminStaffScreen = () => {
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [role, setRole] = useState<StaffRole>('DRIVER');
+  const [rosterFilter, setRosterFilter] = useState<StaffFilter>('ALL');
   const [provisioning, setProvisioning] = useState(false);
+  const [mutatingStaffId, setMutatingStaffId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -54,10 +63,20 @@ export const AdminStaffScreen = () => {
     void load();
   }, [load]);
 
-  const sortedStaff = useMemo(
-    () => [...staff].sort((a, b) => a.first_name.localeCompare(b.first_name)),
+  const roleCounts = useMemo(
+    () => ({
+      ALL: staff.length,
+      DRIVER: staff.filter((user) => user.role === 'DRIVER').length,
+      FRONTDESK: staff.filter((user) => user.role === 'FRONTDESK').length,
+      ADMIN: staff.filter((user) => user.role === 'ADMIN').length,
+    }),
     [staff],
   );
+
+  const filteredStaff = useMemo(() => {
+    const next = rosterFilter === 'ALL' ? staff : staff.filter((user) => user.role === rosterFilter);
+    return [...next].sort((a, b) => a.first_name.localeCompare(b.first_name));
+  }, [rosterFilter, staff]);
 
   const onProvision = async () => {
     if (!firstName.trim() || !lastName.trim() || !phoneNumber.trim()) {
@@ -84,6 +103,48 @@ export const AdminStaffScreen = () => {
     }
   };
 
+  const runStaffMutation = async (staffUser: UserSummary, action: 'archive' | 'unarchive' | 'delete') => {
+    const title =
+      action === 'archive'
+        ? t('admin.archiveStaff')
+        : action === 'unarchive'
+          ? t('admin.unarchiveStaff')
+          : t('admin.deleteStaff');
+    const message =
+      action === 'archive'
+        ? t('admin.archiveStaffConfirm')
+        : action === 'unarchive'
+          ? t('admin.unarchiveStaffConfirm')
+          : t('admin.deleteStaffConfirm');
+
+    Alert.alert(title, message, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: action === 'delete' ? t('admin.delete') : t('common.confirm'),
+        style: action === 'delete' ? 'destructive' : 'default',
+        onPress: () => {
+          void (async () => {
+            try {
+              setMutatingStaffId(staffUser.id);
+              if (action === 'archive') {
+                await adminService.archiveStaff(staffUser.id);
+              } else if (action === 'unarchive') {
+                await adminService.unarchiveStaff(staffUser.id);
+              } else {
+                await adminService.deleteStaff(staffUser.id);
+              }
+              await load();
+            } catch (e) {
+              Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+            } finally {
+              setMutatingStaffId(null);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
   if (loading) {
     return <LoadingState label={t('common.loading')} />;
   }
@@ -94,40 +155,37 @@ export const AdminStaffScreen = () => {
 
   return (
     <AppShell refreshing={loading} onRefresh={load}>
-      <AppText variant="h1">{t('admin.staffTitle')}</AppText>
+      <View style={styles.headingBlock}>
+        <AppText variant="h1">{t('admin.staffTitle')}</AppText>
+        <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+          {t('admin.provisionStaffTitle')}
+        </AppText>
+      </View>
 
-      <AdminPageSection title={t('admin.provisionStaffTitle')}>
+      <AdminPageSection title={t('admin.provisionStaffTitle')} subtitle={t('admin.provisionStaffCta')}>
         <View style={styles.formCard}>
           <AppInput label={t('auth.firstName')} value={firstName} onChangeText={setFirstName} />
           <AppInput label={t('auth.lastName')} value={lastName} onChangeText={setLastName} />
           <AppInput label={t('auth.phoneNumber')} value={phoneNumber} onChangeText={setPhoneNumber} />
 
-          <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-            {t('admin.role')}
-          </AppText>
-          <View style={[styles.roleRow, mirroredRow(isRTL)]}>
-            <AppButton
-              title={t('roles.DRIVER')}
-              variant={role === 'DRIVER' ? 'primary' : 'secondary'}
-              fullWidth={false}
-              style={styles.roleButton}
-              onPress={() => setRole('DRIVER')}
-            />
-            <AppButton
-              title={t('roles.FRONTDESK')}
-              variant={role === 'FRONTDESK' ? 'primary' : 'secondary'}
-              fullWidth={false}
-              style={styles.roleButton}
-              onPress={() => setRole('FRONTDESK')}
-            />
-            <AppButton
-              title={t('roles.ADMIN')}
-              variant={role === 'ADMIN' ? 'primary' : 'secondary'}
-              fullWidth={false}
-              style={styles.roleButton}
-              onPress={() => setRole('ADMIN')}
-            />
+          <View style={styles.formGroup}>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t('admin.role')}
+            </AppText>
+            <View style={[styles.roleRow, mirroredRow(isRTL)]}>
+              {staffRoles.map((entryRole) => (
+                <AppButton
+                  key={entryRole}
+                  title={t(`roles.${entryRole}`)}
+                  variant={role === entryRole ? 'primary' : 'secondary'}
+                  fullWidth={false}
+                  style={styles.roleButton}
+                  onPress={() => setRole(entryRole)}
+                />
+              ))}
+            </View>
           </View>
+
           <AppButton
             title={t('admin.provisionStaffCta')}
             loading={provisioning}
@@ -137,21 +195,90 @@ export const AdminStaffScreen = () => {
         </View>
       </AdminPageSection>
 
-      <AdminPageSection title={t('admin.usersTitle')}>
-        {sortedStaff.length === 0 ? (
+      <AdminPageSection title={t('admin.usersTitle')} subtitle={t('admin.staffTitle')}>
+        <View style={styles.summaryRow}>
+          <BadgeChip label={`${t('admin.filterAll')}: ${roleCounts.ALL}`} tone={rosterFilter === 'ALL' ? 'info' : 'default'} />
+          {staffRoles.map((entryRole) => (
+            <BadgeChip
+              key={entryRole}
+              label={`${t(`roles.${entryRole}`)}: ${roleCounts[entryRole]}`}
+              tone={entryRole === 'DRIVER' ? 'success' : 'info'}
+            />
+          ))}
+        </View>
+
+        <View style={[styles.roleRow, mirroredRow(isRTL)]}>
+          <AppButton
+            title={t('admin.filterAll')}
+            variant={rosterFilter === 'ALL' ? 'primary' : 'secondary'}
+            fullWidth={false}
+            style={styles.roleButton}
+            onPress={() => setRosterFilter('ALL')}
+          />
+          {staffRoles.map((entryRole) => (
+            <AppButton
+              key={entryRole}
+              title={t(`roles.${entryRole}`)}
+              variant={rosterFilter === entryRole ? 'primary' : 'secondary'}
+              fullWidth={false}
+              style={styles.roleButton}
+              onPress={() => setRosterFilter(entryRole)}
+            />
+          ))}
+        </View>
+
+        {filteredStaff.length === 0 ? (
           <EmptyState title={t('admin.noUsersTitle')} subtitle={t('admin.noUsersSubtitle')} />
         ) : (
           <View style={styles.list}>
-            {sortedStaff.map((user) => (
-              <Pressable key={user.id}>
+            {filteredStaff.map((user) => (
+              <Pressable key={user.id} accessibilityRole="button" accessibilityLabel={`${user.first_name} ${user.last_name}`}>
                 <AppCard style={styles.userCard}>
                   <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
                     <AppText variant="h3">{`${user.first_name} ${user.last_name}`}</AppText>
                     <BadgeChip label={t(`roles.${user.role.toUpperCase()}`)} tone="info" />
                   </View>
-                  <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                    {user.phone_number}
-                  </AppText>
+                  <View style={[styles.metaRow, mirroredRow(isRTL)]}>
+                    <BadgeChip
+                      label={!user.is_active ? t('admin.archived') : user.is_banned ? t('admin.banned') : t('admin.active')}
+                      tone={!user.is_active ? 'default' : user.is_banned ? 'error' : 'success'}
+                    />
+                    <BadgeChip label={`${t('admin.orderCount')}: ${user.order_count}`} tone="default" />
+                  </View>
+                  <View style={styles.infoBox}>
+                    <InfoLine label={t('profile.phone')} value={user.phone_number} numberOfLines={1} />
+                  </View>
+                  <ActionRow>
+                    {user.is_active ? (
+                      <AppButton
+                        title={t('admin.archive')}
+                        variant="ghost"
+                        fullWidth={false}
+                        onPress={() => void runStaffMutation(user, 'archive')}
+                        loading={mutatingStaffId === user.id}
+                        disabled={mutatingStaffId !== null || currentUser?.id === user.id}
+                        style={styles.actionButton}
+                      />
+                    ) : (
+                      <AppButton
+                        title={t('admin.unarchive')}
+                        variant="secondary"
+                        fullWidth={false}
+                        onPress={() => void runStaffMutation(user, 'unarchive')}
+                        loading={mutatingStaffId === user.id}
+                        disabled={mutatingStaffId !== null || currentUser?.id === user.id}
+                        style={styles.actionButton}
+                      />
+                    )}
+                    <AppButton
+                      title={t('admin.delete')}
+                      variant="destructive"
+                      fullWidth={false}
+                      onPress={() => void runStaffMutation(user, 'delete')}
+                      disabled={mutatingStaffId !== null || user.is_active || currentUser?.id === user.id}
+                      style={styles.actionButton}
+                    />
+                  </ActionRow>
                 </AppCard>
               </Pressable>
             ))}
@@ -163,13 +290,14 @@ export const AdminStaffScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  headingBlock: {
+    gap: theme.spacing.xs,
+  },
   formCard: {
     gap: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.secondaryCream,
-    padding: theme.spacing.md,
+  },
+  formGroup: {
+    gap: theme.spacing.sm,
   },
   roleRow: {
     flexDirection: 'row',
@@ -180,11 +308,16 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 40,
   },
+  summaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
   list: {
     gap: theme.spacing.md,
   },
   userCard: {
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
     backgroundColor: theme.colors.secondaryCream,
     borderColor: theme.colors.primary200,
   },
@@ -193,5 +326,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: theme.spacing.sm,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  infoBox: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: 110,
   },
 });

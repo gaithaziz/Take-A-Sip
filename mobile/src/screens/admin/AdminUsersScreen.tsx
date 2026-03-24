@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
 import { AppInput } from '@/components/AppInput';
-import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
@@ -36,7 +35,6 @@ export const AdminUsersScreen = ({ navigation }: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
-  const [filterInput, setFilterInput] = useState<FilterMode>('all');
   const [query, setQuery] = useState<{ search: string; filter: FilterMode }>({ search: '', filter: 'all' });
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [mutatingUserId, setMutatingUserId] = useState<string | null>(null);
@@ -54,6 +52,19 @@ export const AdminUsersScreen = ({ navigation }: Props) => {
       setLoading(false);
     }
   }, [t]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setQuery((prev) => {
+        const next = { ...prev, search: searchInput.trim() };
+        if (prev.search === next.search) {
+          return prev;
+        }
+        return next;
+      });
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   useEffect(() => {
     void load(query);
@@ -113,15 +124,27 @@ export const AdminUsersScreen = ({ navigation }: Props) => {
     (role: string) => t(`roles.${role.toUpperCase()}`),
     [t],
   );
+  const counts = useMemo(
+    () => ({
+      all: users.length,
+      banned: users.filter((user) => user.is_banned).length,
+      active: users.filter((user) => !user.is_banned).length,
+    }),
+    [users],
+  );
 
-  const applyFilters = () => {
-    setQuery({ search: searchInput.trim(), filter: filterInput });
+  const setFilter = (filter: FilterMode) => {
+    setQuery((prev) => ({ ...prev, filter }));
   };
 
   const renderUser = ({ item: user }: { item: UserSummary }) => (
-    <AppCard style={styles.userCard}>
+    <AppCard style={[styles.userCard, user.is_banned ? styles.userCardBanned : null]}>
       <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
-        <Pressable style={styles.flexButton} onPress={() => openUserDetails(user)} accessibilityRole="button" accessibilityLabel={`${user.first_name} ${user.last_name}`}>
+        <Pressable
+          style={styles.flexButton}
+          onPress={() => openUserDetails(user)}
+          accessibilityRole="button"
+          accessibilityLabel={`${user.first_name} ${user.last_name}`}>
           <ExpandableText value={`${user.first_name} ${user.last_name}`} variant="h3" numberOfLines={2} />
         </Pressable>
         <BadgeChip label={user.is_banned ? t('admin.banned') : t('admin.active')} tone={user.is_banned ? 'error' : 'success'} />
@@ -132,9 +155,7 @@ export const AdminUsersScreen = ({ navigation }: Props) => {
       </View>
       <View style={styles.infoBox}>
         <InfoLine label={t('profile.phone')} value={user.phone_number} numberOfLines={1} />
-        {user.banned_reason ? (
-          <InfoLine label={t('admin.banReason')} value={user.banned_reason} numberOfLines={1} />
-        ) : null}
+        {user.banned_reason ? <InfoLine label={t('admin.banReason')} value={user.banned_reason} numberOfLines={2} /> : null}
       </View>
 
       <ActionRow compact={isCompact}>
@@ -176,53 +197,48 @@ export const AdminUsersScreen = ({ navigation }: Props) => {
       ListHeaderComponent={
         <View style={styles.headerBlock}>
           <AppText variant="h1">{t('admin.usersTitle')}</AppText>
-          <AdminPageSection title={t('admin.searchUsers')}>
+          <AdminPageSection title={t('admin.searchUsers')} subtitle={t('admin.searchByNameOrPhone')}>
             <View style={styles.filterStack}>
-              <View style={styles.formGroup}>
-                <AppInput
-                  label={t('admin.searchUsers')}
-                  value={searchInput}
-                  onChangeText={setSearchInput}
-                  placeholder={t('admin.searchByNameOrPhone')}
-                />
+              <AppInput
+                label={t('admin.searchUsers')}
+                value={searchInput}
+                onChangeText={setSearchInput}
+                placeholder={t('admin.searchByNameOrPhone')}
+              />
+
+              <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+                <BadgeChip label={`${t('admin.filterAll')}: ${counts.all}`} tone={query.filter === 'all' ? 'info' : 'default'} />
+                <BadgeChip label={`${t('admin.filterBanned')}: ${counts.banned}`} tone={counts.banned > 0 ? 'error' : 'default'} />
+                <BadgeChip label={`${t('admin.filterActive')}: ${counts.active}`} tone="success" />
               </View>
 
-              <View style={styles.formGroup}>
-                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
-                <View style={[styles.filterButtonsRow, mirroredRow(isRTL), isCompact ? styles.filterButtonsRowCompact : null]}>
-                  <AppButton
-                    title={t('admin.filterAll')}
-                    variant={filterInput === 'all' ? 'primary' : 'secondary'}
-                    onPress={() => setFilterInput('all')}
-                    style={styles.filterButton}
-                    fullWidth={false}
-                    accessibilityState={{ selected: filterInput === 'all' }}
-                    testID="users-filter-all"
-                  />
-                  <AppButton
-                    title={t('admin.filterBanned')}
-                    variant={filterInput === 'banned' ? 'primary' : 'secondary'}
-                    onPress={() => setFilterInput('banned')}
-                    style={styles.filterButton}
-                    fullWidth={false}
-                    accessibilityState={{ selected: filterInput === 'banned' }}
-                    testID="users-filter-banned"
-                  />
-                  <AppButton
-                    title={t('admin.filterActive')}
-                    variant={filterInput === 'active' ? 'primary' : 'secondary'}
-                    onPress={() => setFilterInput('active')}
-                    style={styles.filterButton}
-                    fullWidth={false}
-                    accessibilityState={{ selected: filterInput === 'active' }}
-                    testID="users-filter-active"
-                  />
-                </View>
-
+              <View style={[styles.filterButtonsRow, mirroredRow(isRTL), isCompact ? styles.filterButtonsRowCompact : null]}>
                 <AppButton
-                  title={t('admin.applyFilters')}
-                  onPress={applyFilters}
-                  disabled={loading}
+                  title={t('admin.filterAll')}
+                  variant={query.filter === 'all' ? 'primary' : 'secondary'}
+                  onPress={() => setFilter('all')}
+                  style={styles.filterButton}
+                  fullWidth={false}
+                  accessibilityState={{ selected: query.filter === 'all' }}
+                  testID="users-filter-all"
+                />
+                <AppButton
+                  title={t('admin.filterBanned')}
+                  variant={query.filter === 'banned' ? 'primary' : 'secondary'}
+                  onPress={() => setFilter('banned')}
+                  style={styles.filterButton}
+                  fullWidth={false}
+                  accessibilityState={{ selected: query.filter === 'banned' }}
+                  testID="users-filter-banned"
+                />
+                <AppButton
+                  title={t('admin.filterActive')}
+                  variant={query.filter === 'active' ? 'primary' : 'secondary'}
+                  onPress={() => setFilter('active')}
+                  style={styles.filterButton}
+                  fullWidth={false}
+                  accessibilityState={{ selected: query.filter === 'active' }}
+                  testID="users-filter-active"
                 />
               </View>
             </View>
@@ -267,15 +283,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.lg,
   },
   filterStack: {
-    gap: theme.spacing.lg,
-  },
-  formGroup: {
-    gap: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.secondaryCream,
-    padding: theme.spacing.md,
+    gap: theme.spacing.md,
   },
   filterButtonsRow: {
     flexDirection: 'row',
@@ -284,6 +292,11 @@ const styles = StyleSheet.create({
   },
   filterButtonsRowCompact: {
     flexDirection: 'column',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
   },
   itemHeader: {
     flexDirection: 'row',
@@ -296,6 +309,10 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     backgroundColor: theme.colors.secondaryCream,
     borderColor: theme.colors.primary200,
+  },
+  userCardBanned: {
+    borderColor: theme.colors.error,
+    backgroundColor: theme.colors.errorSurface,
   },
   metaRow: {
     flexDirection: 'row',

@@ -152,9 +152,9 @@ export const AdminLoyaltyRulesScreen = () => {
   const renderRule = ({ item: rule }: { item: LoyaltyRule }) => (
     <AppCard style={styles.itemCard}>
       <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
-        <Pressable onPress={() => Alert.alert('', rule.reward_value)} style={styles.grow} accessibilityRole="button" accessibilityLabel={`${rule.required_orders} ${t('admin.ordersThreshold')}`}>
+        <View style={styles.grow}>
           <ExpandableText value={`${rule.required_orders} ${t('admin.ordersThreshold')}`} variant="h3" numberOfLines={2} />
-        </Pressable>
+        </View>
         <BadgeChip label={rule.is_active ? t('admin.active') : t('admin.inactive')} tone={rule.is_active ? 'success' : 'default'} />
       </View>
       <View style={styles.infoBox}>

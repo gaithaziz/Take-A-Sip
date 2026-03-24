@@ -98,10 +98,33 @@ export type Promotion = {
   starts_at: string;
   ends_at: string;
   is_active: boolean;
+  required_completed_orders?: number | null;
+  buy_quantity?: number | null;
+  free_quantity?: number | null;
+  loyalty_rule_id?: string | null;
+  targets: PromotionTarget[];
+  scope_summary_en: string;
+  scope_summary_ar: string;
+  eligibility_summary_en: string;
+  eligibility_summary_ar: string;
 };
 
 export type ActivePromotionsResponse = {
   promotions: Promotion[];
+};
+
+export type PromotionTarget = {
+  id: string;
+  promotion_id: string;
+  entity_type: MenuEntityType;
+  entity_id: string;
+  entity_name_en?: string | null;
+  entity_name_ar?: string | null;
+};
+
+export type PromotionTargetInput = {
+  entity_type: MenuEntityType;
+  entity_id: string;
 };
 
 export type CreateOrderPayload = {
@@ -191,6 +214,21 @@ export type OrderListResponse = {
 
 export type MenuEntityType = 'section' | 'item' | 'type' | 'size' | 'addon';
 
+export type MenuDeleteCounts = {
+  sections: number;
+  items: number;
+  types: number;
+  sizes: number;
+  addons: number;
+  schedules: number;
+};
+
+export type MenuDeleteResponse = {
+  id: string;
+  kind: MenuEntityType;
+  deleted_counts: MenuDeleteCounts;
+};
+
 export type MenuSchedule = {
   id: string;
   entity_type: MenuEntityType;
@@ -229,6 +267,13 @@ export type UserModerationResponse = {
   banned_reason: string | null;
 };
 
+export type StaffLifecycleResponse = {
+  id: string;
+  role: 'ADMIN' | 'FRONTDESK' | 'DRIVER';
+  is_active: boolean;
+  is_banned: boolean;
+};
+
 export type ProvisionStaffResponse = {
   id: string;
   first_name: string;
@@ -252,6 +297,22 @@ export type LoyaltyRuleListResponse = {
 
 export type PromotionListResponse = {
   promotions: Promotion[];
+};
+
+export type PromotionEvaluationEntry = {
+  promotion: Promotion;
+  discount: string;
+  matched_subtotal: string;
+  reason_code?: string | null;
+  reason_summary_en?: string | null;
+  reason_summary_ar?: string | null;
+};
+
+export type PromotionEvaluationResponse = {
+  applied_promotion?: Promotion | null;
+  discount: string;
+  eligible_promotions: PromotionEvaluationEntry[];
+  ineligible_promotions: PromotionEvaluationEntry[];
 };
 
 export type RevenueSummaryResponse = {

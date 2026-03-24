@@ -262,17 +262,13 @@ export const AdminSchedulingScreen = () => {
   const renderSchedule = ({ item: schedule }: { item: MenuSchedule }) => (
     <AppCard style={styles.itemCard}>
       <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
-        <Pressable
-          onPress={() => Alert.alert('', labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`)}
-          style={styles.grow}
-          accessibilityRole="button"
-          accessibilityLabel={labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`}>
+        <View style={styles.grow}>
           <ExpandableText
             value={labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`}
             variant="h3"
             numberOfLines={2}
           />
-        </Pressable>
+        </View>
         <BadgeChip label={schedule.is_active ? t('admin.active') : t('admin.inactive')} tone={schedule.is_active ? 'success' : 'default'} />
       </View>
       <View style={styles.infoBox}>

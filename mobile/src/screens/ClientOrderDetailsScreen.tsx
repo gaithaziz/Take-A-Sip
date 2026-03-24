@@ -28,6 +28,7 @@ const statusToneMap = {
   ACCEPTED: 'info',
   ASSIGNED: 'info',
   OUT_FOR_DELIVERY: 'info',
+  DELIVERED: 'info',
   COMPLETED: 'success',
   CANCELLED: 'error',
 } as const;

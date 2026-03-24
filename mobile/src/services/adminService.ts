@@ -5,12 +5,15 @@ import {
   DeliveryDistanceBandListResponse,
   LoyaltyRuleListResponse,
   MenuEntityType,
+  MenuDeleteResponse,
   MenuResponse,
   MenuScheduleListResponse,
   OrderListResponse,
   PromotionListResponse,
+  PromotionTargetInput,
   ProvisionStaffResponse,
   RevenueSummaryResponse,
+  StaffLifecycleResponse,
   UserModerationResponse,
   UsersListResponse,
 } from '@/types/api';
@@ -101,6 +104,21 @@ export const adminService = {
     return data;
   },
 
+  async deleteMenuEntity(kind: MenuEntityType, id: string): Promise<MenuDeleteResponse> {
+    const path =
+      kind === 'section'
+        ? `/admin/menu/section/${id}`
+        : kind === 'item'
+          ? `/admin/menu/item/${id}`
+          : kind === 'type'
+            ? `/admin/menu/type/${id}`
+            : kind === 'size'
+              ? `/admin/menu/size/${id}`
+              : `/admin/menu/addon/${id}`;
+    const { data } = await http.delete(path);
+    return data;
+  },
+
   async listSchedules(): Promise<MenuScheduleListResponse> {
     const { data } = await http.get('/admin/menu/schedule');
     return data;
@@ -139,6 +157,11 @@ export const adminService = {
     starts_at: string;
     ends_at: string;
     is_active: boolean;
+    required_completed_orders?: number | null;
+    buy_quantity?: number | null;
+    free_quantity?: number | null;
+    loyalty_rule_id?: string | null;
+    targets: PromotionTargetInput[];
   }) {
     const { data } = await http.post('/admin/promotions', payload);
     return data;
@@ -236,6 +259,17 @@ export const adminService = {
   async unbanUser(id: string): Promise<UserModerationResponse> {
     const { data } = await http.post(`/admin/users/${id}/unban`);
     return data;
+  },
+  async archiveStaff(id: string): Promise<StaffLifecycleResponse> {
+    const { data } = await http.post(`/admin/users/${id}/archive-staff`);
+    return data;
+  },
+  async unarchiveStaff(id: string): Promise<StaffLifecycleResponse> {
+    const { data } = await http.post(`/admin/users/${id}/unarchive-staff`);
+    return data;
+  },
+  async deleteStaff(id: string): Promise<void> {
+    await http.delete(`/admin/users/${id}/staff`);
   },
   async provisionStaff(payload: {
     first_name: string;

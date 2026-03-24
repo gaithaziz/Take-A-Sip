@@ -14,11 +14,12 @@ const translationMap: Record<string, string> = {
   'admin.filterAll': 'All',
   'admin.filterBanned': 'Banned',
   'admin.filterActive': 'Unbanned',
-  'admin.applyFilters': 'Apply filters',
   'admin.orderCount': 'Order count',
   'admin.active': 'Active',
   'admin.ban': 'Ban',
   'admin.viewOrders': 'View orders',
+  'admin.role': 'Role',
+  'roles.CLIENT': 'Client',
 };
 const mockTranslate = (key: string) => translationMap[key] ?? key;
 
@@ -28,10 +29,6 @@ jest.mock('@/hooks/useAppTranslation', () => ({
     isRTL: false,
     t: mockTranslate,
   }),
-}));
-
-jest.mock('@/components/AppShell', () => ({
-  AppShell: ({ children }: { children: any }) => children,
 }));
 
 jest.mock('@/state/LanguageContext', () => ({
@@ -94,6 +91,26 @@ describe('AdminUsersScreen', () => {
     fireEvent.press(getByText('View orders'));
     expect(navigate).toHaveBeenCalledWith('AdminUserDetails', {
       user: expect.objectContaining({ id: 'u1' }),
+    });
+  });
+
+  it('applies status filters immediately without an apply button', async () => {
+    const { getByTestId, queryByText } = render(
+      <AdminUsersScreen
+        navigation={{ getParent: jest.fn() } as never}
+        route={{} as never}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockListUsers).toHaveBeenCalledWith(undefined, null);
+      expect(queryByText('Apply filters')).toBeNull();
+    });
+
+    fireEvent.press(getByTestId('users-filter-banned'));
+
+    await waitFor(() => {
+      expect(mockListUsers).toHaveBeenCalledWith(undefined, true);
     });
   });
 });

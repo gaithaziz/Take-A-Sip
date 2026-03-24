@@ -1,6 +1,7 @@
 import { api } from '@/services/http';
 import { VerifyOtpResponse, SendOtpRequest, VerifyOtpRequest } from '@/types/auth';
 import {
+  MenuDeleteResponse,
   MenuSchedule,
   MenuResponse,
   ScheduleListResponse,
@@ -23,7 +24,7 @@ export const adminApi = {
   },
 
   getMenu: async () => {
-    const { data } = await api.get<MenuResponse>('/menu');
+    const { data } = await api.get<MenuResponse>('/admin/menu/tree');
     return data;
   },
 
@@ -112,6 +113,21 @@ export const adminApi = {
 
   toggleMenuEntity: async (entityId: UUID) => {
     const { data } = await api.patch<ToggleResponse>(`/admin/menu/${entityId}/toggle`);
+    return data;
+  },
+
+  deleteMenuEntity: async (kind: 'section' | 'item' | 'type' | 'size' | 'addon', id: UUID) => {
+    const path =
+      kind === 'section'
+        ? `/admin/menu/section/${id}`
+        : kind === 'item'
+          ? `/admin/menu/item/${id}`
+          : kind === 'type'
+            ? `/admin/menu/type/${id}`
+            : kind === 'size'
+              ? `/admin/menu/size/${id}`
+              : `/admin/menu/addon/${id}`;
+    const { data } = await api.delete<MenuDeleteResponse>(path);
     return data;
   },
 

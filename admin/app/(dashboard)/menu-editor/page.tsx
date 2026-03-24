@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Power, Save } from 'lucide-react';
+import { ArrowRightLeft, Plus, Power, Save, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -10,63 +10,151 @@ import { FormSection } from '@/components/admin/form-section';
 import { ImageThumbnail } from '@/components/admin/image-thumbnail';
 import { LoadingState } from '@/components/admin/loading-state';
 import { PageHeader } from '@/components/admin/page-header';
+import { SearchBar } from '@/components/admin/search-bar';
 import { SectionCard } from '@/components/admin/section-card';
 import { StatusBadge } from '@/components/admin/status-badge';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useMenu } from '@/hooks/use-admin-data';
+import { useMenu, useSchedules } from '@/hooks/use-admin-data';
 import { adminApi } from '@/services/admin-api';
-import { UUID } from '@/types/menu';
+import { MenuAddon, MenuItem, MenuSection, MenuSize, MenuType, UUID } from '@/types/menu';
+
+type MenuKind = 'section' | 'item' | 'type' | 'size' | 'addon';
+type FilterMode = 'all' | 'active' | 'inactive' | 'issues';
+type MenuEntity = MenuSection | MenuItem | MenuType | MenuSize | MenuAddon;
 
 type EditTarget = {
-  kind: 'section' | 'item' | 'type' | 'size' | 'addon';
+  kind: MenuKind;
+  mode?: 'edit' | 'move';
   id: UUID;
 };
+
+type DeleteTarget = {
+  kind: MenuKind;
+  id: UUID;
+  description: string;
+};
+
+function badgeClasses(tone: 'visible' | 'warning' | 'muted') {
+  if (tone === 'visible') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (tone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-700';
+  return 'border-zinc-200 bg-zinc-100 text-zinc-700';
+}
+
+function activeTypeCount(item: MenuItem) {
+  return item.item_types.filter((itemType) => itemType.is_active && itemType.sizes.some((size) => size.is_active)).length;
+}
+
+function activeSizeCount(itemType: MenuType) {
+  return itemType.sizes.filter((size) => size.is_active).length;
+}
+
+function getVisibilityLabel(kind: MenuKind, entity: MenuEntity, ancestorsActive: boolean) {
+  if (!ancestorsActive) return { label: 'Hidden: inactive ancestor', tone: 'muted' as const };
+  if (!entity.is_active) return { label: 'Hidden: inactive', tone: 'muted' as const };
+  if (kind === 'section') {
+    return (entity as MenuSection).items.some((item) => activeTypeCount(item) > 0)
+      ? { label: 'Visible', tone: 'visible' as const }
+      : { label: 'Hidden: needs active item path', tone: 'warning' as const };
+  }
+  if (kind === 'item') {
+    return activeTypeCount(entity as MenuItem) > 0
+      ? { label: 'Visible', tone: 'visible' as const }
+      : { label: 'Hidden: needs active type and size', tone: 'warning' as const };
+  }
+  if (kind === 'type') {
+    return activeSizeCount(entity as MenuType) > 0
+      ? { label: 'Visible', tone: 'visible' as const }
+      : { label: 'Hidden: needs active size', tone: 'warning' as const };
+  }
+  return { label: 'Visible', tone: 'visible' as const };
+}
+
+function matchesQuery(entity: MenuEntity, kind: MenuKind, query: string) {
+  if (!query.trim()) return true;
+  const normalized = query.trim().toLowerCase();
+  const values = [entity.name_en, entity.name_ar, entity.image_url ?? ''];
+  if (kind === 'item') {
+    values.push((entity as MenuItem).description_en ?? '', (entity as MenuItem).description_ar ?? '');
+  }
+  return values.some((value) => value.toLowerCase().includes(normalized));
+}
 
 function Row({
   title,
   subtitle,
   image,
   active,
+  visibility,
+  scheduled,
   onToggle,
   onCreateChild,
   onEdit,
+  onMove,
+  onDelete,
 }: {
   title: string;
   subtitle: string;
   image?: string | null;
   active: boolean;
+  visibility: ReturnType<typeof getVisibilityLabel>;
+  scheduled?: boolean;
   onToggle: () => void;
   onCreateChild?: () => void;
   onEdit?: () => void;
+  onMove?: () => void;
+  onDelete?: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white p-3">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-zinc-200 bg-white p-3">
+      <div className="flex items-start gap-3">
         <ImageThumbnail src={image} alt={title} />
         <div>
           <p className="font-medium text-zinc-900">{title}</p>
           <p className="text-xs text-zinc-500">{subtitle}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <StatusBadge active={active} />
+            <Badge variant="outline" className={badgeClasses(visibility.tone)}>
+              {visibility.label}
+            </Badge>
+            {scheduled ? (
+              <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                Scheduled
+              </Badge>
+            ) : null}
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <StatusBadge active={active} />
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {onCreateChild ? (
-          <Button variant="outline" size="sm" onClick={onCreateChild}>
+          <Button variant="outline" size="xs" onClick={onCreateChild}>
             <Plus className="mr-1 h-4 w-4" />
             Add Child
           </Button>
         ) : null}
         {onEdit ? (
-          <Button variant="outline" size="sm" onClick={onEdit}>
+          <Button variant="outline" size="xs" onClick={onEdit}>
             Edit
           </Button>
         ) : null}
-        <Button variant="outline" size="sm" onClick={onToggle}>
+        {onMove ? (
+          <Button variant="outline" size="xs" onClick={onMove}>
+            <ArrowRightLeft className="mr-1 h-4 w-4" />
+            Move
+          </Button>
+        ) : null}
+        <Button variant="outline" size="xs" onClick={onToggle}>
           <Power className="mr-1 h-4 w-4" />
           Toggle
         </Button>
+        {onDelete ? (
+          <Button variant="destructive" size="xs" onClick={onDelete}>
+            <Trash2 className="mr-1 h-4 w-4" />
+            Delete
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -74,7 +162,11 @@ function Row({
 
 export default function MenuEditorPage() {
   const { data, error, isLoading, mutate } = useMenu();
+  const { data: schedulesData, mutate: mutateSchedules } = useSchedules();
   const [pendingToggleId, setPendingToggleId] = useState<UUID | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [query, setQuery] = useState('');
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
 
   const [selectedSection, setSelectedSection] = useState<UUID | null>(null);
   const [selectedItem, setSelectedItem] = useState<UUID | null>(null);
@@ -95,6 +187,7 @@ export default function MenuEditorPage() {
   const [sizeForm, setSizeForm] = useState({ name_en: '', name_ar: '', image_url: '', price: '', sort_order: '0' });
   const [addonForm, setAddonForm] = useState({ name_en: '', name_ar: '', image_url: '', price: '', sort_order: '0' });
   const [editForm, setEditForm] = useState({
+    parent_id: '',
     name_en: '',
     name_ar: '',
     image_url: '',
@@ -105,15 +198,27 @@ export default function MenuEditorPage() {
   });
 
   const sections = useMemo(() => data?.sections ?? [], [data]);
+  const schedules = useMemo(() => schedulesData?.schedules ?? [], [schedulesData]);
+  const scheduleKeys = useMemo(
+    () => new Set(schedules.filter((schedule) => schedule.is_active).map((schedule) => `${schedule.entity_type}:${schedule.entity_id}`)),
+    [schedules],
+  );
+  const items = useMemo(() => sections.flatMap((section) => section.items), [sections]);
+  const itemTypes = useMemo(() => items.flatMap((item) => item.item_types), [items]);
+  const sizes = useMemo(() => itemTypes.flatMap((itemType) => itemType.sizes), [itemTypes]);
 
-  const refreshMenu = async () => {
+  const refreshMenu = async (includeSchedules = false) => {
     await mutate();
+    if (includeSchedules) {
+      await mutateSchedules();
+    }
   };
 
   const startEdit = (
     kind: EditTarget['kind'],
     id: UUID,
     values: {
+      parent_id?: UUID | null;
       name_en: string;
       name_ar: string;
       image_url?: string | null;
@@ -123,8 +228,9 @@ export default function MenuEditorPage() {
       sort_order: number;
     },
   ) => {
-    setEditingEntity({ kind, id });
+    setEditingEntity({ kind, id, mode: 'edit' });
     setEditForm({
+      parent_id: values.parent_id ?? '',
       name_en: values.name_en,
       name_ar: values.name_ar,
       image_url: values.image_url ?? '',
@@ -135,34 +241,128 @@ export default function MenuEditorPage() {
     });
   };
 
+  const startMove = (kind: EditTarget['kind'], id: UUID, parentId: UUID | null, sortOrder: number) => {
+    setEditingEntity({ kind, id, mode: 'move' });
+    setEditForm({
+      parent_id: parentId ?? '',
+      name_en: '',
+      name_ar: '',
+      image_url: '',
+      description_en: '',
+      description_ar: '',
+      price: '',
+      sort_order: String(sortOrder),
+    });
+  };
+
+  const buildDeleteDescription = (kind: MenuKind, entity: MenuEntity) => {
+    const counts = {
+      sections: 0,
+      items: 0,
+      types: 0,
+      sizes: 0,
+      addons: 0,
+      schedules: 0,
+    };
+    const keys: string[] = [];
+    const track = (entityKind: MenuKind, entityId: UUID) => {
+      if (entityKind === 'section') counts.sections += 1;
+      if (entityKind === 'item') counts.items += 1;
+      if (entityKind === 'type') counts.types += 1;
+      if (entityKind === 'size') counts.sizes += 1;
+      if (entityKind === 'addon') counts.addons += 1;
+      keys.push(`${entityKind}:${entityId}`);
+    };
+
+    if (kind === 'section') {
+      track('section', entity.id);
+      (entity as MenuSection).items.forEach((item) => {
+        track('item', item.id);
+        item.item_types.forEach((itemType) => {
+          track('type', itemType.id);
+          itemType.sizes.forEach((size) => {
+            track('size', size.id);
+            size.addons.forEach((addon) => track('addon', addon.id));
+          });
+        });
+      });
+    } else if (kind === 'item') {
+      track('item', entity.id);
+      (entity as MenuItem).item_types.forEach((itemType) => {
+        track('type', itemType.id);
+        itemType.sizes.forEach((size) => {
+          track('size', size.id);
+          size.addons.forEach((addon) => track('addon', addon.id));
+        });
+      });
+    } else if (kind === 'type') {
+      track('type', entity.id);
+      (entity as MenuType).sizes.forEach((size) => {
+        track('size', size.id);
+        size.addons.forEach((addon) => track('addon', addon.id));
+      });
+    } else if (kind === 'size') {
+      track('size', entity.id);
+      (entity as MenuSize).addons.forEach((addon) => track('addon', addon.id));
+    } else {
+      track('addon', entity.id);
+    }
+
+    counts.schedules = keys.filter((key) => scheduleKeys.has(key)).length;
+    return `This removes ${counts.sections} sections, ${counts.items} items, ${counts.types} types, ${counts.sizes} sizes, ${counts.addons} add-ons, and ${counts.schedules} schedules. Historical orders keep their snapshots.`;
+  };
+
   const saveEdit = async () => {
     if (!editingEntity) {
       return;
     }
-    const payload: Record<string, unknown> = {
-      name_en: editForm.name_en,
-      name_ar: editForm.name_ar,
-      image_url: editForm.image_url || null,
-      sort_order: Number(editForm.sort_order || 0),
-    };
-    if (editingEntity.kind === 'item') {
-      payload.description_en = editForm.description_en || null;
-      payload.description_ar = editForm.description_ar || null;
-    }
-    if (editingEntity.kind === 'size' || editingEntity.kind === 'addon') {
-      payload.price = Number(editForm.price || 0);
-    }
     try {
+      const payload: Record<string, unknown> = {
+        sort_order: Number(editForm.sort_order || 0),
+      };
+      if (editingEntity.mode !== 'move') {
+        payload.name_en = editForm.name_en;
+        payload.name_ar = editForm.name_ar;
+        payload.image_url = editForm.image_url || null;
+        if (editingEntity.kind === 'item') {
+          payload.description_en = editForm.description_en || null;
+          payload.description_ar = editForm.description_ar || null;
+        }
+        if (editingEntity.kind === 'size' || editingEntity.kind === 'addon') {
+          payload.price = Number(editForm.price || 0);
+        }
+      }
+      if (editingEntity.mode === 'move') {
+        if (editingEntity.kind === 'item') payload.section_id = editForm.parent_id;
+        if (editingEntity.kind === 'type') payload.item_id = editForm.parent_id;
+        if (editingEntity.kind === 'size') payload.type_id = editForm.parent_id;
+        if (editingEntity.kind === 'addon') payload.size_id = editForm.parent_id;
+      }
       if (editingEntity.kind === 'section') await adminApi.updateSection(editingEntity.id, payload);
       if (editingEntity.kind === 'item') await adminApi.updateItem(editingEntity.id, payload);
       if (editingEntity.kind === 'type') await adminApi.updateType(editingEntity.id, payload);
       if (editingEntity.kind === 'size') await adminApi.updateSize(editingEntity.id, payload);
       if (editingEntity.kind === 'addon') await adminApi.updateAddon(editingEntity.id, payload);
-      toast.success('Entity updated');
+      toast.success(editingEntity.mode === 'move' ? 'Entity moved' : 'Entity updated');
       setEditingEntity(null);
       await refreshMenu();
     } catch {
-      toast.error('Failed to update entity');
+      toast.error(editingEntity.mode === 'move' ? 'Failed to move entity' : 'Failed to update entity');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    try {
+      await adminApi.deleteMenuEntity(deleteTarget.kind, deleteTarget.id);
+      toast.success('Hierarchy entry deleted');
+      setDeleteTarget(null);
+      setEditingEntity(null);
+      await refreshMenu(true);
+    } catch {
+      toast.error('Failed to delete hierarchy entry');
     }
   };
 
@@ -203,7 +403,7 @@ export default function MenuEditorPage() {
       return;
     }
     try {
-      await adminApi.createItem({
+      const createdItem = await adminApi.createItem({
         section_id: selectedSection,
         name_en: itemForm.name_en,
         name_ar: itemForm.name_ar,
@@ -212,7 +412,10 @@ export default function MenuEditorPage() {
         description_ar: itemForm.description_ar || undefined,
         sort_order: Number(itemForm.sort_order || 0),
       });
-      toast.success('Item created');
+      setSelectedItem(createdItem.id);
+      setSelectedType(null);
+      setSelectedSize(null);
+      toast.success('Item created. Add a type and a size to make it visible to customers.');
       setItemForm({ name_en: '', name_ar: '', image_url: '', description_en: '', description_ar: '', sort_order: '0' });
       await refreshMenu();
     } catch {
@@ -226,14 +429,16 @@ export default function MenuEditorPage() {
       return;
     }
     try {
-      await adminApi.createType({
+      const createdType = await adminApi.createType({
         item_id: selectedItem,
         name_en: typeForm.name_en,
         name_ar: typeForm.name_ar,
         image_url: typeForm.image_url || undefined,
         sort_order: Number(typeForm.sort_order || 0),
       });
-      toast.success('Item type created');
+      setSelectedType(createdType.id);
+      setSelectedSize(null);
+      toast.success('Item type created. Add a size to make the item visible to customers.');
       setTypeForm({ name_en: '', name_ar: '', image_url: '', sort_order: '0' });
       await refreshMenu();
     } catch {
@@ -285,18 +490,93 @@ export default function MenuEditorPage() {
     }
   };
 
+  const selectedContextLabel = useMemo(() => {
+    const labels: string[] = [];
+    const section = sections.find((entry) => entry.id === selectedSection);
+    if (section) labels.push(section.name_en);
+    const item = items.find((entry) => entry.id === selectedItem);
+    if (item) labels.push(item.name_en);
+    const itemType = itemTypes.find((entry) => entry.id === selectedType);
+    if (itemType) labels.push(itemType.name_en);
+    const size = sizes.find((entry) => entry.id === selectedSize);
+    if (size) labels.push(size.name_en);
+    return labels.join(' > ');
+  }, [itemTypes, items, sections, selectedItem, selectedSection, selectedSize, selectedType, sizes]);
+
+  const visibleSections = useMemo(() => {
+    const matchesFilter = (isActive: boolean, visibility: ReturnType<typeof getVisibilityLabel>) => {
+      if (filterMode === 'all') return true;
+      if (filterMode === 'active') return isActive;
+      if (filterMode === 'inactive') return !isActive;
+      return visibility.label !== 'Visible';
+    };
+
+    return sections
+      .map((section) => {
+        const visibleItems = section.items
+          .map((item) => {
+            const visibleTypes = item.item_types
+              .map((itemType) => {
+                const visibleSizes = itemType.sizes
+                  .map((size) => {
+                    const visibleAddons = size.addons.filter((addon) => {
+                      const visibility = getVisibilityLabel('addon', addon, section.is_active && item.is_active && itemType.is_active && size.is_active);
+                      return matchesQuery(addon, 'addon', query) && matchesFilter(addon.is_active, visibility);
+                    });
+                    const visibility = getVisibilityLabel('size', size, section.is_active && item.is_active && itemType.is_active);
+                    const keepSelf = matchesQuery(size, 'size', query) && matchesFilter(size.is_active, visibility);
+                    return keepSelf || visibleAddons.length > 0 ? { ...size, addons: visibleAddons } : null;
+                  })
+                  .filter((size): size is MenuSize => Boolean(size));
+
+                const visibility = getVisibilityLabel('type', itemType, section.is_active && item.is_active);
+                const keepSelf = matchesQuery(itemType, 'type', query) && matchesFilter(itemType.is_active, visibility);
+                return keepSelf || visibleSizes.length > 0 ? { ...itemType, sizes: visibleSizes } : null;
+              })
+              .filter((itemType): itemType is MenuType => Boolean(itemType));
+
+            const visibility = getVisibilityLabel('item', item, section.is_active);
+            const keepSelf = matchesQuery(item, 'item', query) && matchesFilter(item.is_active, visibility);
+            return keepSelf || visibleTypes.length > 0 ? { ...item, item_types: visibleTypes } : null;
+          })
+          .filter((item): item is MenuItem => Boolean(item));
+
+        const visibility = getVisibilityLabel('section', section, true);
+        const keepSelf = matchesQuery(section, 'section', query) && matchesFilter(section.is_active, visibility);
+        return keepSelf || visibleItems.length > 0 ? { ...section, items: visibleItems } : null;
+      })
+      .filter((section): section is MenuSection => Boolean(section))
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }, [filterMode, query, sections]);
+
   if (isLoading) return <LoadingState rows={6} />;
   if (error) return <EmptyState title="Menu unavailable" description="Could not load menu hierarchy from /menu." />;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Menu Editor" description="Expandable hierarchy editor: Section -> Item -> Type -> Size -> Add-on." />
+      <PageHeader title="Menu Editor" description="Row-level hierarchy actions for add, edit, move, toggle, delete, and visibility review." />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <SearchBar value={query} onChange={setQuery} placeholder="Search menu hierarchy" />
+        <div className="flex flex-wrap gap-2">
+          {(['all', 'active', 'inactive', 'issues'] as const).map((mode) => (
+            <Button key={mode} variant={filterMode === mode ? 'default' : 'outline'} size="sm" onClick={() => setFilterMode(mode)}>
+              {mode === 'all' ? 'All' : mode === 'active' ? 'Active' : mode === 'inactive' ? 'Inactive' : 'Needs attention'}
+            </Button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <SectionCard title="Hierarchy" description="Use expanders to inspect parent-child relationships and edit sort order quickly.">
+        <SectionCard title="Hierarchy" description="Use the row actions directly where you are working. Search and filters keep large menus manageable.">
           <div className="space-y-3">
-            {sections.length === 0 ? <EmptyState title="No sections yet" description="Create your first section." /> : null}
-            {sections.sort((a, b) => a.sort_order - b.sort_order).map((section) => (
+            {selectedContextLabel ? (
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+                Current context: {selectedContextLabel}
+              </div>
+            ) : null}
+            {visibleSections.length === 0 ? <EmptyState title="No matching entries" description="Create a section or change the current search/filter." /> : null}
+            {visibleSections.map((section) => (
               <details key={section.id} className="rounded-md border border-zinc-200 bg-[#fcfbf9] p-3" open>
                 <summary className="list-none">
                   <Row
@@ -304,9 +584,23 @@ export default function MenuEditorPage() {
                     subtitle={`Section - sort ${section.sort_order}`}
                     image={section.image_url}
                     active={section.is_active}
+                    visibility={getVisibilityLabel('section', section, true)}
+                    scheduled={scheduleKeys.has(`section:${section.id}`)}
                     onToggle={() => setPendingToggleId(section.id)}
                     onCreateChild={() => setSelectedSection(section.id)}
-                    onEdit={() => startEdit('section', section.id, { ...section, sort_order: section.sort_order })}
+                    onEdit={() => {
+                      setSelectedSection(section.id);
+                      setSelectedItem(null);
+                      setSelectedType(null);
+                      setSelectedSize(null);
+                      startEdit('section', section.id, { ...section, sort_order: section.sort_order });
+                    }}
+                    onMove={() => startMove('section', section.id, null, section.sort_order)}
+                    onDelete={() => setDeleteTarget({
+                      kind: 'section',
+                      id: section.id,
+                      description: buildDeleteDescription('section', section),
+                    })}
                   />
                 </summary>
                 <div className="mt-3 space-y-3 pl-4">
@@ -314,33 +608,61 @@ export default function MenuEditorPage() {
                     <details key={item.id} className="rounded-md border border-zinc-200 bg-white p-3">
                       <summary className="list-none">
                         <Row
-                          title={`${item.name_en} / ${item.name_ar}`}
-                          subtitle={`Item - sort ${item.sort_order}`}
-                          image={item.image_url}
-                          active={item.is_active}
-                          onToggle={() => setPendingToggleId(item.id)}
-                          onCreateChild={() => {
-                            setSelectedSection(section.id);
-                            setSelectedItem(item.id);
-                          }}
-                          onEdit={() => startEdit('item', item.id, { ...item, sort_order: item.sort_order })}
-                        />
-                      </summary>
-                      <div className="mt-3 space-y-3 pl-4">
-                        {item.item_types.map((type) => (
-                          <details key={type.id} className="rounded-md border border-zinc-200 bg-[#fcfbf9] p-3">
+                            title={`${item.name_en} / ${item.name_ar}`}
+                            subtitle={`Item - sort ${item.sort_order}`}
+                            image={item.image_url}
+                            active={item.is_active}
+                            visibility={getVisibilityLabel('item', item, section.is_active)}
+                            scheduled={scheduleKeys.has(`item:${item.id}`)}
+                            onToggle={() => setPendingToggleId(item.id)}
+                            onCreateChild={() => {
+                              setSelectedSection(section.id);
+                              setSelectedItem(item.id);
+                            }}
+                            onEdit={() => {
+                              setSelectedSection(section.id);
+                              setSelectedItem(item.id);
+                              setSelectedType(null);
+                              setSelectedSize(null);
+                              startEdit('item', item.id, { ...item, parent_id: item.section_id, sort_order: item.sort_order });
+                            }}
+                            onMove={() => startMove('item', item.id, item.section_id, item.sort_order)}
+                            onDelete={() => setDeleteTarget({
+                              kind: 'item',
+                              id: item.id,
+                              description: buildDeleteDescription('item', item),
+                            })}
+                          />
+                        </summary>
+                        <div className="mt-3 space-y-3 pl-4">
+                          {item.item_types.map((type) => (
+                            <details key={type.id} className="rounded-md border border-zinc-200 bg-[#fcfbf9] p-3">
                             <summary className="list-none">
                               <Row
                                 title={`${type.name_en} / ${type.name_ar}`}
                                 subtitle={`Type - sort ${type.sort_order}`}
                                 image={type.image_url}
                                 active={type.is_active}
+                                visibility={getVisibilityLabel('type', type, section.is_active && item.is_active)}
+                                scheduled={scheduleKeys.has(`type:${type.id}`)}
                                 onToggle={() => setPendingToggleId(type.id)}
                                 onCreateChild={() => {
                                   setSelectedItem(item.id);
                                   setSelectedType(type.id);
                                 }}
-                                onEdit={() => startEdit('type', type.id, { ...type, sort_order: type.sort_order })}
+                                onEdit={() => {
+                                  setSelectedSection(section.id);
+                                  setSelectedItem(item.id);
+                                  setSelectedType(type.id);
+                                  setSelectedSize(null);
+                                  startEdit('type', type.id, { ...type, parent_id: type.item_id, sort_order: type.sort_order });
+                                }}
+                                onMove={() => startMove('type', type.id, type.item_id, type.sort_order)}
+                                onDelete={() => setDeleteTarget({
+                                  kind: 'type',
+                                  id: type.id,
+                                  description: buildDeleteDescription('type', type),
+                                })}
                               />
                             </summary>
                             <div className="mt-3 space-y-3 pl-4">
@@ -352,12 +674,26 @@ export default function MenuEditorPage() {
                                       subtitle={`Size - ${size.price} - sort ${size.sort_order}`}
                                       image={size.image_url}
                                       active={size.is_active}
+                                      visibility={getVisibilityLabel('size', size, section.is_active && item.is_active && type.is_active)}
+                                      scheduled={scheduleKeys.has(`size:${size.id}`)}
                                       onToggle={() => setPendingToggleId(size.id)}
                                       onCreateChild={() => {
                                         setSelectedType(type.id);
                                         setSelectedSize(size.id);
                                       }}
-                                      onEdit={() => startEdit('size', size.id, { ...size, sort_order: size.sort_order })}
+                                      onEdit={() => {
+                                        setSelectedSection(section.id);
+                                        setSelectedItem(item.id);
+                                        setSelectedType(type.id);
+                                        setSelectedSize(size.id);
+                                        startEdit('size', size.id, { ...size, parent_id: size.type_id, sort_order: size.sort_order });
+                                      }}
+                                      onMove={() => startMove('size', size.id, size.type_id, size.sort_order)}
+                                      onDelete={() => setDeleteTarget({
+                                        kind: 'size',
+                                        id: size.id,
+                                        description: buildDeleteDescription('size', size),
+                                      })}
                                     />
                                   </summary>
                                   <div className="mt-3 space-y-3 pl-4">
@@ -368,8 +704,22 @@ export default function MenuEditorPage() {
                                         subtitle={`Add-on - ${addon.price} - sort ${addon.sort_order}`}
                                         image={addon.image_url}
                                         active={addon.is_active}
+                                        visibility={getVisibilityLabel('addon', addon, section.is_active && item.is_active && type.is_active && size.is_active)}
+                                        scheduled={scheduleKeys.has(`addon:${addon.id}`)}
                                         onToggle={() => setPendingToggleId(addon.id)}
-                                        onEdit={() => startEdit('addon', addon.id, { ...addon, sort_order: addon.sort_order })}
+                                        onEdit={() => {
+                                          setSelectedSection(section.id);
+                                          setSelectedItem(item.id);
+                                          setSelectedType(type.id);
+                                          setSelectedSize(size.id);
+                                          startEdit('addon', addon.id, { ...addon, parent_id: addon.size_id, sort_order: addon.sort_order });
+                                        }}
+                                        onMove={() => startMove('addon', addon.id, addon.size_id, addon.sort_order)}
+                                        onDelete={() => setDeleteTarget({
+                                          kind: 'addon',
+                                          id: addon.id,
+                                          description: buildDeleteDescription('addon', addon),
+                                        })}
                                       />
                                     ))}
                                   </div>
@@ -388,7 +738,7 @@ export default function MenuEditorPage() {
         </SectionCard>
 
         <div className="space-y-4">
-          <SectionCard title="Create Entries" description="Use selected parent IDs from hierarchy actions to add child entities.">
+          <SectionCard title="Create Entries" description="Use selected parent context from row actions to add new child entities quickly.">
             <div className="space-y-4">
               <FormSection title="Section">
                 <div className="grid grid-cols-2 gap-2">
@@ -400,7 +750,9 @@ export default function MenuEditorPage() {
                 <Button onClick={createSection} className="w-full"><Save className="mr-1 h-4 w-4" />Create Section</Button>
               </FormSection>
 
-              <FormSection title="Item" description={`Parent section: ${selectedSection ?? 'Not selected'}`}>
+              <FormSection
+                title="Item"
+                description={`Parent section: ${selectedSection ?? 'Not selected'}. Items appear in the customer menu after they have at least one active type and size.`}>
                 <div className="grid grid-cols-2 gap-2">
                   <Input placeholder="name_en" value={itemForm.name_en} onChange={(e) => setItemForm((p) => ({ ...p, name_en: e.target.value }))} />
                   <Input placeholder="name_ar" value={itemForm.name_ar} onChange={(e) => setItemForm((p) => ({ ...p, name_ar: e.target.value }))} />
@@ -412,7 +764,9 @@ export default function MenuEditorPage() {
                 <Button onClick={createItem} className="w-full"><Save className="mr-1 h-4 w-4" />Create Item</Button>
               </FormSection>
 
-              <FormSection title="Item Type" description={`Parent item: ${selectedItem ?? 'Not selected'}`}>
+              <FormSection
+                title="Item Type"
+                description={`Parent item: ${selectedItem ?? 'Not selected'}. Add a size next so customers can order it.`}>
                 <div className="grid grid-cols-2 gap-2">
                   <Input placeholder="name_en" value={typeForm.name_en} onChange={(e) => setTypeForm((p) => ({ ...p, name_en: e.target.value }))} />
                   <Input placeholder="name_ar" value={typeForm.name_ar} onChange={(e) => setTypeForm((p) => ({ ...p, name_ar: e.target.value }))} />
@@ -447,25 +801,76 @@ export default function MenuEditorPage() {
           </SectionCard>
 
           {editingEntity ? (
-            <SectionCard title={`Edit ${editingEntity.kind}`}>
+            <SectionCard title={`${editingEntity.mode === 'move' ? 'Move' : 'Edit'} ${editingEntity.kind}`}>
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <Input placeholder="name_en" value={editForm.name_en} onChange={(e) => setEditForm((p) => ({ ...p, name_en: e.target.value }))} />
-                  <Input placeholder="name_ar" value={editForm.name_ar} onChange={(e) => setEditForm((p) => ({ ...p, name_ar: e.target.value }))} />
-                </div>
-                <Input placeholder="image_url" value={editForm.image_url} onChange={(e) => setEditForm((p) => ({ ...p, image_url: e.target.value }))} />
-                {editingEntity.kind === 'item' ? (
+                {editingEntity.mode === 'move' && editingEntity.kind !== 'section' ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-zinc-700">
+                      {editingEntity.kind === 'item'
+                        ? 'Parent section'
+                        : editingEntity.kind === 'type'
+                          ? 'Parent item'
+                          : editingEntity.kind === 'size'
+                            ? 'Parent type'
+                            : 'Parent size'}
+                    </p>
+                    <select
+                      className="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-400"
+                      value={editForm.parent_id}
+                      onChange={(e) => setEditForm((p) => ({ ...p, parent_id: e.target.value }))}
+                    >
+                      <option value="">Select</option>
+                      {editingEntity.kind === 'item'
+                        ? sections.map((section) => (
+                            <option key={section.id} value={section.id}>
+                              {section.name_en} / {section.name_ar}
+                            </option>
+                          ))
+                        : editingEntity.kind === 'type'
+                          ? items.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name_en} / {item.name_ar}
+                              </option>
+                            ))
+                          : editingEntity.kind === 'size'
+                            ? itemTypes.map((itemType) => (
+                                <option key={itemType.id} value={itemType.id}>
+                                  {itemType.name_en} / {itemType.name_ar}
+                                </option>
+                              ))
+                            : sizes.map((size) => (
+                                <option key={size.id} value={size.id}>
+                                  {size.name_en} / {size.name_ar}
+                                </option>
+                              ))}
+                    </select>
+                  </div>
+                ) : null}
+                {editingEntity.mode !== 'move' ? (
                   <>
-                    <Textarea placeholder="description_en" value={editForm.description_en} onChange={(e) => setEditForm((p) => ({ ...p, description_en: e.target.value }))} />
-                    <Textarea placeholder="description_ar" value={editForm.description_ar} onChange={(e) => setEditForm((p) => ({ ...p, description_ar: e.target.value }))} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input placeholder="name_en" value={editForm.name_en} onChange={(e) => setEditForm((p) => ({ ...p, name_en: e.target.value }))} />
+                      <Input placeholder="name_ar" value={editForm.name_ar} onChange={(e) => setEditForm((p) => ({ ...p, name_ar: e.target.value }))} />
+                    </div>
+                    <Input placeholder="image_url" value={editForm.image_url} onChange={(e) => setEditForm((p) => ({ ...p, image_url: e.target.value }))} />
+                    {editingEntity.kind === 'item' ? (
+                      <>
+                        <Textarea placeholder="description_en" value={editForm.description_en} onChange={(e) => setEditForm((p) => ({ ...p, description_en: e.target.value }))} />
+                        <Textarea placeholder="description_ar" value={editForm.description_ar} onChange={(e) => setEditForm((p) => ({ ...p, description_ar: e.target.value }))} />
+                      </>
+                    ) : null}
+                    {editingEntity.kind === 'size' || editingEntity.kind === 'addon' ? (
+                      <Input placeholder="price" type="number" value={editForm.price} onChange={(e) => setEditForm((p) => ({ ...p, price: e.target.value }))} />
+                    ) : null}
                   </>
-                ) : null}
-                {editingEntity.kind === 'size' || editingEntity.kind === 'addon' ? (
-                  <Input placeholder="price" type="number" value={editForm.price} onChange={(e) => setEditForm((p) => ({ ...p, price: e.target.value }))} />
-                ) : null}
+                ) : (
+                  <p className="text-sm text-zinc-600">Update the parent and sort order for this branch. Section moves only change sort order.</p>
+                )}
                 <Input placeholder="sort_order" type="number" value={editForm.sort_order} onChange={(e) => setEditForm((p) => ({ ...p, sort_order: e.target.value }))} />
                 <div className="flex gap-2">
-                  <Button className="flex-1" onClick={saveEdit}>Save</Button>
+                  <Button className="flex-1" onClick={saveEdit}>
+                    {editingEntity.mode === 'move' ? 'Move' : 'Save'}
+                  </Button>
                   <Button variant="outline" onClick={() => setEditingEntity(null)}>Cancel</Button>
                 </div>
               </div>
@@ -480,9 +885,20 @@ export default function MenuEditorPage() {
           if (!open) setPendingToggleId(null);
         }}
         title="Change availability"
-        description="This will toggle active/inactive state for this entity and affect menu visibility."
+        description="This toggles active/inactive state for the selected entity and can change customer visibility."
         confirmLabel="Confirm toggle"
         onConfirm={handleToggle}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete hierarchy entry"
+        description={deleteTarget?.description ?? ''}
+        confirmLabel="Delete permanently"
+        onConfirm={handleDelete}
       />
     </div>
   );

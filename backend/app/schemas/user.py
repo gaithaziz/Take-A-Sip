@@ -34,6 +34,13 @@ class UserModerationResponse(AppBaseModel):
     banned_reason: str | None
 
 
+class StaffLifecycleResponse(AppBaseModel):
+    id: UUID
+    role: str
+    is_active: bool
+    is_banned: bool
+
+
 class ProvisionStaffRequest(AppBaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)

@@ -1,4 +1,8 @@
-import { Alert, Pressable } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { useAppTranslation } from '@/hooks/useAppTranslation';
+import { theme } from '@/theme';
 
 import { AppText } from '../AppText';
 
@@ -15,11 +19,33 @@ export const ExpandableText = ({
   variant = 'bodySmall',
   color,
 }: ExpandableTextProps) => {
+  const { t } = useAppTranslation();
+  const [expanded, setExpanded] = useState(false);
+
+  if (!value.trim()) {
+    return null;
+  }
+
   return (
-    <Pressable onPress={() => Alert.alert('', value)}>
-      <AppText variant={variant} numberOfLines={numberOfLines} color={color}>
-        {value}
-      </AppText>
-    </Pressable>
+    <View style={styles.wrapper}>
+      <Pressable onPress={() => setExpanded((prev) => !prev)}>
+        <AppText variant={variant} numberOfLines={expanded ? undefined : numberOfLines} color={color}>
+          {value}
+        </AppText>
+      </Pressable>
+      {value.length > 60 ? (
+        <Pressable onPress={() => setExpanded((prev) => !prev)} hitSlop={6}>
+          <AppText variant="caption" color={theme.colors.primary700}>
+            {expanded ? t('admin.showLess') : t('admin.showMore')}
+          </AppText>
+        </Pressable>
+      ) : null}
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  wrapper: {
+    gap: theme.spacing.xs,
+  },
+});

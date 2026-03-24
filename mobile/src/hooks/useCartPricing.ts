@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { orderService } from '@/services/orderService';
 import { promotionService } from '@/services/promotionService';
 import { useAuth } from '@/state/AuthContext';
+import { CartItem } from '@/state/CartContext';
 import { Promotion } from '@/types/api';
 import { toNumber } from '@/utils/format';
 
@@ -13,62 +13,42 @@ type CartPricing = {
   appliedPromotion: Promotion | null;
 };
 
-const pickBestPromotion = (promotions: Promotion[]): Promotion | null => {
-  if (promotions.length === 0) {
-    return null;
-  }
-  return promotions.reduce((best, current) => (toNumber(current.value) > toNumber(best.value) ? current : best));
-};
-
-export const useCartPricing = (subtotal: number): CartPricing => {
+export const useCartPricing = (items: CartItem[], subtotal: number): CartPricing => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
+  const [discount, setDiscount] = useState(0);
 
   useEffect(() => {
     const run = async () => {
-      if (!user || subtotal <= 0) {
+      if (!user || subtotal <= 0 || items.length === 0) {
         setAppliedPromotion(null);
+        setDiscount(0);
         return;
       }
       try {
         setLoading(true);
-        const [promotionsData, ordersData] = await Promise.all([
-          promotionService.getActive(),
-          orderService.getMyOrders(),
-        ]);
-        const hasPriorOrder = ordersData.orders.some((order) => order.status !== 'CANCELLED');
-        const eligible = promotionsData.promotions.filter((promotion) => {
-          if (!promotion.is_active) {
-            return false;
-          }
-          if (promotion.type === 'TEMPORARY') {
-            return true;
-          }
-          if (promotion.type === 'FIRST_TIME') {
-            return !hasPriorOrder;
-          }
-          // Loyalty rule details are not available in current mobile endpoints.
-          return false;
+        const evaluation = await promotionService.evaluateCart({
+          items: items.map((item) => ({
+            size_id: item.size.id,
+            quantity: item.quantity,
+            addon_ids: item.addons.map((addon) => addon.id),
+          })),
         });
-        setAppliedPromotion(pickBestPromotion(eligible));
+        setAppliedPromotion(evaluation.applied_promotion ?? null);
+        setDiscount(Math.min(subtotal, Math.max(0, toNumber(evaluation.discount))));
       } finally {
         setLoading(false);
       }
     };
     void run();
-  }, [subtotal, user]);
+  }, [items, subtotal, user]);
 
-  const discount = useMemo(() => {
-    if (!appliedPromotion) {
-      return 0;
-    }
-    return Math.min(subtotal, Math.max(0, toNumber(appliedPromotion.value)));
-  }, [appliedPromotion, subtotal]);
+  const total = useMemo(() => subtotal - discount, [discount, subtotal]);
 
   return {
     discount,
-    total: subtotal - discount,
+    total,
     loading,
     appliedPromotion,
   };

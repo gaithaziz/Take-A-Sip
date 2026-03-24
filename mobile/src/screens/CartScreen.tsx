@@ -15,7 +15,7 @@ export const CartScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
   const { items, removeItem, updateQuantity, subtotal } = useCart();
-  const { discount, total, appliedPromotion } = useCartPricing(subtotal);
+  const { discount, total, appliedPromotion } = useCartPricing(items, subtotal);
   const insets = useSafeAreaInsets();
 
   return (

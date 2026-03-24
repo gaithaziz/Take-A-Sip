@@ -1,5 +1,5 @@
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
@@ -7,8 +7,12 @@ import { AppCard } from '@/components/AppCard';
 import { AppInput } from '@/components/AppInput';
 import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
+import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
+import { ActionRow } from '@/components/admin/ActionRow';
+import { AdminPageSection } from '@/components/admin/AdminPageSection';
+import { InfoLine } from '@/components/admin/InfoLine';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { AdminTabParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
@@ -17,6 +21,8 @@ import { DeliveryDistanceBand, OrderRead, UserSummary } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 
 type Props = BottomTabScreenProps<AdminTabParamList, 'AdminDelivery'>;
+
+const canAssignDriver = (order: OrderRead) => order.status === 'ACCEPTED' || order.status === 'ASSIGNED';
 
 export const AdminDeliveryScreen = (_: Props) => {
   const { t } = useAppTranslation();
@@ -29,6 +35,8 @@ export const AdminDeliveryScreen = (_: Props) => {
   const [feeAmount, setFeeAmount] = useState('');
   const [latestDeliveryOrders, setLatestDeliveryOrders] = useState<OrderRead[]>([]);
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
+  const [mutatingBandId, setMutatingBandId] = useState<string | null>(null);
+  const [creatingBand, setCreatingBand] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +61,103 @@ export const AdminDeliveryScreen = (_: Props) => {
     void load();
   }, [load]);
 
+  const activeDrivers = useMemo(() => drivers.filter((driver) => driver.is_active && !driver.is_banned), [drivers]);
+  const pendingOrders = useMemo(() => latestDeliveryOrders.filter(canAssignDriver), [latestDeliveryOrders]);
+
+  const onCreateBand = async () => {
+    const min = Number(minDistance);
+    const max = Number(maxDistance);
+    const fee = Number(feeAmount);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(fee)) {
+      Alert.alert(t('common.error'), t('errors.generic'));
+      return;
+    }
+    try {
+      setCreatingBand(true);
+      await adminService.createDeliveryDistanceBand({
+        min_distance_km: min,
+        max_distance_km: max,
+        fee_amount: fee,
+        is_active: true,
+        sort_order: bands.length,
+      });
+      setMinDistance('');
+      setMaxDistance('');
+      setFeeAmount('');
+      await load();
+    } catch (e) {
+      Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+    } finally {
+      setCreatingBand(false);
+    }
+  };
+
+  const confirmBandToggle = (band: DeliveryDistanceBand) => {
+    const nextActive = !band.is_active;
+    Alert.alert(
+      nextActive ? t('admin.enable') : t('admin.disable'),
+      `${nextActive ? t('admin.enable') : t('admin.disable')}: ${band.min_distance_km}-${band.max_distance_km} km`,
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            void (async () => {
+              try {
+                setMutatingBandId(band.id);
+                await adminService.updateDeliveryDistanceBand(band.id, { is_active: nextActive });
+                await load();
+              } catch (e) {
+                Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+              } finally {
+                setMutatingBandId(null);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  const confirmBandDelete = (band: DeliveryDistanceBand) => {
+    Alert.alert(
+      t('admin.delete'),
+      `${band.min_distance_km}-${band.max_distance_km} km`,
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('admin.delete'),
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                setMutatingBandId(band.id);
+                await adminService.deleteDeliveryDistanceBand(band.id);
+                await load();
+              } catch (e) {
+                Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+              } finally {
+                setMutatingBandId(null);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  const assignDriver = async (orderId: string, driverId: string) => {
+    try {
+      setAssigningOrderId(orderId);
+      await adminService.assignDriverToOrder(orderId, driverId);
+      await load();
+    } catch (e) {
+      Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+    } finally {
+      setAssigningOrderId(null);
+    }
+  };
+
   if (loading) {
     return <LoadingState label={t('common.loading')} />;
   }
@@ -63,115 +168,107 @@ export const AdminDeliveryScreen = (_: Props) => {
 
   return (
     <AppShell refreshing={loading} onRefresh={load}>
-      <AppText variant="h1">{t('admin.deliveryTitle')}</AppText>
-      <AppCard style={styles.block}>
-        <AppText variant="h3">{t('admin.deliveryFeeBands')}</AppText>
-        <AppInput
-          label={t('admin.minDistanceKm')}
-          value={minDistance}
-          keyboardType="numeric"
-          onChangeText={setMinDistance}
-        />
-        <AppInput
-          label={t('admin.maxDistanceKm')}
-          value={maxDistance}
-          keyboardType="numeric"
-          onChangeText={setMaxDistance}
-        />
-        <AppInput label={t('admin.feeAmount')} value={feeAmount} keyboardType="numeric" onChangeText={setFeeAmount} />
-        <AppButton
-          title={t('admin.addDistanceBand')}
-          onPress={() => {
-            const min = Number(minDistance);
-            const max = Number(maxDistance);
-            const fee = Number(feeAmount);
-            if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(fee)) {
-              Alert.alert(t('common.appName'), t('errors.generic'));
-              return;
-            }
-            void (async () => {
-              try {
-                await adminService.createDeliveryDistanceBand({
-                  min_distance_km: min,
-                  max_distance_km: max,
-                  fee_amount: fee,
-                  is_active: true,
-                  sort_order: bands.length,
-                });
-                setMinDistance('');
-                setMaxDistance('');
-                setFeeAmount('');
-                await load();
-              } catch (e) {
-                Alert.alert(t('common.appName'), getApiErrorMessage(e, t));
-              }
-            })();
-          }}
-        />
-        <View style={styles.list}>
-          {bands.map((band) => (
-            <AppCard key={band.id} style={styles.bandRow}>
-              <View style={styles.bandTop}>
-                <AppText variant="h3">
-                  {band.min_distance_km} - {band.max_distance_km} km
-                </AppText>
-                <AppText>{band.fee_amount}</AppText>
-              </View>
-              <View style={styles.bandActions}>
-                <AppButton
-                  title={band.is_active ? t('admin.disable') : t('admin.enable')}
-                  variant="secondary"
-                  onPress={() => {
-                    void (async () => {
-                      await adminService.updateDeliveryDistanceBand(band.id, { is_active: !band.is_active });
-                      await load();
-                    })();
-                  }}
-                />
-                <AppButton
-                  title={t('admin.delete')}
-                  variant="ghost"
-                  onPress={() => {
-                    void (async () => {
-                      await adminService.deleteDeliveryDistanceBand(band.id);
-                      await load();
-                    })();
-                  }}
-                />
-              </View>
-            </AppCard>
-          ))}
+      <View style={styles.headingBlock}>
+        <AppText variant="h1">{t('admin.deliveryTitle')}</AppText>
+        <View style={styles.summaryRow}>
+          <BadgeChip label={`${t('admin.driversTitle')}: ${activeDrivers.length}`} tone="success" />
+          <BadgeChip label={`${t('admin.latestDeliveryOrders')}: ${pendingOrders.length}`} tone={pendingOrders.length > 0 ? 'warning' : 'default'} />
         </View>
-      </AppCard>
-      <AppCard style={styles.block}>
-        <AppText variant="h3">{t('admin.driversTitle')}</AppText>
-        <View style={styles.list}>
-          {drivers.map((driver) => (
-            <View key={driver.id} style={styles.driverRow}>
-              <AppText>{`${driver.first_name} ${driver.last_name}`}</AppText>
-              <AppText color={theme.colors.textSecondary}>{driver.phone_number}</AppText>
-            </View>
-          ))}
+      </View>
+
+      <AdminPageSection title={t('admin.deliveryFeeBands')} subtitle={t('admin.addDistanceBand')}>
+        <View style={styles.formStack}>
+          <View style={styles.formGrid}>
+            <AppInput
+              label={t('admin.minDistanceKm')}
+              value={minDistance}
+              keyboardType="numeric"
+              onChangeText={setMinDistance}
+            />
+            <AppInput
+              label={t('admin.maxDistanceKm')}
+              value={maxDistance}
+              keyboardType="numeric"
+              onChangeText={setMaxDistance}
+            />
+          </View>
+          <AppInput label={t('admin.feeAmount')} value={feeAmount} keyboardType="numeric" onChangeText={setFeeAmount} />
+          <AppButton title={t('admin.addDistanceBand')} onPress={() => void onCreateBand()} loading={creatingBand} disabled={creatingBand} />
+
+          <View style={styles.list}>
+            {bands.map((band) => (
+              <AppCard key={band.id} style={styles.deliveryCard}>
+                <View style={styles.cardHeader}>
+                  <AppText variant="h3">{`${band.min_distance_km} - ${band.max_distance_km} km`}</AppText>
+                  <BadgeChip label={band.is_active ? t('admin.active') : t('admin.inactive')} tone={band.is_active ? 'success' : 'default'} />
+                </View>
+                <View style={styles.infoBox}>
+                  <InfoLine label={t('admin.feeAmount')} value={band.fee_amount} />
+                </View>
+                <ActionRow>
+                  <AppButton
+                    title={band.is_active ? t('admin.disable') : t('admin.enable')}
+                    variant="secondary"
+                    onPress={() => confirmBandToggle(band)}
+                    style={styles.flexButton}
+                    loading={mutatingBandId === band.id}
+                    disabled={Boolean(mutatingBandId && mutatingBandId !== band.id)}
+                  />
+                  <AppButton
+                    title={t('admin.delete')}
+                    variant="destructive"
+                    onPress={() => confirmBandDelete(band)}
+                    style={styles.flexButton}
+                    loading={mutatingBandId === band.id}
+                    disabled={Boolean(mutatingBandId && mutatingBandId !== band.id)}
+                  />
+                </ActionRow>
+              </AppCard>
+            ))}
+          </View>
         </View>
-      </AppCard>
-      <AppCard style={styles.block}>
-        <AppText variant="h3">{t('admin.latestDeliveryOrders')}</AppText>
-        <View style={styles.list}>
-          {latestDeliveryOrders.map((order) => (
-            <AppCard key={order.id} style={styles.orderRow}>
-              <AppText variant="h3">#{order.order_number}</AppText>
-              <AppText color={theme.colors.textSecondary}>{order.customer_name || '-'}</AppText>
-              <AppText color={theme.colors.textSecondary}>{order.delivery_address_text || order.delivery_address || '-'}</AppText>
-              <AppText>{t(`status.${order.status}`)}</AppText>
-              <AppText color={theme.colors.textSecondary}>
-                {order.assigned_driver_name || order.assigned_driver_id || t('admin.none')}
-              </AppText>
-              {order.status === 'ACCEPTED' || order.status === 'ASSIGNED' ? (
-                <View style={styles.driverActions}>
-                  {drivers
-                    .filter((d) => d.is_active && !d.is_banned)
-                    .slice(0, 3)
-                    .map((driver) => (
+      </AdminPageSection>
+
+      <AdminPageSection title={t('admin.driversTitle')} subtitle={t('admin.deliveryTitle')}>
+        {activeDrivers.length === 0 ? (
+          <EmptyState title={t('admin.driversTitle')} subtitle={t('admin.noUsersSubtitle')} />
+        ) : (
+          <View style={styles.list}>
+            {activeDrivers.map((driver) => (
+              <AppCard key={driver.id} style={styles.deliveryCard}>
+                <View style={styles.cardHeader}>
+                  <AppText variant="h3">{`${driver.first_name} ${driver.last_name}`}</AppText>
+                  <BadgeChip label={driver.is_banned ? t('admin.banned') : t('admin.active')} tone={driver.is_banned ? 'error' : 'success'} />
+                </View>
+                <View style={styles.infoBox}>
+                  <InfoLine label={t('profile.phone')} value={driver.phone_number} />
+                  <InfoLine label={t('admin.orderCount')} value={String(driver.order_count)} />
+                </View>
+              </AppCard>
+            ))}
+          </View>
+        )}
+      </AdminPageSection>
+
+      <AdminPageSection title={t('admin.latestDeliveryOrders')} subtitle={t('admin.tapToOpen')}>
+        {latestDeliveryOrders.length === 0 ? (
+          <EmptyState title={t('admin.latestDeliveryOrders')} subtitle={t('admin.noLatestOrders')} />
+        ) : (
+          <View style={styles.list}>
+            {latestDeliveryOrders.map((order) => (
+              <AppCard key={order.id} style={styles.deliveryCard}>
+                <View style={styles.cardHeader}>
+                  <AppText variant="h3">#{order.order_number}</AppText>
+                  <BadgeChip label={t(`status.${order.status}`)} tone={canAssignDriver(order) ? 'warning' : order.status === 'COMPLETED' ? 'success' : 'info'} />
+                </View>
+                <View style={styles.infoBox}>
+                  <InfoLine label={t('admin.usersTitle')} value={order.customer_name || '-'} numberOfLines={1} />
+                  <InfoLine label={t('checkout.deliveryAddress')} value={order.delivery_address_text || order.delivery_address || '-'} numberOfLines={2} />
+                  <InfoLine label={t('admin.driversTitle')} value={order.assigned_driver_name || order.assigned_driver_id || t('admin.none')} numberOfLines={1} />
+                </View>
+                {canAssignDriver(order) ? (
+                  <View style={styles.assignmentList}>
+                    {activeDrivers.slice(0, 3).map((driver) => (
                       <AppButton
                         key={driver.id}
                         title={`${driver.first_name} ${driver.last_name}`}
@@ -179,57 +276,62 @@ export const AdminDeliveryScreen = (_: Props) => {
                         loading={assigningOrderId === order.id}
                         disabled={assigningOrderId === order.id}
                         onPress={() => {
-                          void (async () => {
-                            try {
-                              setAssigningOrderId(order.id);
-                              await adminService.assignDriverToOrder(order.id, driver.id);
-                              await load();
-                            } catch (e) {
-                              Alert.alert(t('common.appName'), getApiErrorMessage(e, t));
-                            } finally {
-                              setAssigningOrderId(null);
-                            }
-                          })();
+                          void assignDriver(order.id, driver.id);
                         }}
                       />
                     ))}
-                </View>
-              ) : null}
-            </AppCard>
-          ))}
-        </View>
-      </AppCard>
+                  </View>
+                ) : null}
+              </AppCard>
+            ))}
+          </View>
+        )}
+      </AdminPageSection>
     </AppShell>
   );
 };
 
 const styles = StyleSheet.create({
-  block: {
+  headingBlock: {
     gap: theme.spacing.sm,
   },
+  summaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  formStack: {
+    gap: theme.spacing.md,
+  },
+  formGrid: {
+    gap: theme.spacing.md,
+  },
   list: {
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
   },
-  bandRow: {
-    gap: theme.spacing.xs,
-    borderColor: theme.colors.primary100,
+  deliveryCard: {
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
   },
-  bandTop: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: theme.spacing.sm,
   },
-  driverRow: {
-    paddingVertical: theme.spacing.xs,
+  infoBox: {
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
   },
-  bandActions: {
-    gap: theme.spacing.xs,
+  assignmentList: {
+    gap: theme.spacing.sm,
   },
-  orderRow: {
-    gap: theme.spacing.xs,
-    borderColor: theme.colors.primary100,
-  },
-  driverActions: {
-    gap: theme.spacing.xs,
+  flexButton: {
+    flex: 1,
   },
 });

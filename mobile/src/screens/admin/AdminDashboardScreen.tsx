@@ -15,12 +15,20 @@ import { AdminTabParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { mirroredRow } from '@/utils/layout';
+import { OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDateTime, toNumber } from '@/utils/format';
-import { OrderRead } from '@/types/api';
+import { mirroredRow } from '@/utils/layout';
 
 type Props = BottomTabScreenProps<AdminTabParamList, 'AdminDashboard'>;
+
+type QuickAction = {
+  key: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  value: string;
+  onPress: () => void;
+};
 
 export const AdminDashboardScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
@@ -118,18 +126,103 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
     void load();
   }, [load]);
 
-  const trends = useMemo(
-    () => ({
-      today: `${revenue.todayOrders} ${t('admin.ordersCountLabel')}`,
-      week: `${revenue.weekOrders} ${t('admin.ordersCountLabel')}`,
-      month: `${revenue.monthOrders} ${t('admin.ordersCountLabel')}`,
-    }),
-    [revenue, t],
-  );
-
   const navigateToAdminStackScreen = (screen: 'AdminLoyalty' | 'AdminProfile') => {
     navigation.getParent()?.navigate(screen as never);
   };
+
+  const quickActions = useMemo<QuickAction[]>(
+    () => [
+      {
+        key: 'menu',
+        label: t('admin.menuSections'),
+        icon: 'restaurant',
+        value: String(stats.sections),
+        onPress: () => navigation.navigate('AdminMenu'),
+      },
+      {
+        key: 'promotions',
+        label: t('admin.promotionsTitle'),
+        icon: 'pricetag',
+        value: String(stats.promotions),
+        onPress: () => navigation.navigate('AdminPromotions'),
+      },
+      {
+        key: 'loyalty',
+        label: t('admin.loyaltyTitle'),
+        icon: 'gift',
+        value: String(stats.loyaltyRules),
+        onPress: () => navigateToAdminStackScreen('AdminLoyalty'),
+      },
+      {
+        key: 'scheduling',
+        label: t('admin.schedulingTitle'),
+        icon: 'calendar',
+        value: orderAnalytics.totalOrdersToday ? orderAnalytics.pickupDeliveryRatio : t('admin.none'),
+        onPress: () => navigation.navigate('AdminScheduling'),
+      },
+      {
+        key: 'staff',
+        label: t('admin.staffTitle'),
+        icon: 'people-circle',
+        value: String(driverAnalytics.deliveriesPerDriver.length),
+        onPress: () => navigation.navigate('AdminStaff'),
+      },
+      {
+        key: 'users',
+        label: t('admin.usersTitle'),
+        icon: 'people',
+        value: String(stats.users),
+        onPress: () => navigation.navigate('AdminUsers'),
+      },
+      {
+        key: 'delivery',
+        label: t('admin.deliveryTitle'),
+        icon: 'bicycle',
+        value: String(orderAnalytics.deliveryOrdersToday),
+        onPress: () => navigation.navigate('AdminDelivery'),
+      },
+      {
+        key: 'profile',
+        label: t('admin.profileTitle'),
+        icon: 'person-circle-outline',
+        value: t('admin.tapToOpen'),
+        onPress: () => navigateToAdminStackScreen('AdminProfile'),
+      },
+    ],
+    [driverAnalytics.deliveriesPerDriver.length, navigation, orderAnalytics.deliveryOrdersToday, orderAnalytics.pickupDeliveryRatio, orderAnalytics.totalOrdersToday, stats.loyaltyRules, stats.promotions, stats.sections, stats.users, t],
+  );
+
+  const attentionItems = useMemo(() => {
+    const items: string[] = [];
+    if (stats.promotions === 0) items.push(t('admin.attentionNoPromotions'));
+    if (stats.loyaltyRules === 0) items.push(t('admin.attentionNoLoyaltyRules'));
+    if (latestOrders.length === 0) items.push(t('admin.attentionNoRecentOrders'));
+    if (ratingsSummary.totalRatings === 0) items.push(t('admin.attentionNoRatings'));
+    return items;
+  }, [latestOrders.length, ratingsSummary.totalRatings, stats.loyaltyRules, stats.promotions, t]);
+
+  const revenueCards = useMemo(
+    () => [
+      { key: 'today', label: t('admin.revenueToday'), value: formatCurrency(revenue.today, language), meta: `${revenue.todayOrders} ${t('admin.ordersCountLabel')}` },
+      { key: 'week', label: t('admin.revenue7Days'), value: formatCurrency(revenue.week, language), meta: `${revenue.weekOrders} ${t('admin.ordersCountLabel')}` },
+      { key: 'month', label: t('admin.revenue30Days'), value: formatCurrency(revenue.month, language), meta: `${revenue.monthOrders} ${t('admin.ordersCountLabel')}` },
+    ],
+    [language, revenue.month, revenue.monthOrders, revenue.today, revenue.todayOrders, revenue.week, revenue.weekOrders, t],
+  );
+
+  const kpiCards = useMemo(
+    () => [
+      { key: 'orders', label: t('admin.totalOrdersToday'), value: String(orderAnalytics.totalOrdersToday), meta: orderAnalytics.pickupDeliveryRatio },
+      { key: 'average', label: t('admin.averageOrderValue'), value: formatCurrency(orderAnalytics.averageOrderValue, language), meta: `${orderAnalytics.pickupOrdersToday}/${orderAnalytics.deliveryOrdersToday}` },
+      { key: 'deliveries', label: t('admin.deliveriesCompletedToday'), value: String(driverAnalytics.deliveriesCompletedToday), meta: t('admin.driverAnalyticsTitle') },
+      { key: 'rating', label: t('admin.averageRating'), value: `${ratingsSummary.averageRating.toFixed(1)} / 5`, meta: `${ratingsSummary.totalRatings} ${t('admin.totalRatings').toLowerCase()}` },
+    ],
+    [driverAnalytics.deliveriesCompletedToday, language, orderAnalytics.averageOrderValue, orderAnalytics.deliveryOrdersToday, orderAnalytics.pickupOrdersToday, orderAnalytics.pickupDeliveryRatio, orderAnalytics.totalOrdersToday, ratingsSummary.averageRating, ratingsSummary.totalRatings, t],
+  );
+
+  const latestOrdersPreview = latestOrders.slice(0, 3);
+  const recentRatingsPreview = recentRatings.slice(0, 3);
+  const driverPreview = driverAnalytics.deliveriesPerDriver.slice(0, 3);
 
   if (loading) {
     return <LoadingState label={t('common.loading')} />;
@@ -148,199 +241,133 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
         </AppText>
       </View>
 
-      <AdminPageSection title={t('admin.quickActions')}>
-        <View style={[styles.grid, isCompact ? styles.gridCompact : null]}>
-          <Pressable
-            onPress={() => navigation.navigate('AdminMenu')}
-            style={({ pressed }) => (pressed ? styles.pressed : null)}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={t('admin.menuSections')}>
-            <AppCard style={styles.cardInteractive}>
-              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
-                  <Ionicons name="restaurant" size={18} color={theme.colors.primary600} />
+      <AdminPageSection title={t('admin.quickActions')} subtitle={t('admin.tapToOpen')}>
+        <View style={[styles.quickActionsGrid, isCompact ? styles.quickActionsGridCompact : null]}>
+          {quickActions.map((action) => (
+            <Pressable
+              key={action.key}
+              onPress={action.onPress}
+              style={({ pressed }) => [styles.quickActionPressable, pressed ? styles.pressed : null]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}>
+              <AppCard style={styles.quickActionCard}>
+                <View style={[styles.quickActionHeader, mirroredRow(isRTL)]}>
+                  <View style={styles.iconWrap}>
+                    <Ionicons name={action.icon} size={18} color={theme.colors.primary600} />
+                  </View>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
                 </View>
-                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
-              </View>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.menuSections')}</AppText>
-              <View style={[styles.statRow, mirroredRow(isRTL)]}>
-                <AppText variant="h1">{stats.sections}</AppText>
-                <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-              </View>
-            </AppCard>
-          </Pressable>
-
-          <Pressable
-            onPress={() => navigation.navigate('AdminPromotions')}
-            style={({ pressed }) => (pressed ? styles.pressed : null)}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={t('admin.promotionsTitle')}>
-            <AppCard style={styles.cardInteractive}>
-              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
-                  <Ionicons name="pricetag" size={18} color={theme.colors.primary600} />
-                </View>
-                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
-              </View>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.promotionsTitle')}</AppText>
-              <View style={[styles.statRow, mirroredRow(isRTL)]}>
-                <AppText variant="h1">{stats.promotions}</AppText>
-                <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-              </View>
-            </AppCard>
-          </Pressable>
-
-          <Pressable
-            onPress={() => navigateToAdminStackScreen('AdminLoyalty')}
-            style={({ pressed }) => (pressed ? styles.pressed : null)}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={t('admin.loyaltyTitle')}>
-            <AppCard style={styles.cardInteractive}>
-              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
-                  <Ionicons name="gift" size={18} color={theme.colors.primary600} />
-                </View>
-                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
-              </View>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.loyaltyTitle')}</AppText>
-              <View style={[styles.statRow, mirroredRow(isRTL)]}>
-                <AppText variant="h1">{stats.loyaltyRules}</AppText>
-                <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-              </View>
-            </AppCard>
-          </Pressable>
-
-          <Pressable
-            onPress={() => navigation.navigate('AdminUsers')}
-            style={({ pressed }) => (pressed ? styles.pressed : null)}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={t('admin.usersTitle')}>
-            <AppCard style={styles.cardInteractive}>
-              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
-                  <Ionicons name="people" size={18} color={theme.colors.primary600} />
-                </View>
-                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
-              </View>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.usersTitle')}</AppText>
-              <View style={[styles.statRow, mirroredRow(isRTL)]}>
-                <AppText variant="h1">{stats.users}</AppText>
-                <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-              </View>
-            </AppCard>
-          </Pressable>
-
-          <Pressable
-            onPress={() => navigateToAdminStackScreen('AdminProfile')}
-            style={({ pressed }) => (pressed ? styles.pressed : null)}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={t('admin.profileTitle')}>
-            <AppCard style={styles.cardInteractive}>
-              <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-                <View style={[styles.iconWrap, mirroredRow(isRTL)]}>
-                  <Ionicons name="person-circle-outline" size={18} color={theme.colors.primary600} />
-                </View>
-                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
-              </View>
-              <AppText variant="h3" numberOfLines={2}>{t('admin.profileTitle')}</AppText>
-              <View style={[styles.statRow, mirroredRow(isRTL)]}>
-                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.tapToOpen')}</AppText>
-              </View>
-            </AppCard>
-          </Pressable>
+                <AppText variant="h3" numberOfLines={2}>
+                  {action.label}
+                </AppText>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary} numberOfLines={2}>
+                  {action.value}
+                </AppText>
+              </AppCard>
+            </Pressable>
+          ))}
         </View>
       </AdminPageSection>
 
       <AdminPageSection title={t('admin.revenueSummary')}>
-        <View style={[styles.revenueRow, isCompact ? styles.revenueRowCompact : null]}>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.revenueToday')}</AppText>
-            <AppText variant="h3" numberOfLines={2}>{formatCurrency(revenue.today, language)}</AppText>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{trends.today}</AppText>
-          </View>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.revenue7Days')}</AppText>
-            <AppText variant="h3" numberOfLines={2}>{formatCurrency(revenue.week, language)}</AppText>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{trends.week}</AppText>
-          </View>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.revenue30Days')}</AppText>
-            <AppText variant="h3" numberOfLines={2}>{formatCurrency(revenue.month, language)}</AppText>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{trends.month}</AppText>
-          </View>
+        <View style={[styles.cardGrid, isCompact ? styles.cardGridCompact : null]}>
+          {revenueCards.map((card) => (
+            <AppCard key={card.key} style={styles.metricCard}>
+              <AppText variant="caption" color={theme.colors.textSecondary}>
+                {card.label}
+              </AppText>
+              <AppText variant="h3">{card.value}</AppText>
+              <AppText variant="caption" color={theme.colors.textSecondary}>
+                {card.meta}
+              </AppText>
+            </AppCard>
+          ))}
         </View>
       </AdminPageSection>
 
-      <AdminPageSection title={t('admin.ordersAnalyticsTitle')}>
-        <View style={[styles.revenueRow, isCompact ? styles.revenueRowCompact : null]}>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.totalOrdersToday')}</AppText>
-            <AppText variant="h3">{orderAnalytics.totalOrdersToday}</AppText>
-          </View>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.pickupDeliveryRatio')}</AppText>
-            <AppText variant="h3">{orderAnalytics.pickupDeliveryRatio}</AppText>
-            <AppText variant="caption" color={theme.colors.textSecondary}>
-              {`${orderAnalytics.pickupOrdersToday}/${orderAnalytics.deliveryOrdersToday}`}
+      <AdminPageSection title={t('admin.attentionTitle')}>
+        {attentionItems.length === 0 ? (
+          <AppCard style={styles.healthyCard}>
+            <AppText variant="h3">{t('admin.healthyStateTitle')}</AppText>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t('admin.healthyStateSubtitle')}
             </AppText>
+          </AppCard>
+        ) : (
+          <View style={styles.stack}>
+            {attentionItems.map((item) => (
+              <AppCard key={item} style={styles.attentionCard}>
+                <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
+                  <Ionicons name="alert-circle-outline" size={18} color={theme.colors.warning} />
+                  <AppText variant="bodySmall" style={styles.grow}>
+                    {item}
+                  </AppText>
+                </View>
+              </AppCard>
+            ))}
           </View>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.averageOrderValue')}</AppText>
-            <AppText variant="h3">{formatCurrency(orderAnalytics.averageOrderValue, language)}</AppText>
-          </View>
+        )}
+      </AdminPageSection>
+
+      <AdminPageSection title={t('admin.ordersAnalyticsTitle')}>
+        <View style={[styles.cardGrid, isCompact ? styles.cardGridCompact : null]}>
+          {kpiCards.map((card) => (
+            <AppCard key={card.key} style={styles.metricCard}>
+              <AppText variant="caption" color={theme.colors.textSecondary}>
+                {card.label}
+              </AppText>
+              <AppText variant="h3">{card.value}</AppText>
+              <AppText variant="caption" color={theme.colors.textSecondary}>
+                {card.meta}
+              </AppText>
+            </AppCard>
+          ))}
         </View>
       </AdminPageSection>
 
       <AdminPageSection title={t('admin.driverAnalyticsTitle')}>
-        <View style={[styles.revenueRow, isCompact ? styles.revenueRowCompact : null]}>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.deliveriesCompletedToday')}</AppText>
-            <AppText variant="h3">{driverAnalytics.deliveriesCompletedToday}</AppText>
-          </View>
-        </View>
-        <View style={styles.reviewsWrap}>
-          {driverAnalytics.deliveriesPerDriver.length === 0 ? (
-            <AppCard>
-              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                {t('admin.noDriverDeliveries')}
-              </AppText>
-            </AppCard>
-          ) : (
-            driverAnalytics.deliveriesPerDriver.map((driver) => (
-              <AppCard key={driver.driver_id} style={styles.reviewCard}>
-                <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-                  <AppText variant="h3">{driver.driver_name}</AppText>
-                  <AppText variant="caption" color={theme.colors.textSecondary}>
-                    {driver.deliveries_completed_today}
+        {driverPreview.length === 0 ? (
+          <AppCard>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t('admin.noDriverDeliveries')}
+            </AppText>
+          </AppCard>
+        ) : (
+          <View style={styles.stack}>
+            {driverPreview.map((driver) => (
+              <AppCard key={driver.driver_id} style={styles.listCard}>
+                <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
+                  <AppText variant="h3" style={styles.grow}>
+                    {driver.driver_name}
                   </AppText>
+                  <BadgeChip label={String(driver.deliveries_completed_today)} tone="info" />
                 </View>
               </AppCard>
-            ))
-          )}
-        </View>
+            ))}
+          </View>
+        )}
       </AdminPageSection>
 
       <AdminPageSection title={t('admin.latestOrdersTitle')}>
-        <View style={styles.reviewsWrap}>
-          {latestOrders.length === 0 ? (
-            <AppCard>
-              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                {t('admin.noLatestOrders')}
-              </AppText>
-            </AppCard>
-          ) : (
-            latestOrders.map((order) => (
-              <AppCard key={order.id} style={styles.reviewCard}>
-                <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
+        {latestOrdersPreview.length === 0 ? (
+          <AppCard>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t('admin.noLatestOrders')}
+            </AppText>
+          </AppCard>
+        ) : (
+          <View style={styles.stack}>
+            {latestOrdersPreview.map((order) => (
+              <AppCard key={order.id} style={styles.listCard}>
+                <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
                   <AppText variant="h3">#{order.order_number}</AppText>
-                  <BadgeChip label={t(`status.${order.status}`)} tone={order.status === 'COMPLETED' ? 'success' : order.status === 'CANCELLED' ? 'error' : 'warning'} />
+                  <BadgeChip
+                    label={t(`status.${order.status}`)}
+                    tone={order.status === 'COMPLETED' ? 'success' : order.status === 'CANCELLED' ? 'error' : 'warning'}
+                  />
                 </View>
-                <View style={[styles.breakdownLine, mirroredRow(isRTL)]}>
+                <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
                   <AppText variant="caption" color={theme.colors.textSecondary}>
                     {formatDateTime(order.created_at, language)}
                   </AppText>
@@ -349,65 +376,72 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
                   </AppText>
                 </View>
               </AppCard>
-            ))
-          )}
-        </View>
+            ))}
+          </View>
+        )}
       </AdminPageSection>
 
       <AdminPageSection title={t('admin.ratingsOverviewTitle')}>
-        <View style={[styles.revenueRow, isCompact ? styles.revenueRowCompact : null]}>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.averageRating')}</AppText>
-            <AppText variant="h3">{ratingsSummary.averageRating.toFixed(1)}</AppText>
-          </View>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.totalRatings')}</AppText>
+        <View style={[styles.cardGrid, isCompact ? styles.cardGridCompact : null]}>
+          <AppCard style={styles.metricCard}>
+            <AppText variant="caption" color={theme.colors.textSecondary}>
+              {t('admin.averageRating')}
+            </AppText>
+            <AppText variant="h3">{`${ratingsSummary.averageRating.toFixed(1)} / 5`}</AppText>
+          </AppCard>
+          <AppCard style={styles.metricCard}>
+            <AppText variant="caption" color={theme.colors.textSecondary}>
+              {t('admin.totalRatings')}
+            </AppText>
             <AppText variant="h3">{ratingsSummary.totalRatings}</AppText>
-          </View>
-          <View style={styles.revenueItem}>
-            <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.recentReviews')}</AppText>
+          </AppCard>
+          <AppCard style={styles.metricCard}>
+            <AppText variant="caption" color={theme.colors.textSecondary}>
+              {t('admin.recentReviews')}
+            </AppText>
             <View style={styles.breakdownWrap}>
               {[5, 4, 3, 2, 1].map((stars) => (
-                <View key={`stars-${stars}`} style={[styles.breakdownLine, mirroredRow(isRTL)]}>
-                  <AppText variant="caption">{`${stars}★`}</AppText>
+                <View key={`stars-${stars}`} style={[styles.inlineRow, mirroredRow(isRTL)]}>
+                  <AppText variant="caption">{`${stars}/5`}</AppText>
                   <AppText variant="caption" color={theme.colors.textSecondary}>
                     {ratingsSummary.starsBreakdown[String(stars)] ?? 0}
                   </AppText>
                 </View>
               ))}
             </View>
-          </View>
+          </AppCard>
         </View>
 
-        <View style={styles.reviewsWrap}>
-          {recentRatings.length === 0 ? (
-            <AppCard>
-              <AppText variant="h3">{t('admin.noReviewsTitle')}</AppText>
-              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                {t('admin.noReviewsSubtitle')}
-              </AppText>
-            </AppCard>
-          ) : (
-            recentRatings.map((rating) => (
-              <AppCard key={`${rating.order_id}-${rating.created_at}`} style={styles.reviewCard}>
-                <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
-                  <AppText variant="h3">{rating.customer_name}</AppText>
+        {recentRatingsPreview.length === 0 ? (
+          <AppCard>
+            <AppText variant="h3">{t('admin.noReviewsTitle')}</AppText>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t('admin.noReviewsSubtitle')}
+            </AppText>
+          </AppCard>
+        ) : (
+          <View style={styles.stack}>
+            {recentRatingsPreview.map((rating) => (
+              <AppCard key={`${rating.order_id}-${rating.created_at}`} style={styles.listCard}>
+                <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
+                  <AppText variant="h3" style={styles.grow}>
+                    {rating.customer_name}
+                  </AppText>
                   <AppText variant="caption" color={theme.colors.textSecondary}>
                     {formatDateTime(rating.created_at, language)}
                   </AppText>
                 </View>
-                <AppText variant="bodySmall">{`${'★'.repeat(rating.stars)}${'☆'.repeat(5 - rating.stars)}`}</AppText>
+                <AppText variant="bodySmall">{`${rating.stars}/5`}</AppText>
                 {rating.note ? (
                   <AppText variant="bodySmall" color={theme.colors.textSecondary}>
                     {rating.note}
                   </AppText>
                 ) : null}
               </AppCard>
-            ))
-          )}
-        </View>
+            ))}
+          </View>
+        )}
       </AdminPageSection>
-
     </AppShell>
   );
 };
@@ -416,22 +450,27 @@ const styles = StyleSheet.create({
   headingBlock: {
     gap: theme.spacing.xs,
   },
-  grid: {
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: theme.spacing.md,
   },
-  gridCompact: {
+  quickActionsGridCompact: {
     gap: theme.spacing.sm,
   },
-  cardInteractive: {
-    borderColor: theme.colors.primary200,
+  quickActionPressable: {
+    width: '48%',
+  },
+  quickActionCard: {
+    gap: theme.spacing.sm,
+    minHeight: 132,
     backgroundColor: theme.colors.secondaryCream,
-    gap: theme.spacing.sm,
+    borderColor: theme.colors.primary200,
   },
-  cardHeader: {
+  quickActionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: theme.spacing.sm,
   },
   iconWrap: {
     width: 32,
@@ -443,42 +482,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  statRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: theme.spacing.sm,
-  },
-  revenueRow: {
+  cardGrid: {
     gap: theme.spacing.md,
   },
-  revenueRowCompact: {
+  cardGridCompact: {
     gap: theme.spacing.sm,
   },
-  revenueItem: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.sm,
-    borderWidth: 1,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.secondaryCream,
-    borderColor: theme.colors.border,
+  metricCard: {
     gap: theme.spacing.xs,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
   },
-  pressed: {
-    opacity: 0.8,
+  healthyCard: {
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.successSurface,
+    borderColor: theme.colors.success,
+  },
+  attentionCard: {
+    backgroundColor: theme.colors.warningSurface,
+    borderColor: theme.colors.warning,
+  },
+  stack: {
+    gap: theme.spacing.sm,
+  },
+  listCard: {
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.secondaryCream,
+    borderColor: theme.colors.primary200,
+  },
+  inlineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  grow: {
+    flex: 1,
   },
   breakdownWrap: {
     gap: theme.spacing.xs,
   },
-  breakdownLine: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  reviewsWrap: {
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.sm,
-  },
-  reviewCard: {
-    gap: theme.spacing.xs,
+  pressed: {
+    opacity: 0.8,
   },
 });

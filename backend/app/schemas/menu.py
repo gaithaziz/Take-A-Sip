@@ -1,7 +1,7 @@
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from app.schemas.base import AppBaseModel
 
@@ -68,6 +68,8 @@ class MenuResponse(AppBaseModel):
 
 
 class SectionCreate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     name_en: str = Field(min_length=1, max_length=120)
     name_ar: str = Field(min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
@@ -75,6 +77,8 @@ class SectionCreate(AppBaseModel):
 
 
 class ItemCreate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     section_id: UUID
     name_en: str = Field(min_length=1, max_length=120)
     name_ar: str = Field(min_length=1, max_length=120)
@@ -85,6 +89,8 @@ class ItemCreate(AppBaseModel):
 
 
 class ItemTypeCreate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     item_id: UUID
     name_en: str = Field(min_length=1, max_length=120)
     name_ar: str = Field(min_length=1, max_length=120)
@@ -93,20 +99,24 @@ class ItemTypeCreate(AppBaseModel):
 
 
 class SizeCreate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     type_id: UUID
     name_en: str = Field(min_length=1, max_length=120)
     name_ar: str = Field(min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
-    price: Decimal
+    price: Decimal = Field(ge=0)
     sort_order: int = 0
 
 
 class AddonCreate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     size_id: UUID
     name_en: str = Field(min_length=1, max_length=120)
     name_ar: str = Field(min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
-    price: Decimal
+    price: Decimal = Field(ge=0)
     sort_order: int = 0
 
 
@@ -150,6 +160,8 @@ class ScheduleUpdateRequest(AppBaseModel):
 
 
 class SectionUpdate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     name_en: str | None = Field(default=None, min_length=1, max_length=120)
     name_ar: str | None = Field(default=None, min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
@@ -158,6 +170,9 @@ class SectionUpdate(AppBaseModel):
 
 
 class ItemUpdate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    section_id: UUID | None = None
     name_en: str | None = Field(default=None, min_length=1, max_length=120)
     name_ar: str | None = Field(default=None, min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
@@ -168,6 +183,9 @@ class ItemUpdate(AppBaseModel):
 
 
 class ItemTypeUpdate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    item_id: UUID | None = None
     name_en: str | None = Field(default=None, min_length=1, max_length=120)
     name_ar: str | None = Field(default=None, min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
@@ -176,18 +194,39 @@ class ItemTypeUpdate(AppBaseModel):
 
 
 class SizeUpdate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type_id: UUID | None = None
     name_en: str | None = Field(default=None, min_length=1, max_length=120)
     name_ar: str | None = Field(default=None, min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
-    price: Decimal | None = None
+    price: Decimal | None = Field(default=None, ge=0)
     sort_order: int | None = None
     is_active: bool | None = None
 
 
 class AddonUpdate(AppBaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    size_id: UUID | None = None
     name_en: str | None = Field(default=None, min_length=1, max_length=120)
     name_ar: str | None = Field(default=None, min_length=1, max_length=120)
     image_url: str | None = Field(default=None, max_length=500)
-    price: Decimal | None = None
+    price: Decimal | None = Field(default=None, ge=0)
     sort_order: int | None = None
     is_active: bool | None = None
+
+
+class MenuDeleteCounts(AppBaseModel):
+    sections: int = 0
+    items: int = 0
+    types: int = 0
+    sizes: int = 0
+    addons: int = 0
+    schedules: int = 0
+
+
+class MenuDeleteResponse(AppBaseModel):
+    id: UUID
+    kind: str = Field(pattern='^(section|item|type|size|addon)$')
+    deleted_counts: MenuDeleteCounts

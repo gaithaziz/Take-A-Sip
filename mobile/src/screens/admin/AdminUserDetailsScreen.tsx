@@ -35,6 +35,7 @@ const toneByStatus: Record<OrderRead['status'], 'info' | 'success' | 'warning' |
   ACCEPTED: 'info',
   ASSIGNED: 'info',
   OUT_FOR_DELIVERY: 'info',
+  DELIVERED: 'info',
   COMPLETED: 'success',
   CANCELLED: 'error',
 };
