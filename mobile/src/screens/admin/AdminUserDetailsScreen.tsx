@@ -8,7 +8,7 @@ import { AppButton } from '@/components/AppButton';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { ListPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { ExpandableText } from '@/components/admin/ExpandableText';
 import { InfoLine } from '@/components/admin/InfoLine';
 import { RootStackParamList } from '@/navigation/types';
@@ -127,7 +127,7 @@ export const AdminUserDetailsScreen = ({ route, navigation }: Props) => {
       }
       ListEmptyComponent={
         loading ? (
-          <LoadingState label={t('common.loading')} />
+          <ListPageSkeleton isRTL={isRTL} shell={false} cards={3} />
         ) : error ? (
           <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />
         ) : (

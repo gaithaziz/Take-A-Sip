@@ -1,5 +1,6 @@
-import { createContext, PropsWithChildren, useContext, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useAuth } from '@/state/AuthContext';
 import { Addon, Item, ItemType, Size } from '@/types/api';
 import { toNumber } from '@/utils/format';
 
@@ -32,7 +33,17 @@ const computeLineTotal = (item: CartItem): number => {
 };
 
 export const CartProvider = ({ children }: PropsWithChildren) => {
+  const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
+  const previousUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const nextUserId = user?.id ?? null;
+    if (previousUserIdRef.current !== null && previousUserIdRef.current !== nextUserId) {
+      setItems([]);
+    }
+    previousUserIdRef.current = nextUserId;
+  }, [user?.id]);
 
   const addItem = (newItem: Omit<CartItem, 'id'>) => {
     const id = `${newItem.size.id}:${newItem.addons.map((a) => a.id).sort().join(',')}`;

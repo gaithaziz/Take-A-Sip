@@ -98,6 +98,10 @@ export const ProfileScreen = ({ navigation }: Props) => {
       lastName={lastName}
       saveProfileLabel={t('profile.saveProfile')}
       editProfileLabel={t('profile.editProfile')}
+      accountDetailsLabel={t('profile.accountDetails')}
+      quickActionsLabel={t('profile.quickActions')}
+      preferencesLabel={t('profile.preferences')}
+      accountSafetyLabel={t('profile.accountSafety')}
       ordersShortcutLabel={t('profile.orderHistory')}
       cartShortcutLabel={t('profile.currentCart')}
       addressesShortcutLabel={t('profile.savedAddresses')}

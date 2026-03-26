@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
@@ -26,6 +27,10 @@ type ProfileScreenViewProps = {
   lastName: string;
   saveProfileLabel: string;
   editProfileLabel: string;
+  accountDetailsLabel: string;
+  quickActionsLabel: string;
+  preferencesLabel: string;
+  accountSafetyLabel: string;
   ordersShortcutLabel: string;
   cartShortcutLabel: string;
   addressesShortcutLabel: string;
@@ -78,6 +83,10 @@ export const ProfileScreenView = ({
   lastName,
   saveProfileLabel,
   editProfileLabel,
+  accountDetailsLabel,
+  quickActionsLabel,
+  preferencesLabel,
+  accountSafetyLabel,
   ordersShortcutLabel,
   cartShortcutLabel,
   addressesShortcutLabel,
@@ -125,16 +134,23 @@ export const ProfileScreenView = ({
             </AppText>
           </View>
         </View>
-        {!isEditing ? (
-          <View style={styles.heroActions}>
-            <AppButton title={ordersShortcutLabel} onPress={onOpenOrders} />
-            <AppButton title={editProfileLabel} variant="secondary" onPress={onStartEdit} />
-          </View>
-        ) : null}
+        <View style={[styles.statusChip, mirroredRow(isRTL)]}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.success} />
+          <AppText variant="caption" color={theme.colors.success}>
+            {accountStatusValue}
+          </AppText>
+        </View>
+        <View style={styles.heroActions}>
+          <AppButton title={ordersShortcutLabel} onPress={onOpenOrders} />
+          <AppButton title={cartShortcutLabel} variant="secondary" onPress={onOpenCart} />
+        </View>
       </AppCard>
 
       <AppCard style={styles.sectionCard}>
-        <AppText variant="h3">{editProfileLabel}</AppText>
+        <View style={styles.sectionHeader}>
+          <AppText variant="h3">{accountDetailsLabel}</AppText>
+          {!isEditing ? <AppButton title={editProfileLabel} variant="ghost" fullWidth={false} onPress={onStartEdit} /> : null}
+        </View>
         {isEditing ? (
           <View style={styles.formStack}>
             <AppInput label={firstNameLabel} value={firstName} onChangeText={onChangeFirstName} />
@@ -153,16 +169,26 @@ export const ProfileScreenView = ({
           <View style={styles.readOnlyInfo}>
             <ProfileRow label={firstNameLabel} value={firstName} />
             <ProfileRow label={lastNameLabel} value={lastName} />
+            <ProfileRow label={phoneLabel} value={phoneValue} />
           </View>
         )}
       </AppCard>
 
       <AppCard style={styles.sectionCard}>
-        <AppText variant="h3">{settingsLabel}</AppText>
+        <AppText variant="h3">{quickActionsLabel}</AppText>
+        <View style={styles.quickActionsGrid}>
+          <AppButton title={ordersShortcutLabel} variant="secondary" onPress={onOpenOrders} />
+          <AppButton title={cartShortcutLabel} variant="secondary" onPress={onOpenCart} />
+        </View>
+      </AppCard>
+
+      <AppCard style={styles.sectionCard}>
+        <AppText variant="h3">{preferencesLabel}</AppText>
+        <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+          {settingsLabel}
+        </AppText>
         <View style={styles.readOnlyInfo}>
           <ProfileRow label={languageLabel} value={languageValue} onPress={onToggleLanguage} />
-          <ProfileRow label={ordersShortcutLabel} onPress={onOpenOrders} />
-          <ProfileRow label={cartShortcutLabel} onPress={onOpenCart} />
         </View>
       </AppCard>
 
@@ -194,13 +220,18 @@ export const ProfileScreenView = ({
       </AppCard>
 
       <AppCard style={styles.sectionCard}>
-        <AppText variant="h3">{accountStatusLabel}</AppText>
+        <AppText variant="h3">{accountSafetyLabel}</AppText>
         <ProfileRow label={accountStatusLabel} value={accountStatusValue} />
+        <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+          {accountSupportHint}
+        </AppText>
       </AppCard>
 
-      <View style={styles.logoutWrap}>
-        <AppButton title={logoutLabel} variant="destructive" onPress={onLogout} />
-      </View>
+      <AppCard style={styles.safetyCard}>
+        <View style={styles.logoutWrap}>
+          <AppButton title={logoutLabel} variant="destructive" onPress={onLogout} />
+        </View>
+      </AppCard>
     </AppShell>
   );
 };
@@ -213,6 +244,17 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
     backgroundColor: theme.colors.secondaryCream,
     borderColor: theme.colors.primary200,
+  },
+  statusChip: {
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.successSurface,
+    borderWidth: 1,
+    borderColor: '#cfe2d1',
   },
   userRow: {
     alignItems: 'center',
@@ -237,11 +279,20 @@ const styles = StyleSheet.create({
   sectionCard: {
     gap: theme.spacing.md,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
   formStack: {
     gap: theme.spacing.md,
   },
   readOnlyInfo: {
     gap: theme.spacing.xs,
+  },
+  quickActionsGrid: {
+    gap: theme.spacing.sm,
   },
   actionRow: {
     justifyContent: 'flex-end',
@@ -249,8 +300,13 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     flexWrap: 'wrap',
   },
+  safetyCard: {
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.errorSurface,
+    borderColor: '#efc8c3',
+  },
   logoutWrap: {
-    paddingTop: theme.spacing.sm,
+    paddingTop: theme.spacing.xs,
   },
   addressList: {
     gap: theme.spacing.sm,

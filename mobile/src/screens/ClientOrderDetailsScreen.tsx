@@ -10,7 +10,7 @@ import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { DetailPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { TopAppBar } from '@/components/TopAppBar';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
@@ -94,7 +94,7 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
   };
 
   if (loading) {
-    return <LoadingState label={t('common.loading')} />;
+    return <DetailPageSkeleton isRTL={isRTL} />;
   }
 
   if (error || !order) {

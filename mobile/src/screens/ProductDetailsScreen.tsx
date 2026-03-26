@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -103,7 +103,8 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
       addons: selectedAddons,
       quantity,
     });
-    navigation.navigate('Cart');
+    Alert.alert(t('common.appName'), t('product.addedToCart'));
+    navigation.goBack();
   };
 
   return (
@@ -112,6 +113,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
       <View style={styles.container}>
         <ScrollView
           showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled">
           {item.image_url ? (

@@ -9,11 +9,11 @@ import { AppInput } from '@/components/AppInput';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
 import { ActionRow } from '@/components/admin/ActionRow';
 import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { ExpandableText } from '@/components/admin/ExpandableText';
 import { InfoLine } from '@/components/admin/InfoLine';
+import { ListPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
@@ -272,7 +272,7 @@ export const AdminLoyaltyRulesScreen = ({ navigation }: Props) => {
       }
       ListEmptyComponent={
         loading ? (
-          <LoadingState label={t('common.loading')} />
+          <ListPageSkeleton isRTL={isRTL} shell={false} cards={3} />
         ) : error ? (
           <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />
         ) : (

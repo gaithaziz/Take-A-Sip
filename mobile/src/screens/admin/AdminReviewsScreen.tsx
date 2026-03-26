@@ -7,7 +7,7 @@ import { AppCard } from '@/components/AppCard';
 import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { ListPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
@@ -69,7 +69,7 @@ export const AdminReviewsScreen = ({ navigation }: Props) => {
   };
 
   if (loading) {
-    return <LoadingState label={t('common.loading')} />;
+    return <ListPageSkeleton isRTL={false} cards={4} />;
   }
 
   if (error) {

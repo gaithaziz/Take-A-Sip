@@ -74,6 +74,7 @@ export const HomeScreen = ({ navigation }: Props) => {
       sections.map((section) => ({
         id: section.id,
         title: getLocalizedValue(section, language, 'name'),
+        imageUrl: section.image_url,
         data: section.items.filter((item) => item.is_active),
       })),
     [language, sections],

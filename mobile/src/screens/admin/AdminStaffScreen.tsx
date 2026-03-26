@@ -8,10 +8,10 @@ import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
 import { ActionRow } from '@/components/admin/ActionRow';
 import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { InfoLine } from '@/components/admin/InfoLine';
+import { ListPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { adminService } from '@/services/adminService';
 import { useAuth } from '@/state/AuthContext';
@@ -146,7 +146,7 @@ export const AdminStaffScreen = () => {
   };
 
   if (loading) {
-    return <LoadingState label={t('common.loading')} />;
+    return <ListPageSkeleton isRTL={isRTL} showFilters cards={3} />;
   }
 
   if (error) {

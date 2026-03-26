@@ -9,13 +9,13 @@ import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { DateTimeField } from '@/components/DateTimeField';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
 import { ActionRow } from '@/components/admin/ActionRow';
 import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { BilingualFieldGroup } from '@/components/admin/BilingualFieldGroup';
 import { ExpandableText } from '@/components/admin/ExpandableText';
 import { InfoLine } from '@/components/admin/InfoLine';
 import { SelectDropdownField } from '@/components/admin/SelectDropdownField';
+import { DetailPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
@@ -559,7 +559,7 @@ export const AdminPromotionsScreen = () => {
     );
   };
 
-  if (loading) return <LoadingState label={t('common.loading')} />;
+  if (loading) return <DetailPageSkeleton isRTL={isRTL} sections={4} />;
   if (error) return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
 
   return (

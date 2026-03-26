@@ -8,7 +8,7 @@ import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { ListPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { DriverTabParamList } from '@/navigation/types';
 import { orderService } from '@/services/orderService';
@@ -51,7 +51,7 @@ export const DriverOrdersScreen = ({ navigation }: Props) => {
   );
 
   if (loading) {
-    return <LoadingState label={t('common.loading')} />;
+    return <ListPageSkeleton isRTL={isRTL} />;
   }
 
   if (error) {

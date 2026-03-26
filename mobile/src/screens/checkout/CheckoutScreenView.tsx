@@ -161,6 +161,7 @@ export const CheckoutScreenView = ({
 
       <ScrollView
         style={styles.scroll}
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[
           styles.scrollContent,
           {

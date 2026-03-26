@@ -18,6 +18,10 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'profile.phone': 'Phone',
         'profile.editProfile': 'Edit profile',
         'profile.saveProfile': 'Save changes',
+        'profile.accountDetails': 'Account details',
+        'profile.quickActions': 'Quick actions',
+        'profile.preferences': 'Preferences',
+        'profile.accountSafety': 'Account safety',
         'profile.orderHistory': 'Order history',
         'profile.currentCart': 'Current cart',
         'profile.savedAddresses': 'Saved addresses',
@@ -97,5 +101,22 @@ describe('ProfileScreen', () => {
     await waitFor(() => {
       expect(mockUpdateProfile).toHaveBeenCalledWith({ first_name: 'Sarah', last_name: 'Nour' });
     });
+  });
+
+  it('renders the reorganized profile hub sections and quick actions', async () => {
+    const { getAllByText, getByText } = render(
+      <ProfileScreen navigation={{ navigate: mockNavigate, getParent: () => ({ navigate: mockNavigate }) } as never} route={{} as never} />,
+    );
+
+    await waitFor(() => {
+      expect(getByText('Quick actions')).toBeTruthy();
+    });
+
+    expect(getByText('Account details')).toBeTruthy();
+    expect(getByText('Preferences')).toBeTruthy();
+    expect(getByText('Saved addresses')).toBeTruthy();
+    expect(getByText('Account safety')).toBeTruthy();
+    expect(getAllByText('Current cart').length).toBeGreaterThan(0);
+    expect(getByText('Language')).toBeTruthy();
   });
 });

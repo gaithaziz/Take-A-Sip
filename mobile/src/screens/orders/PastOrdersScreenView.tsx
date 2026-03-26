@@ -72,6 +72,7 @@ export const PastOrdersScreenView = ({
 
   return (
     <FlatList
+      contentInsetAdjustmentBehavior="never"
       data={data}
       keyExtractor={(order) => order.id}
       renderItem={({ item: order }) => (

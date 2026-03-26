@@ -9,8 +9,8 @@ import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
 import { AdminPageSection } from '@/components/admin/AdminPageSection';
+import { DashboardPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { AdminTabParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
@@ -239,7 +239,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
   const driverPreview = driverAnalytics.deliveriesPerDriver.slice(0, 3);
 
   if (loading) {
-    return <LoadingState label={t('common.loading')} />;
+    return <DashboardPageSkeleton isRTL={isRTL} />;
   }
 
   if (error) {

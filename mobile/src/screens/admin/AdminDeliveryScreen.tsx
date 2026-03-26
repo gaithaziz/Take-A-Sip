@@ -9,10 +9,10 @@ import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
 import { ActionRow } from '@/components/admin/ActionRow';
 import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { InfoLine } from '@/components/admin/InfoLine';
+import { ListPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { AdminTabParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
@@ -27,6 +27,7 @@ const needsDriverAssignment = (order: OrderRead) => order.status === 'ACCEPTED' 
 
 export const AdminDeliveryScreen = (_: Props) => {
   const { t } = useAppTranslation();
+  const isRTL = false;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bands, setBands] = useState<DeliveryDistanceBand[]>([]);
@@ -160,7 +161,7 @@ export const AdminDeliveryScreen = (_: Props) => {
   };
 
   if (loading) {
-    return <LoadingState label={t('common.loading')} />;
+    return <ListPageSkeleton isRTL={isRTL} showFilters cards={3} />;
   }
 
   if (error) {

@@ -9,12 +9,12 @@ import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
 import { ActionRow } from '@/components/admin/ActionRow';
 import { AdminActionSheet } from '@/components/admin/AdminActionSheet';
 import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { BilingualFieldGroup } from '@/components/admin/BilingualFieldGroup';
 import { ExpandableText } from '@/components/admin/ExpandableText';
+import { DetailPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
@@ -578,7 +578,7 @@ export const AdminMenuEditorScreen = () => {
     </Pressable>
   );
 
-  if (loading) return <LoadingState label={t('common.loading')} />;
+  if (loading) return <DetailPageSkeleton isRTL={isRTL} sections={4} />;
   if (error) return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
 
   return (

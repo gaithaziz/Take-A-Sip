@@ -72,6 +72,7 @@ export const CartScreenView = ({
       <TopAppBar title={title} onBack={onBack} />
       <ScrollView
         style={styles.scroll}
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: hasItems ? 230 + bottomInset : bottomInset + theme.spacing.xl },

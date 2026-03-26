@@ -7,7 +7,7 @@ import { AppCard } from '@/components/AppCard';
 import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { DetailPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
 import { orderService } from '@/services/orderService';
@@ -119,7 +119,7 @@ export const DriverOrderDetailsScreen = ({ route, navigation }: Props) => {
   }, [mapsUrl, order, t]);
 
   if (loading) {
-    return <LoadingState label={t('common.loading')} />;
+    return <DetailPageSkeleton isRTL={false} />;
   }
 
   if (error || !order) {

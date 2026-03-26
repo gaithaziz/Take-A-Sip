@@ -23,6 +23,7 @@ export const AppShell = ({ children, scroll = true, refreshing, onRefresh }: App
 
   return (
     <ScrollView
+      contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[
         styles.container,
         {
