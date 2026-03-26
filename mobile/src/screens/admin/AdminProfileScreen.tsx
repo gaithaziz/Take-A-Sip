@@ -1,3 +1,4 @@
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Alert, StyleSheet } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
@@ -6,11 +7,14 @@ import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { ProfileRow } from '@/components/ProfileRow';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
+import { RootStackParamList } from '@/navigation/types';
 import { useAuth } from '@/state/AuthContext';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 
-export const AdminProfileScreen = () => {
+type Props = NativeStackScreenProps<RootStackParamList, 'AdminProfile'>;
+
+export const AdminProfileScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
   const { user, logout } = useAuth();
   const { toggleLanguage } = useLanguage();
@@ -22,6 +26,7 @@ export const AdminProfileScreen = () => {
 
   return (
     <AppShell>
+      <AppButton title={t('common.goBack')} variant="ghost" fullWidth={false} onPress={() => navigation.goBack()} />
       <AppCard style={styles.headerCard}>
         <AppText variant="h1">{t('admin.profileTitle')}</AppText>
         <AppText variant="bodySmall" color={theme.colors.textSecondary}>

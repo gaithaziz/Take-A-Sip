@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.order import Order, OrderRating
 from app.models.user import User, UserRole
 from app.models.user_event import UserEvent
+from app.core.phone import normalize_phone_number
 
 
 async def list_users(
@@ -132,7 +133,7 @@ async def provision_staff_user(
     if role_enum == UserRole.CLIENT:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Role is not allowed')
 
-    normalized_phone = phone_number.strip()
+    normalized_phone = normalize_phone_number(phone_number)
     existing = await db.execute(select(User).where(User.phone_number == normalized_phone))
     user = existing.scalar_one_or_none()
     created = False

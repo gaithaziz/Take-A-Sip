@@ -15,6 +15,7 @@ import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { BilingualFieldGroup } from '@/components/admin/BilingualFieldGroup';
 import { ExpandableText } from '@/components/admin/ExpandableText';
 import { InfoLine } from '@/components/admin/InfoLine';
+import { SelectDropdownField } from '@/components/admin/SelectDropdownField';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
@@ -25,10 +26,16 @@ import { formatDateTimeWithZone, getCurrentTimeZone } from '@/utils/format';
 import { getLocalizedValue } from '@/utils/i18n';
 import { mirroredRow } from '@/utils/layout';
 
+type OfferBehavior = 'FIXED_DISCOUNT' | 'BUY_N_GET_M_FREE';
+type EligibilityMode = 'EVERYONE' | 'NEW_CUSTOMERS' | 'AFTER_ORDER_COUNT';
+type TargetSelectionMode = 'WHOLE_MENU' | 'SPECIFIC_TARGETS';
+type TargetListKey = 'scope_targets' | 'buy_targets' | 'free_targets';
+
 type PromotionForm = {
   title_en: string;
   title_ar: string;
-  type: string;
+  behavior: OfferBehavior;
+  eligibility_mode: EligibilityMode;
   value: string;
   starts_at: Date;
   ends_at: Date;
@@ -36,7 +43,9 @@ type PromotionForm = {
   required_completed_orders: string;
   buy_quantity: string;
   free_quantity: string;
-  targets: PromotionTargetInput[];
+  scope_targets: PromotionTargetInput[];
+  buy_targets: PromotionTargetInput[];
+  free_targets: PromotionTargetInput[];
 };
 
 type TargetOption = {
@@ -52,7 +61,8 @@ type TargetKeyShape = Pick<PromotionTargetInput, 'entity_type' | 'entity_id'>;
 const defaultForm: PromotionForm = {
   title_en: '',
   title_ar: '',
-  type: 'TEMPORARY',
+  behavior: 'FIXED_DISCOUNT',
+  eligibility_mode: 'EVERYONE',
   value: '',
   starts_at: new Date(),
   ends_at: new Date(Date.now() + 60 * 60 * 1000),
@@ -60,20 +70,13 @@ const defaultForm: PromotionForm = {
   required_completed_orders: '',
   buy_quantity: '',
   free_quantity: '',
-  targets: [],
+  scope_targets: [],
+  buy_targets: [],
+  free_targets: [],
 };
 
-const typeOptions = ['TEMPORARY', 'FIRST_TIME', 'LOYALTY', 'BUY_N_GET_M_FREE'];
-
+const targetTypeOptions: MenuEntityType[] = ['item', 'section', 'type', 'size', 'addon'];
 const targetKey = (target: TargetKeyShape | TargetOption) => `${target.entity_type}:${target.entity_id}`;
-
-const promotionTypeLabel = (type: string, t: (key: string) => string) => {
-  if (type === 'TEMPORARY') return t('admin.promoTypeTemporary');
-  if (type === 'FIRST_TIME') return t('admin.promoTypeFirstTime');
-  if (type === 'LOYALTY') return t('admin.promoTypeLoyalty');
-  if (type === 'BUY_N_GET_M_FREE') return t('admin.promoTypeBuyGet');
-  return type;
-};
 
 const buildOfferSummary = (parts: Array<string | null | undefined>) => parts.filter(Boolean).join(' | ');
 
@@ -101,11 +104,47 @@ const buildTargetOptions = (sections: Section[], language: 'en' | 'ar'): TargetO
   return options;
 };
 
+const inferBehavior = (promotion: Promotion): OfferBehavior => (promotion.type === 'BUY_N_GET_M_FREE' ? 'BUY_N_GET_M_FREE' : 'FIXED_DISCOUNT');
+
+const inferEligibilityMode = (promotion: Promotion): EligibilityMode => {
+  if (promotion.type === 'FIRST_TIME') return 'NEW_CUSTOMERS';
+  if (promotion.required_completed_orders != null || promotion.type === 'LOYALTY') return 'AFTER_ORDER_COUNT';
+  return 'EVERYONE';
+};
+
+const serializeTargets = (targets: Array<{ entity_type: MenuEntityType; entity_id: string }>) =>
+  targets.map((target) => ({ entity_type: target.entity_type, entity_id: target.entity_id }));
+
+const derivePromotionType = (form: PromotionForm): Promotion['type'] => {
+  if (form.behavior === 'BUY_N_GET_M_FREE') return 'BUY_N_GET_M_FREE';
+  if (form.eligibility_mode === 'NEW_CUSTOMERS') return 'FIRST_TIME';
+  if (form.eligibility_mode === 'AFTER_ORDER_COUNT') return 'LOYALTY';
+  return 'TEMPORARY';
+};
+
+const behaviorLabel = (behavior: OfferBehavior, t: (key: string) => string) =>
+  behavior === 'BUY_N_GET_M_FREE' ? t('admin.offerBehaviorBuyGet') : t('admin.offerBehaviorDiscount');
+
+const targetSummary = (
+  targets: PromotionTargetInput[],
+  targetOptionMap: Map<string, TargetOption>,
+  t: (key: string) => string,
+) => {
+  if (targets.length === 0) return t('admin.appliesToWholeMenu');
+  const labels = targets.map((target) => targetOptionMap.get(targetKey(target))).filter(Boolean) as TargetOption[];
+  if (labels.length <= 2) return labels.map((option) => option.label).join(', ');
+  return `${labels
+    .slice(0, 2)
+    .map((option) => option.label)
+    .join(', ')} +${labels.length - 2}`;
+};
+
 export const AdminPromotionsScreen = () => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
   const { width } = useWindowDimensions();
   const isCompact = width < 390;
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +154,21 @@ export const AdminPromotionsScreen = () => {
   const [form, setForm] = useState<PromotionForm>(defaultForm);
   const [formErrors, setFormErrors] = useState<Record<string, string | undefined>>({});
   const [mutatingPromotionId, setMutatingPromotionId] = useState<string | null>(null);
-  const [targetQuery, setTargetQuery] = useState('');
+  const [targetQueries, setTargetQueries] = useState<Record<TargetListKey, string>>({
+    scope_targets: '',
+    buy_targets: '',
+    free_targets: '',
+  });
+  const [targetTypeFilters, setTargetTypeFilters] = useState<Record<TargetListKey, MenuEntityType>>({
+    scope_targets: 'item',
+    buy_targets: 'item',
+    free_targets: 'item',
+  });
+  const [targetModes, setTargetModes] = useState<Record<TargetListKey, TargetSelectionMode>>({
+    scope_targets: 'WHOLE_MENU',
+    buy_targets: 'WHOLE_MENU',
+    free_targets: 'WHOLE_MENU',
+  });
 
   const load = useCallback(async () => {
     try {
@@ -136,38 +189,44 @@ export const AdminPromotionsScreen = () => {
   }, [load]);
 
   const targetOptions = useMemo(() => buildTargetOptions(menuSections, language), [language, menuSections]);
-  const sectionTargetOptions = useMemo(() => targetOptions.filter((option) => option.entity_type === 'section'), [targetOptions]);
   const targetOptionMap = useMemo(() => new Map(targetOptions.map((option) => [targetKey(option), option])), [targetOptions]);
-  const selectedTargetKeys = useMemo(() => new Set(form.targets.map((target) => targetKey(target))), [form.targets]);
-  const selectedTargetLabels = useMemo(
-    () => form.targets.map((target) => targetOptionMap.get(targetKey(target))).filter(Boolean) as TargetOption[],
-    [form.targets, targetOptionMap],
-  );
-  const allSectionsSelected = useMemo(
-    () => sectionTargetOptions.length > 0 && sectionTargetOptions.every((option) => selectedTargetKeys.has(targetKey(option))),
-    [sectionTargetOptions, selectedTargetKeys],
-  );
-  const filteredTargetOptions = useMemo(() => {
-    const query = targetQuery.trim().toLowerCase();
-    return targetOptions
-      .filter((option) => !selectedTargetKeys.has(targetKey(option)))
-      .filter((option) => !query || option.label.toLowerCase().includes(query) || option.label_en.toLowerCase().includes(query) || option.label_ar.toLowerCase().includes(query))
-      .slice(0, 16);
-  }, [selectedTargetKeys, targetOptions, targetQuery]);
+  const timezone = getCurrentTimeZone();
+
+  const resetTargetPickerState = () => {
+    setTargetQueries({ scope_targets: '', buy_targets: '', free_targets: '' });
+    setTargetTypeFilters({ scope_targets: 'item', buy_targets: 'item', free_targets: 'item' });
+    setTargetModes({ scope_targets: 'WHOLE_MENU', buy_targets: 'WHOLE_MENU', free_targets: 'WHOLE_MENU' });
+  };
 
   const resetForm = () => {
     setEditingPromotionId(null);
     setForm(defaultForm);
     setFormErrors({});
-    setTargetQuery('');
+    resetTargetPickerState();
   };
 
   const startEdit = (promotion: Promotion) => {
+    const nextBehavior = inferBehavior(promotion);
+    const nextScopeTargets = serializeTargets(promotion.targets);
+    const nextBuyTargets =
+      promotion.buy_targets.length > 0
+        ? serializeTargets(promotion.buy_targets)
+        : nextBehavior === 'BUY_N_GET_M_FREE'
+          ? nextScopeTargets
+          : [];
+    const nextFreeTargets =
+      promotion.free_targets.length > 0
+        ? serializeTargets(promotion.free_targets)
+        : nextBehavior === 'BUY_N_GET_M_FREE'
+          ? nextScopeTargets
+          : [];
+
     setEditingPromotionId(promotion.id);
     setForm({
       title_en: promotion.title_en,
       title_ar: promotion.title_ar,
-      type: promotion.type,
+      behavior: nextBehavior,
+      eligibility_mode: inferEligibilityMode(promotion),
       value: String(promotion.value),
       starts_at: new Date(promotion.starts_at),
       ends_at: new Date(promotion.ends_at),
@@ -175,69 +234,78 @@ export const AdminPromotionsScreen = () => {
       required_completed_orders: promotion.required_completed_orders == null ? '' : String(promotion.required_completed_orders),
       buy_quantity: promotion.buy_quantity == null ? '' : String(promotion.buy_quantity),
       free_quantity: promotion.free_quantity == null ? '' : String(promotion.free_quantity),
-      targets: promotion.targets.map((target) => ({ entity_type: target.entity_type, entity_id: target.entity_id })),
+      scope_targets: nextScopeTargets,
+      buy_targets: nextBuyTargets,
+      free_targets: nextFreeTargets,
     });
     setFormErrors({});
-    setTargetQuery('');
-  };
-
-  const toggleTarget = (option: TargetOption) => {
-    setForm((prev) => {
-      const key = targetKey(option);
-      const exists = prev.targets.some((target) => targetKey(target) === key);
-      return {
-        ...prev,
-        targets: exists ? prev.targets.filter((target) => targetKey(target) !== key) : [...prev.targets, { entity_type: option.entity_type, entity_id: option.entity_id }],
-      };
+    resetTargetPickerState();
+    setTargetModes({
+      scope_targets: nextScopeTargets.length > 0 ? 'SPECIFIC_TARGETS' : 'WHOLE_MENU',
+      buy_targets: nextBuyTargets.length > 0 ? 'SPECIFIC_TARGETS' : 'WHOLE_MENU',
+      free_targets: nextFreeTargets.length > 0 ? 'SPECIFIC_TARGETS' : 'WHOLE_MENU',
     });
   };
 
-  const applyWholeMenu = () => {
-    setForm((prev) => ({ ...prev, targets: [] }));
+  const updateTargetList = (key: TargetListKey, updater: (targets: PromotionTargetInput[]) => PromotionTargetInput[]) => {
+    setForm((prev) => ({ ...prev, [key]: updater(prev[key]) }));
   };
 
-  const applyAllSections = () => {
-    setForm((prev) => ({
-      ...prev,
-      targets: sectionTargetOptions.map((option) => ({ entity_type: option.entity_type, entity_id: option.entity_id })),
-    }));
+  const addTarget = (key: TargetListKey, option: TargetOption) => {
+    setTargetModes((prev) => ({ ...prev, [key]: 'SPECIFIC_TARGETS' }));
+    updateTargetList(key, (targets) => {
+      if (targets.some((target) => targetKey(target) === targetKey(option))) return targets;
+      return [...targets, { entity_type: option.entity_type, entity_id: option.entity_id }];
+    });
   };
 
-  const toggleSectionTarget = (option: TargetOption) => {
-    toggleTarget(option);
+  const removeTarget = (key: TargetListKey, option: TargetOption) => {
+    updateTargetList(key, (targets) => targets.filter((target) => targetKey(target) !== targetKey(option)));
+  };
+
+  const setTargetMode = (key: TargetListKey, mode: TargetSelectionMode) => {
+    setTargetModes((prev) => ({ ...prev, [key]: mode }));
+    setTargetQueries((prev) => ({ ...prev, [key]: '' }));
+    if (mode === 'WHOLE_MENU') {
+      updateTargetList(key, () => []);
+    }
   };
 
   const validateForm = () => {
     const nextErrors: Record<string, string | undefined> = {};
-    if (form.type !== 'BUY_N_GET_M_FREE' && (!form.value || Number.isNaN(Number(form.value)))) nextErrors.value = t('validation.requiredFields');
-    if (form.ends_at.getTime() <= form.starts_at.getTime()) nextErrors.dateRange = t('admin.invalidDateRange');
-    if (form.type === 'LOYALTY' && (!form.required_completed_orders || Number.isNaN(Number(form.required_completed_orders)))) nextErrors.required_completed_orders = t('validation.requiredFields');
-    if (form.required_completed_orders && Number.isNaN(Number(form.required_completed_orders))) nextErrors.required_completed_orders = t('validation.requiredFields');
-    if (form.type === 'BUY_N_GET_M_FREE') {
+    if (!form.title_en.trim() || !form.title_ar.trim()) nextErrors.translation = t('admin.missingTranslation');
+    if (form.behavior === 'FIXED_DISCOUNT' && (!form.value || Number.isNaN(Number(form.value)))) nextErrors.value = t('validation.requiredFields');
+    if (form.behavior === 'BUY_N_GET_M_FREE') {
       if (!form.buy_quantity || Number(form.buy_quantity) <= 0 || Number.isNaN(Number(form.buy_quantity))) nextErrors.buy_quantity = t('validation.requiredFields');
       if (!form.free_quantity || Number(form.free_quantity) <= 0 || Number.isNaN(Number(form.free_quantity))) nextErrors.free_quantity = t('validation.requiredFields');
     }
+    if (form.eligibility_mode === 'AFTER_ORDER_COUNT' && (!form.required_completed_orders || Number.isNaN(Number(form.required_completed_orders)))) {
+      nextErrors.required_completed_orders = t('validation.requiredFields');
+    }
+    if (form.ends_at.getTime() <= form.starts_at.getTime()) nextErrors.dateRange = t('admin.invalidDateRange');
     setFormErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
   const save = async () => {
-    if (!validateForm() || !form.title_en.trim() || !form.title_ar.trim()) return;
+    if (!validateForm()) return;
     try {
       setSaving(true);
       const payload = {
         title_en: form.title_en.trim(),
         title_ar: form.title_ar.trim(),
-        type: form.type,
-        value: form.type === 'BUY_N_GET_M_FREE' ? 0 : Number(form.value),
+        type: derivePromotionType(form),
+        value: form.behavior === 'BUY_N_GET_M_FREE' ? 0 : Number(form.value),
         starts_at: form.starts_at.toISOString(),
         ends_at: form.ends_at.toISOString(),
         is_active: form.is_active,
-        required_completed_orders: form.type === 'FIRST_TIME' || !form.required_completed_orders ? null : Number(form.required_completed_orders),
-        buy_quantity: form.type === 'BUY_N_GET_M_FREE' ? Number(form.buy_quantity) : null,
-        free_quantity: form.type === 'BUY_N_GET_M_FREE' ? Number(form.free_quantity) : null,
+        required_completed_orders: form.eligibility_mode === 'AFTER_ORDER_COUNT' ? Number(form.required_completed_orders) : null,
+        buy_quantity: form.behavior === 'BUY_N_GET_M_FREE' ? Number(form.buy_quantity) : null,
+        free_quantity: form.behavior === 'BUY_N_GET_M_FREE' ? Number(form.free_quantity) : null,
         loyalty_rule_id: null,
-        targets: form.targets,
+        targets: form.behavior === 'BUY_N_GET_M_FREE' ? [] : form.scope_targets,
+        buy_targets: form.behavior === 'BUY_N_GET_M_FREE' ? form.buy_targets : [],
+        free_targets: form.behavior === 'BUY_N_GET_M_FREE' ? form.free_targets : [],
       };
       if (editingPromotionId) await adminService.updatePromotion(editingPromotionId, payload);
       else await adminService.createPromotion(payload);
@@ -254,6 +322,7 @@ export const AdminPromotionsScreen = () => {
     const startsAt = new Date(promotion.starts_at).getTime();
     const endsAt = new Date(promotion.ends_at).getTime();
     const isLive = promotion.is_active && Date.now() >= startsAt && Date.now() <= endsAt;
+
     const run = async () => {
       try {
         setMutatingPromotionId(promotion.id);
@@ -265,6 +334,7 @@ export const AdminPromotionsScreen = () => {
         setMutatingPromotionId(null);
       }
     };
+
     if (isLive) {
       Alert.alert(promotion.is_active ? t('admin.disable') : t('admin.enable'), t('admin.liveOfferToggleConfirm'), [
         { text: t('common.cancel'), style: 'cancel' },
@@ -272,40 +342,222 @@ export const AdminPromotionsScreen = () => {
       ]);
       return;
     }
+
     await run();
   };
 
-  const hasMissingTranslation = !form.title_en.trim() || !form.title_ar.trim();
-  const canSave = !hasMissingTranslation && !saving && form.ends_at.getTime() > form.starts_at.getTime() && (form.type === 'BUY_N_GET_M_FREE' ? Boolean(form.buy_quantity && form.free_quantity) : Boolean(form.value));
-  const timezone = getCurrentTimeZone();
-  const scopePreview =
-    form.targets.length === 0
-      ? t('admin.appliesToWholeMenu')
-      : allSectionsSelected && form.targets.length === sectionTargetOptions.length
-        ? t('admin.allSections')
-        : selectedTargetLabels.length <= 2
-          ? selectedTargetLabels.map((option) => option.label).join(', ')
-          : `${selectedTargetLabels
-              .slice(0, 2)
-              .map((option) => option.label)
-              .join(', ')} +${selectedTargetLabels.length - 2}`;
+  const canSave =
+    !saving &&
+    form.title_en.trim().length > 0 &&
+    form.title_ar.trim().length > 0 &&
+    form.ends_at.getTime() > form.starts_at.getTime() &&
+    (form.behavior === 'BUY_N_GET_M_FREE' ? Boolean(form.buy_quantity && form.free_quantity) : Boolean(form.value)) &&
+    (form.eligibility_mode !== 'AFTER_ORDER_COUNT' || Boolean(form.required_completed_orders));
+
+  const scopeMode = targetModes.scope_targets;
+  const buyMode = targetModes.buy_targets;
+  const freeMode = targetModes.free_targets;
+
+  const selectedTargetsFor = (key: TargetListKey) =>
+    form[key].map((target) => targetOptionMap.get(targetKey(target))).filter(Boolean) as TargetOption[];
+
+  const filteredTargetOptionsFor = (key: TargetListKey) => {
+    const selectedKeys = new Set(form[key].map((target) => targetKey(target)));
+    const query = targetQueries[key].trim().toLowerCase();
+    return targetOptions
+      .filter((option) => option.entity_type === targetTypeFilters[key])
+      .filter((option) => !selectedKeys.has(targetKey(option)))
+      .filter((option) => !query || option.label.toLowerCase().includes(query) || option.label_en.toLowerCase().includes(query) || option.label_ar.toLowerCase().includes(query))
+      .slice(0, 12);
+  };
+
   const eligibilityPreview =
-    form.type === 'FIRST_TIME'
-      ? t('admin.firstTimeEligibilityDetail')
-      : form.required_completed_orders
-        ? `${t('admin.completedOrdersEligibilityPrefix')} ${form.required_completed_orders} ${t('admin.ordersThreshold')}`
-        : form.type === 'BUY_N_GET_M_FREE'
-          ? t('admin.buyGetEligibilityDetail')
-          : form.type === 'LOYALTY'
-            ? t('admin.loyaltyEligibilityDetail')
-            : t('admin.temporaryEligibilityDetail');
-  const formRulePreview =
-    form.type === 'BUY_N_GET_M_FREE'
+    form.eligibility_mode === 'NEW_CUSTOMERS'
+      ? t('admin.eligibilityFirstTimeHelp')
+      : form.eligibility_mode === 'AFTER_ORDER_COUNT'
+        ? `${t('admin.completedOrdersEligibilityPrefix')} ${form.required_completed_orders || 0} ${t('admin.ordersThreshold')}`
+        : t('admin.eligibilityEveryoneHelp');
+
+  const rulePreview =
+    form.behavior === 'BUY_N_GET_M_FREE'
       ? `${t('admin.buyQuantity')} ${form.buy_quantity || 0}, ${t('admin.freeQuantity')} ${form.free_quantity || 0}`
-      : form.value
-        ? `${t('admin.value')} ${form.value}`
-        : null;
-  const offerSummaryPreview = buildOfferSummary([promotionTypeLabel(form.type, t), formRulePreview, eligibilityPreview, scopePreview]);
+      : `${t('admin.discountAmount')} ${form.value || 0}`;
+
+  const scopePreview = targetSummary(form.scope_targets, targetOptionMap, t);
+  const buyPreview = targetSummary(form.buy_targets, targetOptionMap, t);
+  const freePreview = targetSummary(form.free_targets, targetOptionMap, t);
+  const offerSummaryPreview = buildOfferSummary([
+    behaviorLabel(form.behavior, t),
+    rulePreview,
+    eligibilityPreview,
+    form.behavior === 'BUY_N_GET_M_FREE' ? `${t('admin.buyFrom')}: ${buyPreview}` : scopePreview,
+    form.behavior === 'BUY_N_GET_M_FREE' ? `${t('admin.freeFrom')}: ${freePreview}` : null,
+  ]);
+
+  const behaviorCards = [
+    { value: 'FIXED_DISCOUNT' as const, title: t('admin.offerBehaviorDiscount'), description: t('admin.offerBehaviorDiscountHelp') },
+    { value: 'BUY_N_GET_M_FREE' as const, title: t('admin.offerBehaviorBuyGet'), description: t('admin.offerBehaviorBuyGetHelp') },
+  ];
+
+  const eligibilityCards =
+    form.behavior === 'BUY_N_GET_M_FREE'
+      ? [
+          { value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') },
+          { value: 'AFTER_ORDER_COUNT' as const, title: t('admin.eligibilityAfterOrders'), description: t('admin.eligibilityAfterOrdersHelp') },
+        ]
+      : [
+          { value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') },
+          { value: 'NEW_CUSTOMERS' as const, title: t('admin.eligibilityFirstTime'), description: t('admin.eligibilityFirstTimeHelp') },
+          { value: 'AFTER_ORDER_COUNT' as const, title: t('admin.eligibilityAfterOrders'), description: t('admin.eligibilityAfterOrdersHelp') },
+        ];
+
+  const targetTypeSelectOptions = targetTypeOptions.map((option) => ({ value: option, label: t(`admin.${option}`) }));
+
+  const renderSelectorCards = <T extends string>({
+    accessibilityPrefix,
+    options,
+    selectedValue,
+    onSelect,
+  }: {
+    accessibilityPrefix: string;
+    options: Array<{ value: T; title: string; description: string }>;
+    selectedValue: T;
+    onSelect: (value: T) => void;
+  }) => (
+    <View style={styles.selectorStack}>
+      {options.map((option) => (
+        <Pressable
+          key={option.value}
+          style={({ pressed }) => [pressed ? styles.pressed : null]}
+          onPress={() => onSelect(option.value)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: selectedValue === option.value }}
+          accessibilityLabel={`${accessibilityPrefix}: ${option.title}`}>
+          <AppCard style={[styles.selectorCard, selectedValue === option.value ? styles.selectorCardActive : null]}>
+            <AppText variant="h3">{option.title}</AppText>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {option.description}
+            </AppText>
+          </AppCard>
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  const renderTargetPicker = ({
+    listKey,
+    title,
+    description,
+    mode,
+  }: {
+    listKey: TargetListKey;
+    title: string;
+    description: string;
+    mode: TargetSelectionMode;
+  }) => {
+    const selectedLabels = selectedTargetsFor(listKey);
+    const filteredOptions = filteredTargetOptionsFor(listKey);
+    return (
+      <AdminPageSection title={title} style={styles.innerSection}>
+        <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+          {description}
+        </AppText>
+        <View style={styles.selectorStack}>
+          {[
+            { value: 'WHOLE_MENU' as const, title: t('admin.wholeMenu'), description: t('admin.scopeWholeMenuHelp') },
+            { value: 'SPECIFIC_TARGETS' as const, title: t('admin.specificTargets'), description: t('admin.scopeSpecificTargetsHelp') },
+          ].map((option) => (
+            <Pressable
+              key={`${listKey}-${option.value}`}
+              style={({ pressed }) => [pressed ? styles.pressed : null]}
+              onPress={() => setTargetMode(listKey, option.value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === option.value }}
+              accessibilityLabel={`${title}: ${option.title}`}>
+              <AppCard style={[styles.selectorCard, mode === option.value ? styles.selectorCardActive : null]}>
+                <AppText variant="h3">{option.title}</AppText>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                  {option.description}
+                </AppText>
+              </AppCard>
+            </Pressable>
+          ))}
+        </View>
+
+        <AppText variant="caption" color={theme.colors.textSecondary}>
+          {targetSummary(form[listKey], targetOptionMap, t)}
+        </AppText>
+
+        {mode === 'SPECIFIC_TARGETS' ? (
+          <View style={styles.stack}>
+            <SelectDropdownField
+              label={t('admin.targetType')}
+              value={targetTypeFilters[listKey]}
+              options={targetTypeSelectOptions}
+              onChange={(nextValue) => {
+                setTargetTypeFilters((prev) => ({ ...prev, [listKey]: nextValue as MenuEntityType }));
+                setTargetQueries((prev) => ({ ...prev, [listKey]: '' }));
+              }}
+            />
+            <AppInput
+              label={t('admin.targetSearch')}
+              value={targetQueries[listKey]}
+              onChangeText={(value) => setTargetQueries((prev) => ({ ...prev, [listKey]: value }))}
+              placeholder={t('admin.targetSearchPlaceholder')}
+            />
+
+            <View style={styles.selectedTargetsBlock}>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('admin.selectedTargets')}
+              </AppText>
+              {selectedLabels.length === 0 ? (
+                <AppText variant="caption" color={theme.colors.textSecondary}>
+                  {t('admin.noTargetsSelected')}
+                </AppText>
+              ) : (
+                <View style={styles.selectorStack}>
+                  {selectedLabels.map((option) => (
+                    <AppCard key={`${listKey}-${targetKey(option)}`} style={styles.targetRowCard}>
+                      <View style={[styles.targetRow, mirroredRow(isRTL)]}>
+                        <View style={styles.targetTextWrap}>
+                          <AppText variant="bodySmall">{option.label}</AppText>
+                        </View>
+                        <AppButton title={t('common.remove')} variant="ghost" fullWidth={false} onPress={() => removeTarget(listKey, option)} />
+                      </View>
+                    </AppCard>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <View style={styles.selectedTargetsBlock}>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('admin.matchingTargets')}
+              </AppText>
+              {filteredOptions.length === 0 ? (
+                <AppText variant="caption" color={theme.colors.textSecondary}>
+                  {t('admin.noMatchingTargets')}
+                </AppText>
+              ) : (
+                <View style={styles.selectorStack}>
+                  {filteredOptions.map((option) => (
+                    <AppCard key={`${listKey}-${targetKey(option)}`} style={styles.targetRowCard}>
+                      <View style={[styles.targetRow, mirroredRow(isRTL)]}>
+                        <View style={styles.targetTextWrap}>
+                          <AppText variant="bodySmall">{option.label}</AppText>
+                        </View>
+                        <AppButton title={t('common.add')} variant="secondary" fullWidth={false} onPress={() => addTarget(listKey, option)} accessibilityLabel={option.label} />
+                      </View>
+                    </AppCard>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        ) : null}
+      </AdminPageSection>
+    );
+  };
 
   if (loading) return <LoadingState label={t('common.loading')} />;
   if (error) return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
@@ -326,31 +578,32 @@ export const AdminPromotionsScreen = () => {
               valueAr={form.title_ar}
               onChangeEn={(value) => setForm((prev) => ({ ...prev, title_en: value }))}
               onChangeAr={(value) => setForm((prev) => ({ ...prev, title_ar: value }))}
-              helperText={hasMissingTranslation ? t('admin.missingTranslation') : undefined}
+              helperText={formErrors.translation}
             />
           </AdminPageSection>
 
           <AdminPageSection title={t('admin.offerRules')} style={styles.innerSection}>
-            <View style={[styles.rowWrap, mirroredRow(isRTL)]}>
-              {typeOptions.map((option) => (
-                <Pressable
-                  key={option}
-                  style={[styles.chip, form.type === option ? styles.chipActive : null]}
-                  onPress={() => setForm((prev) => ({ ...prev, type: option, required_completed_orders: option === 'FIRST_TIME' ? '' : prev.required_completed_orders, buy_quantity: option === 'BUY_N_GET_M_FREE' ? prev.buy_quantity : '', free_quantity: option === 'BUY_N_GET_M_FREE' ? prev.free_quantity : '' }))}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: form.type === option }}
-                  accessibilityLabel={`${t('admin.promotionType')}: ${promotionTypeLabel(option, t)}`}>
-                  <AppText variant="caption">{promotionTypeLabel(option, t)}</AppText>
-                </Pressable>
-              ))}
-            </View>
-            {form.type === 'BUY_N_GET_M_FREE' ? (
+            {renderSelectorCards({
+              accessibilityPrefix: t('admin.offerBehavior'),
+              options: behaviorCards,
+              selectedValue: form.behavior,
+              onSelect: (value) =>
+                setForm((prev) => ({
+                  ...prev,
+                  behavior: value,
+                  eligibility_mode: value === 'BUY_N_GET_M_FREE' && prev.eligibility_mode === 'NEW_CUSTOMERS' ? 'EVERYONE' : prev.eligibility_mode,
+                  value: value === 'BUY_N_GET_M_FREE' ? '' : prev.value,
+                  buy_quantity: value === 'BUY_N_GET_M_FREE' ? prev.buy_quantity : '',
+                  free_quantity: value === 'BUY_N_GET_M_FREE' ? prev.free_quantity : '',
+                })),
+            })}
+            {form.behavior === 'BUY_N_GET_M_FREE' ? (
               <View style={[styles.twoCol, mirroredRow(isRTL), isCompact ? styles.stackCol : null]}>
                 <AppInput label={t('admin.buyQuantity')} value={form.buy_quantity} keyboardType="number-pad" error={formErrors.buy_quantity} onChangeText={(value) => setForm((prev) => ({ ...prev, buy_quantity: value }))} />
                 <AppInput label={t('admin.freeQuantity')} value={form.free_quantity} keyboardType="number-pad" error={formErrors.free_quantity} onChangeText={(value) => setForm((prev) => ({ ...prev, free_quantity: value }))} />
               </View>
             ) : (
-              <AppInput label={t('admin.value')} value={form.value} keyboardType="decimal-pad" error={formErrors.value} onChangeText={(value) => setForm((prev) => ({ ...prev, value }))} />
+              <AppInput label={t('admin.discountAmount')} value={form.value} keyboardType="decimal-pad" error={formErrors.value} onChangeText={(value) => setForm((prev) => ({ ...prev, value }))} />
             )}
           </AdminPageSection>
 
@@ -368,11 +621,18 @@ export const AdminPromotionsScreen = () => {
                   })
                 }
               />
-              <DateTimeField label={t('admin.startTime')} mode="time" value={form.starts_at} onChange={(value) => setForm((prev) => {
-                const next = new Date(prev.starts_at);
-                next.setHours(value.getHours(), value.getMinutes(), 0, 0);
-                return { ...prev, starts_at: next };
-              })} />
+              <DateTimeField
+                label={t('admin.startTime')}
+                mode="time"
+                value={form.starts_at}
+                onChange={(value) =>
+                  setForm((prev) => {
+                    const next = new Date(prev.starts_at);
+                    next.setHours(value.getHours(), value.getMinutes(), 0, 0);
+                    return { ...prev, starts_at: next };
+                  })
+                }
+              />
             </View>
             <View style={[styles.twoCol, mirroredRow(isRTL), isCompact ? styles.stackCol : null]}>
               <DateTimeField
@@ -387,72 +647,66 @@ export const AdminPromotionsScreen = () => {
                   })
                 }
               />
-              <DateTimeField label={t('admin.endTime')} mode="time" value={form.ends_at} onChange={(value) => setForm((prev) => {
-                const next = new Date(prev.ends_at);
-                next.setHours(value.getHours(), value.getMinutes(), 0, 0);
-                return { ...prev, ends_at: next };
-              })} />
+              <DateTimeField
+                label={t('admin.endTime')}
+                mode="time"
+                value={form.ends_at}
+                onChange={(value) =>
+                  setForm((prev) => {
+                    const next = new Date(prev.ends_at);
+                    next.setHours(value.getHours(), value.getMinutes(), 0, 0);
+                    return { ...prev, ends_at: next };
+                  })
+                }
+              />
             </View>
             {formErrors.dateRange ? <AppText variant="caption" color={theme.colors.error}>{formErrors.dateRange}</AppText> : null}
             <AppText variant="caption" color={theme.colors.textSecondary}>{`${t('admin.timeRange')}: ${timezone}`}</AppText>
           </AdminPageSection>
 
-          <AdminPageSection title={t('admin.eligibleMenuItems')} style={styles.innerSection}>
-            <View style={styles.quickPickGroup}>
-              <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.quickTargetPicks')}</AppText>
-              <View style={[styles.rowWrap, mirroredRow(isRTL)]}>
-                <Pressable style={[styles.chip, form.targets.length === 0 ? styles.chipActive : null]} onPress={applyWholeMenu} accessibilityRole="button">
-                  <AppText variant="caption">{t('admin.wholeMenu')}</AppText>
-                </Pressable>
-                <Pressable style={[styles.chip, allSectionsSelected ? styles.chipActive : null]} onPress={applyAllSections} accessibilityRole="button">
-                  <AppText variant="caption">{t('admin.allSections')}</AppText>
-                </Pressable>
-                {sectionTargetOptions.map((option) => (
-                  <Pressable key={targetKey(option)} style={[styles.chip, selectedTargetKeys.has(targetKey(option)) ? styles.chipActive : null]} onPress={() => toggleSectionTarget(option)} accessibilityRole="button" accessibilityLabel={option.label}>
-                    <AppText variant="caption">{option.label}</AppText>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-            <AppInput label={t('admin.targetSearch')} value={targetQuery} onChangeText={setTargetQuery} placeholder={t('admin.targetSearchPlaceholder')} />
-            <AppText variant="caption" color={theme.colors.textSecondary}>{scopePreview}</AppText>
-            <View style={[styles.rowWrap, mirroredRow(isRTL)]}>
-              {selectedTargetLabels.length === 0 ? <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.noTargetsSelected')}</AppText> : selectedTargetLabels.map((option) => (
-                <Pressable key={targetKey(option)} style={styles.targetChip} onPress={() => toggleTarget(option)} accessibilityRole="button" accessibilityLabel={option.label}>
-                  <AppText variant="caption" color={theme.colors.textSecondary}>{option.label}</AppText>
-                </Pressable>
-              ))}
-            </View>
-            <View style={[styles.rowWrap, mirroredRow(isRTL)]}>
-              {filteredTargetOptions.map((option) => (
-                <Pressable key={targetKey(option)} style={styles.chip} onPress={() => toggleTarget(option)} accessibilityRole="button" accessibilityLabel={option.label}>
-                  <AppText variant="caption">{option.label}</AppText>
-                </Pressable>
-              ))}
-            </View>
-          </AdminPageSection>
-
           <AdminPageSection title={t('admin.eligibilityTrigger')} style={styles.innerSection}>
-            {form.type !== 'FIRST_TIME' ? (
+            {renderSelectorCards({
+              accessibilityPrefix: t('admin.eligibilityChoice'),
+              options: eligibilityCards,
+              selectedValue: form.eligibility_mode,
+              onSelect: (value) => setForm((prev) => ({ ...prev, eligibility_mode: value, required_completed_orders: value === 'AFTER_ORDER_COUNT' ? prev.required_completed_orders : '' })),
+            })}
+            {form.eligibility_mode === 'AFTER_ORDER_COUNT' ? (
               <AppInput
                 label={t('admin.requiredCompletedOrders')}
                 value={form.required_completed_orders}
                 keyboardType="number-pad"
                 error={formErrors.required_completed_orders}
                 onChangeText={(value) => setForm((prev) => ({ ...prev, required_completed_orders: value }))}
-                placeholder={t('admin.optional')}
+                placeholder={t('admin.requiredCompletedOrdersPlaceholder')}
               />
             ) : null}
             <AppText variant="bodySmall" color={theme.colors.textSecondary}>{eligibilityPreview}</AppText>
           </AdminPageSection>
 
-          <AdminPageSection title={t('admin.offerStatusSection')} style={styles.innerSection}>
-            <View style={[styles.rowWrap, mirroredRow(isRTL)]}>
-              <Pressable style={[styles.chip, form.is_active ? styles.chipActive : null]} onPress={() => setForm((prev) => ({ ...prev, is_active: true }))}><AppText variant="caption">{t('admin.active')}</AppText></Pressable>
-              <Pressable style={[styles.chip, !form.is_active ? styles.chipActive : null]} onPress={() => setForm((prev) => ({ ...prev, is_active: false }))}><AppText variant="caption">{t('admin.inactive')}</AppText></Pressable>
+          {form.behavior === 'BUY_N_GET_M_FREE' ? (
+            <View style={styles.stack}>
+              {renderTargetPicker({ listKey: 'buy_targets', title: t('admin.buyFrom'), description: t('admin.buyFromHelp'), mode: buyMode })}
+              {renderTargetPicker({ listKey: 'free_targets', title: t('admin.freeFrom'), description: t('admin.freeFromHelp'), mode: freeMode })}
             </View>
-            <InfoLine label={t('admin.offerSummary')} value={offerSummaryPreview} numberOfLines={3} />
-            <InfoLine label={t('admin.scopeSummary')} value={scopePreview} numberOfLines={2} />
+          ) : (
+            renderTargetPicker({ listKey: 'scope_targets', title: t('admin.eligibleMenuItems'), description: t('admin.scopeChooserHelp'), mode: scopeMode })
+          )}
+
+          <AdminPageSection title={t('admin.offerStatusSection')} style={styles.innerSection}>
+            <View style={[styles.actionPair, mirroredRow(isRTL), isCompact ? styles.stackCol : null]}>
+              <AppButton title={t('admin.active')} variant={form.is_active ? 'primary' : 'secondary'} onPress={() => setForm((prev) => ({ ...prev, is_active: true }))} style={styles.flexButton} />
+              <AppButton title={t('admin.inactive')} variant={!form.is_active ? 'primary' : 'secondary'} onPress={() => setForm((prev) => ({ ...prev, is_active: false }))} style={styles.flexButton} />
+            </View>
+            <InfoLine label={t('admin.offerSummary')} value={offerSummaryPreview} numberOfLines={4} />
+            {form.behavior === 'BUY_N_GET_M_FREE' ? (
+              <>
+                <InfoLine label={t('admin.buyFrom')} value={buyPreview} numberOfLines={2} />
+                <InfoLine label={t('admin.freeFrom')} value={freePreview} numberOfLines={2} />
+              </>
+            ) : (
+              <InfoLine label={t('admin.scopeSummary')} value={scopePreview} numberOfLines={2} />
+            )}
             <InfoLine label={t('admin.eligibilitySummary')} value={eligibilityPreview} numberOfLines={2} />
           </AdminPageSection>
 
@@ -474,8 +728,14 @@ export const AdminPromotionsScreen = () => {
             const ruleValue =
               promotion.type === 'BUY_N_GET_M_FREE'
                 ? `${t('admin.buyQuantity')} ${promotion.buy_quantity ?? 0}, ${t('admin.freeQuantity')} ${promotion.free_quantity ?? 0}`
-                : `${t('admin.value')} ${promotion.value}`;
-            const cardSummary = buildOfferSummary([promotionTypeLabel(promotion.type, t), ruleValue, eligibilitySummary, scopeSummary]);
+                : `${t('admin.discountAmount')} ${promotion.value}`;
+            const cardSummary = buildOfferSummary([
+              promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.offerBehaviorBuyGet') : t('admin.offerBehaviorDiscount'),
+              ruleValue,
+              eligibilitySummary,
+              scopeSummary,
+            ]);
+
             return (
               <AppCard key={promotion.id} style={styles.card}>
                 <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
@@ -490,8 +750,8 @@ export const AdminPromotionsScreen = () => {
                 <View style={styles.infoBox}>
                   <InfoLine label={t('admin.offerSummary')} value={cardSummary} numberOfLines={3} />
                   <InfoLine label={`${t('admin.dateRange')} (${timezone})`} value={`${formatDateTimeWithZone(promotion.starts_at, language)} - ${formatDateTimeWithZone(promotion.ends_at, language)}`} numberOfLines={2} />
-                  <InfoLine label={t('admin.promotionType')} value={promotionTypeLabel(promotion.type, t)} />
-                  <InfoLine label={promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.buyGetRule') : t('admin.value')} value={ruleValue} />
+                  <InfoLine label={t('admin.offerBehavior')} value={promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.offerBehaviorBuyGet') : t('admin.offerBehaviorDiscount')} />
+                  <InfoLine label={promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.buyGetRule') : t('admin.discountAmount')} value={ruleValue} />
                   <InfoLine label={t('admin.scopeSummary')} value={scopeSummary} numberOfLines={2} />
                   <InfoLine label={t('admin.eligibilitySummary')} value={eligibilitySummary} numberOfLines={2} />
                 </View>
@@ -511,15 +771,19 @@ export const AdminPromotionsScreen = () => {
 const styles = StyleSheet.create({
   heading: { gap: theme.spacing.xs },
   stack: { gap: theme.spacing.lg },
-  innerSection: { padding: theme.spacing.md, backgroundColor: theme.colors.sectionBackground },
-  quickPickGroup: { gap: theme.spacing.sm },
-  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
+  innerSection: { padding: theme.spacing.md, backgroundColor: theme.colors.sectionBackground, gap: theme.spacing.md },
+  selectorStack: { gap: theme.spacing.sm },
   twoCol: { flexDirection: 'row', gap: theme.spacing.sm },
   stackCol: { flexDirection: 'column' },
-  chip: { borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.pill, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, backgroundColor: theme.colors.surface },
-  chipActive: { borderColor: theme.colors.primary300, backgroundColor: theme.colors.secondaryCream },
-  targetChip: { borderWidth: 1, borderColor: theme.colors.primary200, borderRadius: theme.radius.pill, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, backgroundColor: theme.colors.secondaryCream },
   flexButton: { flex: 1 },
+  selectorCard: { gap: theme.spacing.xs, backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+  selectorCardActive: { backgroundColor: theme.colors.secondaryCream, borderColor: theme.colors.primary300 },
+  targetRowCard: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+  targetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
+  targetTextWrap: { flex: 1 },
+  selectedTargetsBlock: { gap: theme.spacing.sm },
+  actionPair: { flexDirection: 'row', gap: theme.spacing.sm },
+  pressed: { opacity: 0.82 },
   card: { gap: theme.spacing.sm, backgroundColor: theme.colors.secondaryCream, borderColor: theme.colors.primary200 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: theme.spacing.sm },
   badges: { gap: theme.spacing.xs, alignItems: 'flex-end' },

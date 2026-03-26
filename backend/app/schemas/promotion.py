@@ -10,6 +10,7 @@ from app.schemas.base import AppBaseModel
 class PromotionTargetRead(AppBaseModel):
     id: UUID
     promotion_id: UUID
+    target_group: str
     entity_type: str
     entity_id: UUID
     entity_name_en: str | None = None
@@ -17,6 +18,7 @@ class PromotionTargetRead(AppBaseModel):
 
 
 class PromotionTargetCreate(AppBaseModel):
+    target_group: str = Field(default='scope', pattern='^(scope|buy|free)$')
     entity_type: str = Field(pattern='^(section|item|type|size|addon)$')
     entity_id: UUID
 
@@ -35,6 +37,8 @@ class PromotionRead(AppBaseModel):
     free_quantity: int | None = None
     loyalty_rule_id: UUID | None = None
     targets: list[PromotionTargetRead] = Field(default_factory=list)
+    buy_targets: list[PromotionTargetRead] = Field(default_factory=list)
+    free_targets: list[PromotionTargetRead] = Field(default_factory=list)
     scope_summary_en: str
     scope_summary_ar: str
     eligibility_summary_en: str
@@ -62,6 +66,8 @@ class PromotionCreate(AppBaseModel):
     free_quantity: int | None = Field(default=None, ge=1)
     loyalty_rule_id: UUID | None = None
     targets: list[PromotionTargetCreate] = Field(default_factory=list)
+    buy_targets: list[PromotionTargetCreate] = Field(default_factory=list)
+    free_targets: list[PromotionTargetCreate] = Field(default_factory=list)
 
 
 class PromotionUpdate(AppBaseModel):
@@ -77,6 +83,8 @@ class PromotionUpdate(AppBaseModel):
     free_quantity: int | None = Field(default=None, ge=1)
     loyalty_rule_id: UUID | None = None
     targets: list[PromotionTargetCreate] | None = None
+    buy_targets: list[PromotionTargetCreate] | None = None
+    free_targets: list[PromotionTargetCreate] | None = None
 
 
 class PromotionEvaluationItem(AppBaseModel):

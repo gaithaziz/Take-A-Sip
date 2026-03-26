@@ -7,6 +7,7 @@ import { AppCard } from '@/components/AppCard';
 import { AppInput } from '@/components/AppInput';
 import { AppText } from '@/components/AppText';
 import { TopAppBar } from '@/components/TopAppBar';
+import { SavedAddress } from '@/services/addressBook';
 import { theme } from '@/theme';
 import { LanguageCode } from '@/types/api';
 import { formatCurrency } from '@/utils/format';
@@ -30,6 +31,10 @@ type CheckoutScreenViewProps = {
   estimatedDistanceLabel: string;
   calculatingDeliveryFeeLabel: string;
   deliveryFeeUnavailableLabel: string;
+  savedAddressesLabel: string;
+  saveThisAddressLabel: string;
+  savedAddressAppliedLabel: string;
+  noSavedAddressesLabel: string;
   totalLabel: string;
   placeOrderLabel: string;
   language: LanguageCode;
@@ -47,6 +52,7 @@ type CheckoutScreenViewProps = {
   useCurrentLocationLabel: string;
   useCurrentLocationLoadingLabel: string;
   locating: boolean;
+  savedAddresses: SavedAddress[];
   notes: string;
   subtotal: number;
   discount: number;
@@ -59,6 +65,8 @@ type CheckoutScreenViewProps = {
   onChangeDeliveryAddress: (value: string) => void;
   onSelectDeliveryLocation: (lat: number, lng: number) => void;
   onChangeNotes: (value: string) => void;
+  onApplySavedAddress: (address: SavedAddress) => void;
+  onSaveCurrentAddress: () => void;
   onPlaceOrder: () => void;
   onUseCurrentLocation: () => void;
 };
@@ -79,6 +87,10 @@ export const CheckoutScreenView = ({
   estimatedDistanceLabel,
   calculatingDeliveryFeeLabel,
   deliveryFeeUnavailableLabel,
+  savedAddressesLabel,
+  saveThisAddressLabel,
+  savedAddressAppliedLabel,
+  noSavedAddressesLabel,
   totalLabel,
   placeOrderLabel,
   language,
@@ -96,6 +108,7 @@ export const CheckoutScreenView = ({
   useCurrentLocationLabel,
   useCurrentLocationLoadingLabel,
   locating,
+  savedAddresses,
   notes,
   subtotal,
   discount,
@@ -108,6 +121,8 @@ export const CheckoutScreenView = ({
   onChangeDeliveryAddress,
   onSelectDeliveryLocation,
   onChangeNotes,
+  onApplySavedAddress,
+  onSaveCurrentAddress,
   onPlaceOrder,
   onUseCurrentLocation,
 }: CheckoutScreenViewProps) => {
@@ -207,6 +222,47 @@ export const CheckoutScreenView = ({
                 onChangeText={onChangeDeliveryAddress}
                 error={deliveryAddressError}
               />
+              <View style={styles.savedAddressSection}>
+                <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+                  <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                    {savedAddressesLabel}
+                  </AppText>
+                  <AppButton
+                    title={saveThisAddressLabel}
+                    variant="ghost"
+                    fullWidth={false}
+                    onPress={onSaveCurrentAddress}
+                    disabled={!deliveryAddress.trim() || selectedLat === null || selectedLng === null}
+                  />
+                </View>
+                {savedAddresses.length > 0 ? (
+                  <View style={styles.savedAddressList}>
+                    {savedAddresses.map((address) => (
+                      <Pressable
+                        key={address.id}
+                        style={styles.savedAddressCard}
+                        onPress={() => onApplySavedAddress(address)}
+                        accessibilityRole="button"
+                        accessibilityLabel={address.label}
+                        hitSlop={6}>
+                        <AppText variant="bodySmall">{address.label}</AppText>
+                        <AppText variant="caption" color={theme.colors.textSecondary}>
+                          {address.address}
+                        </AppText>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : (
+                  <AppText variant="caption" color={theme.colors.textSecondary}>
+                    {noSavedAddressesLabel}
+                  </AppText>
+                )}
+                {deliveryAddress.trim() && selectedLat !== null && selectedLng !== null ? (
+                  <AppText variant="caption" color={theme.colors.primary700}>
+                    {savedAddressAppliedLabel}
+                  </AppText>
+                ) : null}
+              </View>
               <View style={styles.mapWrap}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>
                   {deliveryLocationLabel}
@@ -373,6 +429,21 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   mapWrap: {
+    gap: theme.spacing.xs,
+  },
+  savedAddressSection: {
+    gap: theme.spacing.sm,
+  },
+  savedAddressList: {
+    gap: theme.spacing.sm,
+  },
+  savedAddressCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.secondaryCream,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     gap: theme.spacing.xs,
   },
   map: {

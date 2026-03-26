@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import { CheckoutScreen } from '@/screens/CheckoutScreen';
 import { orderService } from '@/services/orderService';
+import { addressBook } from '@/services/addressBook';
 
 jest.mock('@/hooks/useAppTranslation', () => ({
   useAppTranslation: () => ({
@@ -14,6 +15,10 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'checkout.delivery': 'Delivery',
         'checkout.deliveryAddress': 'Delivery address',
         'checkout.deliveryAddressRequired': 'Delivery address is required',
+        'checkout.savedAddresses': 'Saved addresses',
+        'checkout.saveThisAddress': 'Save this address',
+        'checkout.savedAddressHint': 'You can save this delivery address for next time.',
+        'checkout.noSavedAddresses': 'Saved delivery addresses will appear here after you save one.',
         'checkout.placeOrder': 'Place order',
         'common.notes': 'Notes',
         'common.subtotal': 'Subtotal',
@@ -28,7 +33,8 @@ jest.mock('@/hooks/useAppTranslation', () => ({
 
 jest.mock('@/state/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'u1' },
+    token: 'token-1',
+    user: { id: 'u1', role: 'CLIENT' },
   }),
 }));
 
@@ -65,9 +71,18 @@ jest.mock('@/services/orderService', () => ({
   },
 }));
 
+jest.mock('@/services/addressBook', () => ({
+  addressBook: {
+    list: jest.fn().mockResolvedValue([]),
+    save: jest.fn(),
+    remove: jest.fn(),
+  },
+}));
+
 describe('CheckoutScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (addressBook.list as jest.Mock).mockResolvedValue([]);
   });
 
   it('shows inline delivery address error and keeps submit disabled until valid', () => {

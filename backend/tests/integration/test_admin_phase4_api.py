@@ -319,6 +319,105 @@ async def test_client_buy_get_offer_uses_qualifying_quantity(client, db_session)
     assert payload['applied_promotion']['id'] == str(buy_get_promotion.id)
     assert payload['discount'] == '4.00'
 
+
+async def test_admin_can_create_buy_x_get_y_promotion(client, db_session):
+    admin = User(
+        first_name='Admin',
+        last_name='Owner',
+        phone_number='+962790001225',
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Coffee', name_ar='قهوة', sort_order=1, is_active=True)
+    latte = Item(section=section, name_en='Latte', name_ar='لاتيه', sort_order=1, is_active=True)
+    muffin = Item(section=section, name_en='Muffin', name_ar='مافن', sort_order=2, is_active=True)
+    latte_type = ItemType(item=latte, name_en='Hot', name_ar='ساخن', sort_order=1, is_active=True)
+    muffin_type = ItemType(item=muffin, name_en='Fresh', name_ar='طازج', sort_order=1, is_active=True)
+    latte_size = Size(item_type=latte_type, name_en='Large', name_ar='كبير', price=Decimal('4.00'), sort_order=1, is_active=True)
+    muffin_size = Size(item_type=muffin_type, name_en='One size', name_ar='حجم واحد', price=Decimal('2.50'), sort_order=1, is_active=True)
+    db_session.add_all([admin, section, latte, muffin, latte_type, muffin_type, latte_size, muffin_size])
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(admin.id), admin.role.value)}"}
+    response = await client.post(
+        '/admin/promotions',
+        headers=headers,
+        json={
+            'title_en': 'Latte plus muffin',
+            'title_ar': 'لاتيه مع مافن',
+            'type': 'BUY_N_GET_M_FREE',
+            'value': '0.00',
+            'starts_at': (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+            'ends_at': (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+            'is_active': True,
+            'buy_quantity': 2,
+            'free_quantity': 1,
+            'buy_targets': [{'entity_type': 'item', 'entity_id': str(latte.id)}],
+            'free_targets': [{'entity_type': 'item', 'entity_id': str(muffin.id)}],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['targets'] == []
+    assert payload['buy_targets'][0]['entity_id'] == str(latte.id)
+    assert payload['buy_targets'][0]['target_group'] == 'buy'
+    assert payload['free_targets'][0]['entity_id'] == str(muffin.id)
+    assert payload['free_targets'][0]['target_group'] == 'free'
+    assert payload['scope_summary_en'] == 'Buy from Latte; free item from Muffin'
+
+
+async def test_client_buy_get_offer_can_use_different_buy_and_free_targets(client, db_session):
+    client_user = User(
+        first_name='Noor',
+        last_name='Client',
+        phone_number='+962790001226',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Coffee', name_ar='قهوة', sort_order=1, is_active=True)
+    latte = Item(section=section, name_en='Latte', name_ar='لاتيه', sort_order=1, is_active=True)
+    muffin = Item(section=section, name_en='Muffin', name_ar='مافن', sort_order=2, is_active=True)
+    latte_type = ItemType(item=latte, name_en='Hot', name_ar='ساخن', sort_order=1, is_active=True)
+    muffin_type = ItemType(item=muffin, name_en='Fresh', name_ar='طازج', sort_order=1, is_active=True)
+    latte_size = Size(item_type=latte_type, name_en='Large', name_ar='كبير', price=Decimal('4.00'), sort_order=1, is_active=True)
+    muffin_size = Size(item_type=muffin_type, name_en='One size', name_ar='حجم واحد', price=Decimal('2.50'), sort_order=1, is_active=True)
+    promo = Promotion(
+        title_en='Buy latte get muffin',
+        title_ar='اشتر لاتيه وخذ مافن',
+        type=PromotionType.BUY_N_GET_M_FREE,
+        value=Decimal('0.00'),
+        starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+        ends_at=datetime.now(timezone.utc) + timedelta(days=1),
+        is_active=True,
+        buy_quantity=2,
+        free_quantity=1,
+    )
+    db_session.add_all([client_user, section, latte, muffin, latte_type, muffin_type, latte_size, muffin_size, promo])
+    await db_session.flush()
+    promo.targets.append(PromotionTarget(target_group='buy', entity_type='item', entity_id=latte.id))
+    promo.targets.append(PromotionTarget(target_group='free', entity_type='item', entity_id=muffin.id))
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(client_user.id), client_user.role.value)}"}
+    response = await client.post(
+        '/promotions/evaluate',
+        headers=headers,
+        json={
+            'items': [
+                {'size_id': str(latte_size.id), 'quantity': 2, 'addon_ids': []},
+                {'size_id': str(muffin_size.id), 'quantity': 1, 'addon_ids': []},
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['applied_promotion']['id'] == str(promo.id)
+    assert payload['discount'] == '2.50'
+
 async def test_admin_users_list_includes_order_count(client, db_session):
     admin = User(
         first_name='Admin',

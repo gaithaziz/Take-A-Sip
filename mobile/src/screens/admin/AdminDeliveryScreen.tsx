@@ -19,10 +19,11 @@ import { adminService } from '@/services/adminService';
 import { theme } from '@/theme';
 import { DeliveryDistanceBand, OrderRead, UserSummary } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
+import { isFinalDeliveredStatus } from '@/utils/orderStatus';
 
 type Props = BottomTabScreenProps<AdminTabParamList, 'AdminDelivery'>;
 
-const canAssignDriver = (order: OrderRead) => order.status === 'ACCEPTED' || order.status === 'ASSIGNED';
+const needsDriverAssignment = (order: OrderRead) => order.status === 'ACCEPTED' && !order.assigned_driver_id;
 
 export const AdminDeliveryScreen = (_: Props) => {
   const { t } = useAppTranslation();
@@ -62,7 +63,7 @@ export const AdminDeliveryScreen = (_: Props) => {
   }, [load]);
 
   const activeDrivers = useMemo(() => drivers.filter((driver) => driver.is_active && !driver.is_banned), [drivers]);
-  const pendingOrders = useMemo(() => latestDeliveryOrders.filter(canAssignDriver), [latestDeliveryOrders]);
+  const pendingOrders = useMemo(() => latestDeliveryOrders.filter(needsDriverAssignment), [latestDeliveryOrders]);
 
   const onCreateBand = async () => {
     const min = Number(minDistance);
@@ -172,7 +173,7 @@ export const AdminDeliveryScreen = (_: Props) => {
         <AppText variant="h1">{t('admin.deliveryTitle')}</AppText>
         <View style={styles.summaryRow}>
           <BadgeChip label={`${t('admin.driversTitle')}: ${activeDrivers.length}`} tone="success" />
-          <BadgeChip label={`${t('admin.latestDeliveryOrders')}: ${pendingOrders.length}`} tone={pendingOrders.length > 0 ? 'warning' : 'default'} />
+          <BadgeChip label={`${t('admin.needsDriverAssignment')}: ${pendingOrders.length}`} tone={pendingOrders.length > 0 ? 'warning' : 'default'} />
         </View>
       </View>
 
@@ -259,15 +260,21 @@ export const AdminDeliveryScreen = (_: Props) => {
               <AppCard key={order.id} style={styles.deliveryCard}>
                 <View style={styles.cardHeader}>
                   <AppText variant="h3">#{order.order_number}</AppText>
-                  <BadgeChip label={t(`status.${order.status}`)} tone={canAssignDriver(order) ? 'warning' : order.status === 'COMPLETED' ? 'success' : 'info'} />
+                  <BadgeChip
+                    label={t(`status.${order.status}`)}
+                    tone={needsDriverAssignment(order) ? 'warning' : isFinalDeliveredStatus(order.status) ? 'success' : 'info'}
+                  />
                 </View>
                 <View style={styles.infoBox}>
                   <InfoLine label={t('admin.usersTitle')} value={order.customer_name || '-'} numberOfLines={1} />
                   <InfoLine label={t('checkout.deliveryAddress')} value={order.delivery_address_text || order.delivery_address || '-'} numberOfLines={2} />
                   <InfoLine label={t('admin.driversTitle')} value={order.assigned_driver_name || order.assigned_driver_id || t('admin.none')} numberOfLines={1} />
                 </View>
-                {canAssignDriver(order) ? (
+                {needsDriverAssignment(order) ? (
                   <View style={styles.assignmentList}>
+                    <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                      {t('admin.assignDriverPrompt')}
+                    </AppText>
                     {activeDrivers.slice(0, 3).map((driver) => (
                       <AppButton
                         key={driver.id}
@@ -281,6 +288,10 @@ export const AdminDeliveryScreen = (_: Props) => {
                       />
                     ))}
                   </View>
+                ) : order.status === 'ASSIGNED' && order.assigned_driver_name ? (
+                  <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                    {`${t('admin.driverAssigned')}: ${order.assigned_driver_name}`}
+                  </AppText>
                 ) : null}
               </AppCard>
             ))}

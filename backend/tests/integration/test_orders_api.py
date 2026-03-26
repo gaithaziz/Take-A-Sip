@@ -192,7 +192,7 @@ async def test_create_delivery_order_requires_delivery_address(client, db_sessio
     assert body['delivery_address'] == 'Amman - 7th Circle'
 
 
-async def test_client_can_rate_completed_order_once(client, db_session):
+async def test_client_can_rate_accepted_pickup_order_once(client, db_session):
     user = User(
         first_name='Huda',
         last_name='Client',
@@ -256,13 +256,6 @@ async def test_client_can_rate_completed_order_once(client, db_session):
     )
     assert admin_accept_response.status_code == 200
 
-    admin_complete_response = await client.post(
-        f"/orders/{created['id']}/status",
-        headers=admin_headers,
-        json={'status': 'COMPLETED'},
-    )
-    assert admin_complete_response.status_code == 200
-
     rating_response = await client.post(
         f"/orders/{created['id']}/rating",
         headers=headers,
@@ -281,6 +274,29 @@ async def test_client_can_rate_completed_order_once(client, db_session):
         json={'stars': 4},
     )
     assert duplicate_response.status_code == 409
+
+    new_order_response = await client.post(
+        '/orders',
+        headers=headers,
+        json={
+            'order_type': 'pickup',
+            'items': [
+                {
+                    'size_id': str(size.id),
+                    'quantity': 1,
+                    'addon_ids': [],
+                }
+            ],
+        },
+    )
+    assert new_order_response.status_code == 201
+    unrated_new_order_id = new_order_response.json()['id']
+    early_rating_response = await client.post(
+        f"/orders/{unrated_new_order_id}/rating",
+        headers=headers,
+        json={'stars': 3},
+    )
+    assert early_rating_response.status_code == 400
 
 
 async def test_admin_ratings_summary_and_reviews(client, db_session):

@@ -6,6 +6,7 @@ import * as Location from 'expo-location';
 
 import { useCartPricing } from '@/hooks/useCartPricing';
 import { RootStackParamList } from '@/navigation/types';
+import { addressBook, SavedAddress } from '@/services/addressBook';
 import { orderService } from '@/services/orderService';
 import { useAuth } from '@/state/AuthContext';
 import { useCart } from '@/state/CartContext';
@@ -20,7 +21,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
 export const CheckoutScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
-  const { user } = useAuth();
+  const { token, user } = useAuth();
   const { items, subtotal, clearCart } = useCart();
   const { discount, total } = useCartPricing(items, subtotal);
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
@@ -33,6 +34,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const [deliveryAddressError, setDeliveryAddressError] = useState<string | undefined>(undefined);
   const [deliveryLocationError, setDeliveryLocationError] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState('');
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const insets = useSafeAreaInsets();
@@ -41,8 +43,26 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const hasDeliveryCoords = deliveryCoords !== null;
   const hasDeliveryQuote = orderType === 'pickup' || (!deliveryQuoteLoading && deliveryFee !== null);
   const isDeliveryValid = orderType === 'pickup' || (hasDeliveryAddress && hasDeliveryCoords && hasDeliveryQuote);
-  const canPlaceOrder = Boolean(user) && items.length > 0 && isDeliveryValid && !loading;
+  const isAuthenticatedClient = Boolean(token) && user?.role === 'CLIENT';
+  const canPlaceOrder = isAuthenticatedClient && items.length > 0 && isDeliveryValid && !loading;
   const payableTotal = total + (orderType === 'delivery' ? deliveryFee ?? 0 : 0);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setSavedAddresses([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const entries = await addressBook.list(user.id);
+      if (!cancelled) {
+        setSavedAddresses(entries);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (orderType !== 'delivery' || !deliveryCoords) {
@@ -111,7 +131,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   );
 
   const placeOrder = async () => {
-    if (!user || items.length === 0) {
+    if (!isAuthenticatedClient || !user || items.length === 0) {
       return;
     }
 
@@ -138,6 +158,15 @@ export const CheckoutScreen = ({ navigation }: Props) => {
     try {
       setLoading(true);
       await orderService.create(payload);
+      if (orderType === 'delivery' && user?.id && deliveryAddress.trim() && deliveryCoords) {
+        const nextAddresses = await addressBook.save(user.id, {
+          label: deliveryAddress.trim(),
+          address: deliveryAddress.trim(),
+          lat: deliveryCoords.lat,
+          lng: deliveryCoords.lng,
+        });
+        setSavedAddresses(nextAddresses);
+      }
       clearCart();
       Alert.alert(t('common.appName'), t('checkout.success'));
       navigation.navigate('MainTabs', { screen: 'PastOrders' });
@@ -200,6 +229,10 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       estimatedDistanceLabel={t('checkout.estimatedDistance')}
       calculatingDeliveryFeeLabel={t('checkout.calculatingDeliveryFee')}
       deliveryFeeUnavailableLabel={t('checkout.deliveryFeeUnavailable')}
+      savedAddressesLabel={t('checkout.savedAddresses')}
+      saveThisAddressLabel={t('checkout.saveThisAddress')}
+      savedAddressAppliedLabel={t('checkout.savedAddressHint')}
+      noSavedAddressesLabel={t('checkout.noSavedAddresses')}
       totalLabel={t('common.total')}
       placeOrderLabel={t('checkout.placeOrder')}
       language={language}
@@ -217,6 +250,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       useCurrentLocationLabel={t('checkout.useCurrentLocation')}
       useCurrentLocationLoadingLabel={t('checkout.locating')}
       locating={locating}
+      savedAddresses={savedAddresses}
       notes={notes}
       subtotal={subtotal}
       discount={discount}
@@ -256,6 +290,28 @@ export const CheckoutScreen = ({ navigation }: Props) => {
         setDeliveryLocationError(undefined);
       }}
       onChangeNotes={setNotes}
+      onApplySavedAddress={(address) => {
+        setDeliveryAddress(address.address);
+        setDeliveryCoords({ lat: address.lat, lng: address.lng });
+        setDeliveryAddressError(undefined);
+        setDeliveryLocationError(undefined);
+        setDeliveryQuoteError(undefined);
+      }}
+      onSaveCurrentAddress={() => {
+        if (!user?.id || !deliveryCoords || !deliveryAddress.trim()) {
+          return;
+        }
+        void (async () => {
+          const nextAddresses = await addressBook.save(user.id, {
+            label: deliveryAddress.trim(),
+            address: deliveryAddress.trim(),
+            lat: deliveryCoords.lat,
+            lng: deliveryCoords.lng,
+          });
+          setSavedAddresses(nextAddresses);
+          Alert.alert(t('common.appName'), t('checkout.addressSaved'));
+        })();
+      }}
       onPlaceOrder={placeOrder}
       onUseCurrentLocation={() => void useCurrentLocation()}
     />

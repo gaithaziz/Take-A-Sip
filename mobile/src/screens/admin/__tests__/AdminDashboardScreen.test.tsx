@@ -5,6 +5,7 @@ import { AdminDashboardScreen } from '@/screens/admin/AdminDashboardScreen';
 const mockListPromotions = jest.fn();
 const mockListLoyaltyRules = jest.fn();
 const mockListUsers = jest.fn();
+const mockListSchedules = jest.fn();
 const mockGetDashboardAnalytics = jest.fn();
 const mockListLatestOrders = jest.fn();
 const mockGetMenuTree = jest.fn();
@@ -41,6 +42,8 @@ const translationMap: Record<string, string> = {
   'admin.averageRating': 'Average rating',
   'admin.totalRatings': 'Total ratings',
   'admin.recentReviews': 'Recent reviews',
+  'admin.starBreakdown': 'Star breakdown',
+  'admin.viewAllReviews': 'View all reviews',
   'admin.noReviewsTitle': 'No reviews yet',
   'admin.noReviewsSubtitle': 'Completed order reviews will appear here.',
   'admin.attentionTitle': 'Needs attention',
@@ -78,6 +81,7 @@ jest.mock('@/services/adminService', () => ({
     listPromotions: (...args: any[]) => mockListPromotions(...args),
     listLoyaltyRules: (...args: any[]) => mockListLoyaltyRules(...args),
     listUsers: (...args: any[]) => mockListUsers(...args),
+    listSchedules: (...args: any[]) => mockListSchedules(...args),
     getDashboardAnalytics: (...args: any[]) => mockGetDashboardAnalytics(...args),
     listRatings: (...args: any[]) => mockListRatings(...args),
     listLatestOrders: (...args: any[]) => mockListLatestOrders(...args),
@@ -90,7 +94,15 @@ describe('AdminDashboardScreen', () => {
     mockGetMenuTree.mockResolvedValue({ sections: [{ id: 's1' }] });
     mockListPromotions.mockResolvedValue({ promotions: [] });
     mockListLoyaltyRules.mockResolvedValue({ rules: [] });
-    mockListUsers.mockResolvedValue({ users: [{ id: 'u1' }] });
+    mockListUsers.mockResolvedValue({
+      users: [
+        { id: 'u1', role: 'CLIENT' },
+        { id: 'u2', role: 'ADMIN' },
+        { id: 'u3', role: 'FRONTDESK' },
+        { id: 'u4', role: 'DRIVER' },
+      ],
+    });
+    mockListSchedules.mockResolvedValue({ schedules: [{ id: 'schedule-1' }, { id: 'schedule-2' }] });
     mockGetDashboardAnalytics.mockResolvedValue({
       revenue: {
         today_revenue: '10',
@@ -125,10 +137,11 @@ describe('AdminDashboardScreen', () => {
     });
   });
 
-  it('renders attention items and supports section navigation taps', async () => {
+  it('renders corrected dashboard stats and supports section navigation taps', async () => {
     const navigate = jest.fn();
-    const { getByText } = render(
-      <AdminDashboardScreen navigation={{ navigate, getParent: jest.fn() } as never} route={{} as never} />,
+    const parentNavigate = jest.fn();
+    const { getAllByText, getByText } = render(
+      <AdminDashboardScreen navigation={{ navigate, getParent: () => ({ navigate: parentNavigate }) } as never} route={{} as never} />,
     );
 
     await waitFor(() => {
@@ -137,9 +150,44 @@ describe('AdminDashboardScreen', () => {
       expect(getByText('Needs attention')).toBeTruthy();
       expect(getByText('No promotions are live right now.')).toBeTruthy();
       expect(getByText('No loyalty rules are configured yet.')).toBeTruthy();
+      expect(getAllByText('2').length).toBeGreaterThan(0);
+      expect(getAllByText('3').length).toBeGreaterThan(0);
+      expect(getByText('Star breakdown')).toBeTruthy();
     });
 
     fireEvent.press(getByText('Promotions'));
     expect(navigate).toHaveBeenCalledWith('AdminPromotions');
+
+    expect(mockListSchedules).toHaveBeenCalledTimes(1);
+    expect(mockListRatings).toHaveBeenCalledWith(3);
+    expect(parentNavigate).not.toHaveBeenCalled();
+  });
+
+  it('shows only the recent review preview and opens the full reviews screen', async () => {
+    const navigate = jest.fn();
+    const parentNavigate = jest.fn();
+    mockListRatings.mockResolvedValue({
+      ratings: [
+        { order_id: 'o1', stars: 5, note: 'Excellent', customer_name: 'Maya Client', created_at: '2026-03-10T10:00:00Z' },
+        { order_id: 'o2', stars: 4, note: null, customer_name: 'Lina Client', created_at: '2026-03-09T10:00:00Z' },
+        { order_id: 'o3', stars: 3, note: 'Okay', customer_name: 'Rana Client', created_at: '2026-03-08T10:00:00Z' },
+      ],
+    });
+
+    const { getByText, queryByText } = render(
+      <AdminDashboardScreen navigation={{ navigate, getParent: () => ({ navigate: parentNavigate }) } as never} route={{} as never} />,
+    );
+
+    await waitFor(() => {
+      expect(getByText('View all reviews')).toBeTruthy();
+      expect(getByText('Maya Client')).toBeTruthy();
+      expect(getByText('Lina Client')).toBeTruthy();
+      expect(getByText('Rana Client')).toBeTruthy();
+    });
+
+    expect(queryByText('Fourth Client')).toBeNull();
+
+    fireEvent.press(getByText('View all reviews'));
+    expect(parentNavigate).toHaveBeenCalledWith('AdminReviews');
   });
 });

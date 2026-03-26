@@ -162,6 +162,8 @@ export const adminService = {
     free_quantity?: number | null;
     loyalty_rule_id?: string | null;
     targets: PromotionTargetInput[];
+    buy_targets?: PromotionTargetInput[];
+    free_targets?: PromotionTargetInput[];
   }) {
     const { data } = await http.post('/admin/promotions', payload);
     return data;

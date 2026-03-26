@@ -16,6 +16,14 @@ jest.mock('@/state/LanguageContext', () => ({
   }),
 }));
 
+jest.mock('@/hooks/useAppTranslation', () => ({
+  useAppTranslation: () => ({
+    language: 'en',
+    isRTL: false,
+    t: (key: string) => (key === 'common.appName' ? 'Take A Sip' : key),
+  }),
+}));
+
 jest.mock('@/state/AuthContext', () => ({
   useAuth: () => ({
     token: null,

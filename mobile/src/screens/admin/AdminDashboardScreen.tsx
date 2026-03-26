@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
+import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
 import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
@@ -19,6 +20,7 @@ import { OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDateTime, toNumber } from '@/utils/format';
 import { mirroredRow } from '@/utils/layout';
+import { isFinalDeliveredStatus } from '@/utils/orderStatus';
 
 type Props = BottomTabScreenProps<AdminTabParamList, 'AdminDashboard'>;
 
@@ -37,7 +39,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
   const isCompact = width < 390;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState({ sections: 0, promotions: 0, loyaltyRules: 0, users: 0 });
+  const [stats, setStats] = useState({ sections: 0, promotions: 0, loyaltyRules: 0, users: 0, staff: 0, schedules: 0 });
   const [revenue, setRevenue] = useState({
     today: 0,
     week: 0,
@@ -74,20 +76,24 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
     try {
       setLoading(true);
       setError(null);
-      const [menu, promotions, loyalty, users, dashboardAnalytics, ratingsResponse, latestOrdersResponse] = await Promise.all([
+      const [menu, promotions, loyalty, users, schedules, dashboardAnalytics, ratingsResponse, latestOrdersResponse] = await Promise.all([
         adminService.getMenuTree(),
         adminService.listPromotions(),
         adminService.listLoyaltyRules(),
         adminService.listUsers(),
+        adminService.listSchedules(),
         adminService.getDashboardAnalytics(),
-        adminService.listRatings(5),
+        adminService.listRatings(3),
         adminService.listLatestOrders({ limit: 5 }),
       ]);
+      const staffCount = users.users.filter((user) => ['ADMIN', 'FRONTDESK', 'DRIVER'].includes(user.role)).length;
       setStats({
         sections: menu.sections.length,
         promotions: promotions.promotions.length,
         loyaltyRules: loyalty.rules.length,
         users: users.users.length,
+        staff: staffCount,
+        schedules: schedules.schedules.length,
       });
       setRevenue({
         today: toNumber(dashboardAnalytics.revenue.today_revenue),
@@ -130,6 +136,10 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
     navigation.getParent()?.navigate(screen as never);
   };
 
+  const openAllReviews = () => {
+    navigation.getParent()?.navigate('AdminReviews' as never);
+  };
+
   const quickActions = useMemo<QuickAction[]>(
     () => [
       {
@@ -157,14 +167,14 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
         key: 'scheduling',
         label: t('admin.schedulingTitle'),
         icon: 'calendar',
-        value: orderAnalytics.totalOrdersToday ? orderAnalytics.pickupDeliveryRatio : t('admin.none'),
+        value: String(stats.schedules),
         onPress: () => navigation.navigate('AdminScheduling'),
       },
       {
         key: 'staff',
         label: t('admin.staffTitle'),
         icon: 'people-circle',
-        value: String(driverAnalytics.deliveriesPerDriver.length),
+        value: String(stats.staff),
         onPress: () => navigation.navigate('AdminStaff'),
       },
       {
@@ -189,7 +199,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
         onPress: () => navigateToAdminStackScreen('AdminProfile'),
       },
     ],
-    [driverAnalytics.deliveriesPerDriver.length, navigation, orderAnalytics.deliveryOrdersToday, orderAnalytics.pickupDeliveryRatio, orderAnalytics.totalOrdersToday, stats.loyaltyRules, stats.promotions, stats.sections, stats.users, t],
+    [navigation, orderAnalytics.deliveryOrdersToday, stats.loyaltyRules, stats.promotions, stats.schedules, stats.sections, stats.staff, stats.users, t],
   );
 
   const attentionItems = useMemo(() => {
@@ -213,7 +223,12 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
   const kpiCards = useMemo(
     () => [
       { key: 'orders', label: t('admin.totalOrdersToday'), value: String(orderAnalytics.totalOrdersToday), meta: orderAnalytics.pickupDeliveryRatio },
-      { key: 'average', label: t('admin.averageOrderValue'), value: formatCurrency(orderAnalytics.averageOrderValue, language), meta: `${orderAnalytics.pickupOrdersToday}/${orderAnalytics.deliveryOrdersToday}` },
+      {
+        key: 'average',
+        label: t('admin.averageOrderValue'),
+        value: formatCurrency(orderAnalytics.averageOrderValue, language),
+        meta: `${t('checkout.pickup')}: ${orderAnalytics.pickupOrdersToday}  ${t('checkout.delivery')}: ${orderAnalytics.deliveryOrdersToday}`,
+      },
       { key: 'deliveries', label: t('admin.deliveriesCompletedToday'), value: String(driverAnalytics.deliveriesCompletedToday), meta: t('admin.driverAnalyticsTitle') },
       { key: 'rating', label: t('admin.averageRating'), value: `${ratingsSummary.averageRating.toFixed(1)} / 5`, meta: `${ratingsSummary.totalRatings} ${t('admin.totalRatings').toLowerCase()}` },
     ],
@@ -221,7 +236,6 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
   );
 
   const latestOrdersPreview = latestOrders.slice(0, 3);
-  const recentRatingsPreview = recentRatings.slice(0, 3);
   const driverPreview = driverAnalytics.deliveriesPerDriver.slice(0, 3);
 
   if (loading) {
@@ -364,7 +378,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
                   <AppText variant="h3">#{order.order_number}</AppText>
                   <BadgeChip
                     label={t(`status.${order.status}`)}
-                    tone={order.status === 'COMPLETED' ? 'success' : order.status === 'CANCELLED' ? 'error' : 'warning'}
+                    tone={isFinalDeliveredStatus(order.status) ? 'success' : order.status === 'CANCELLED' ? 'error' : 'warning'}
                   />
                 </View>
                 <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
@@ -397,7 +411,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
           </AppCard>
           <AppCard style={styles.metricCard}>
             <AppText variant="caption" color={theme.colors.textSecondary}>
-              {t('admin.recentReviews')}
+              {t('admin.starBreakdown')}
             </AppText>
             <View style={styles.breakdownWrap}>
               {[5, 4, 3, 2, 1].map((stars) => (
@@ -412,7 +426,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
           </AppCard>
         </View>
 
-        {recentRatingsPreview.length === 0 ? (
+        {recentRatings.length === 0 ? (
           <AppCard>
             <AppText variant="h3">{t('admin.noReviewsTitle')}</AppText>
             <AppText variant="bodySmall" color={theme.colors.textSecondary}>
@@ -421,7 +435,8 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
           </AppCard>
         ) : (
           <View style={styles.stack}>
-            {recentRatingsPreview.map((rating) => (
+            <AppButton title={t('admin.viewAllReviews')} variant="secondary" onPress={openAllReviews} />
+            {recentRatings.map((rating) => (
               <AppCard key={`${rating.order_id}-${rating.created_at}`} style={styles.listCard}>
                 <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
                   <AppText variant="h3" style={styles.grow}>

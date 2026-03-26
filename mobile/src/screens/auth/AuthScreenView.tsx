@@ -1,4 +1,4 @@
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -13,6 +13,8 @@ type AuthScreenViewProps = {
   brandName: string;
   title: string;
   subtitle: string;
+  trustMessage: string;
+  staffHint: string;
   firstNameLabel: string;
   lastNameLabel: string;
   phoneNumberLabel: string;
@@ -20,16 +22,30 @@ type AuthScreenViewProps = {
   sendOtpLabel: string;
   verifyOtpLabel: string;
   cancelLabel: string;
+  editNumberLabel: string;
+  resendOtpLabel: string;
+  resendCountdownLabel: string;
+  otpSentLabel: string;
   languageToggleLabel: string;
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  normalizedPhoneNumber: string;
   otpCode: string;
   step: AuthStep;
   loading: boolean;
   isRTL: boolean;
   topInset: number;
   bottomInset: number;
+  errors: {
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+    otpCode?: string;
+  };
+  statusMessage: string | null;
+  resendMessage: string | null;
+  cooldownRemaining: number;
   onChangeFirstName: (value: string) => void;
   onChangeLastName: (value: string) => void;
   onChangePhoneNumber: (value: string) => void;
@@ -37,6 +53,8 @@ type AuthScreenViewProps = {
   onSendOtp: () => void;
   onVerifyOtp: () => void;
   onCancelOtp: () => void;
+  onResendOtp: () => void;
+  onEditNumber: () => void;
   onToggleLanguage: () => void;
 };
 
@@ -44,6 +62,8 @@ export const AuthScreenView = ({
   brandName,
   title,
   subtitle,
+  trustMessage,
+  staffHint,
   firstNameLabel,
   lastNameLabel,
   phoneNumberLabel,
@@ -51,16 +71,25 @@ export const AuthScreenView = ({
   sendOtpLabel,
   verifyOtpLabel,
   cancelLabel,
+  editNumberLabel,
+  resendOtpLabel,
+  resendCountdownLabel,
+  otpSentLabel,
   languageToggleLabel,
   firstName,
   lastName,
   phoneNumber,
+  normalizedPhoneNumber,
   otpCode,
   step,
   loading,
   isRTL,
   topInset,
   bottomInset,
+  errors,
+  statusMessage,
+  resendMessage,
+  cooldownRemaining,
   onChangeFirstName,
   onChangeLastName,
   onChangePhoneNumber,
@@ -68,8 +97,12 @@ export const AuthScreenView = ({
   onSendOtp,
   onVerifyOtp,
   onCancelOtp,
+  onResendOtp,
+  onEditNumber,
   onToggleLanguage,
 }: AuthScreenViewProps) => {
+  const canResend = cooldownRemaining === 0 && !loading;
+
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
@@ -105,28 +138,85 @@ export const AuthScreenView = ({
           </View>
 
           <AppCard style={styles.authCard}>
+            <View style={styles.trustBanner}>
+              <AppText variant="caption" color={theme.colors.primary700} align="center">
+                {trustMessage}
+              </AppText>
+            </View>
+            <AppText variant="caption" color={theme.colors.textSecondary} align="center">
+              {staffHint}
+            </AppText>
+
             {step === 'form' ? (
               <>
                 <View style={styles.form}>
-                  <AppInput label={firstNameLabel} value={firstName} onChangeText={onChangeFirstName} />
-                  <AppInput label={lastNameLabel} value={lastName} onChangeText={onChangeLastName} />
+                  <AppInput label={firstNameLabel} value={firstName} onChangeText={onChangeFirstName} error={errors.firstName} />
+                  <AppInput label={lastNameLabel} value={lastName} onChangeText={onChangeLastName} error={errors.lastName} />
                   <AppInput
                     label={phoneNumberLabel}
                     value={phoneNumber}
                     keyboardType="phone-pad"
+                    autoComplete="tel"
+                    textContentType="telephoneNumber"
                     onChangeText={onChangePhoneNumber}
+                    error={errors.phoneNumber}
                   />
                 </View>
+                {statusMessage ? (
+                  <AppText variant="caption" color={theme.colors.error}>
+                    {statusMessage}
+                  </AppText>
+                ) : null}
                 <AppButton title={sendOtpLabel} onPress={onSendOtp} loading={loading} />
               </>
             ) : (
               <>
-                <View style={styles.form}>
-                  <AppInput label={otpCodeLabel} value={otpCode} keyboardType="number-pad" onChangeText={onChangeOtpCode} />
+                <View style={styles.otpMetaCard}>
+                  <AppText variant="caption" color={theme.colors.textSecondary} align="center">
+                    {otpSentLabel}
+                  </AppText>
+                  <AppText variant="h3" align="center">
+                    {normalizedPhoneNumber}
+                  </AppText>
+                  <View style={[styles.otpMetaActions, mirroredRow(isRTL)]}>
+                    <AppButton title={editNumberLabel} variant="ghost" fullWidth={false} onPress={onEditNumber} />
+                    <AppButton title={cancelLabel} variant="secondary" fullWidth={false} onPress={onCancelOtp} />
+                  </View>
                 </View>
+
+                <View style={styles.form}>
+                  <AppInput
+                    label={otpCodeLabel}
+                    value={otpCode}
+                    keyboardType="number-pad"
+                    autoComplete="sms-otp"
+                    textContentType="oneTimeCode"
+                    maxLength={6}
+                    onChangeText={onChangeOtpCode}
+                    error={errors.otpCode}
+                    style={styles.otpInput}
+                  />
+                </View>
+
+                {resendMessage ? (
+                  <AppText variant="caption" color={theme.colors.primary700} align="center">
+                    {resendMessage}
+                  </AppText>
+                ) : null}
+                {statusMessage ? (
+                  <AppText variant="caption" color={theme.colors.error} align="center">
+                    {statusMessage}
+                  </AppText>
+                ) : null}
+
                 <View style={styles.actions}>
                   <AppButton title={verifyOtpLabel} onPress={onVerifyOtp} loading={loading} />
-                  <AppButton title={cancelLabel} variant="ghost" onPress={onCancelOtp} />
+                  <AppButton
+                    title={canResend ? resendOtpLabel : resendCountdownLabel}
+                    variant="ghost"
+                    onPress={onResendOtp}
+                    disabled={!canResend}
+                  />
                 </View>
               </>
             )}
@@ -187,10 +277,38 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
     marginTop: theme.spacing.sm,
   },
+  trustBanner: {
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary50,
+    borderWidth: 1,
+    borderColor: theme.colors.primary100,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  otpMetaCard: {
+    gap: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary100,
+    backgroundColor: theme.colors.secondaryCream,
+    padding: theme.spacing.md,
+  },
+  otpMetaActions: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+  },
   form: {
     gap: theme.spacing.md,
   },
   actions: {
     gap: theme.spacing.sm,
+  },
+  otpInput: {
+    textAlign: 'center',
+    letterSpacing: 10,
+    fontSize: 24,
+    fontWeight: '700',
   },
 });

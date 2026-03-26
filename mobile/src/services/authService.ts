@@ -1,4 +1,4 @@
-import { AuthUser, SendOtpPayload, TokenResponse, VerifyOtpPayload } from '@/types/api';
+import { AuthUser, SendOtpPayload, TokenResponse, UpdateProfilePayload, VerifyOtpPayload } from '@/types/api';
 
 import { http } from './http';
 
@@ -13,6 +13,10 @@ export const authService = {
   },
   async me(): Promise<AuthUser> {
     const { data } = await http.get('/auth/me');
+    return data;
+  },
+  async updateProfile(payload: UpdateProfilePayload): Promise<AuthUser> {
+    const { data } = await http.patch('/auth/me', payload);
     return data;
   },
 };

@@ -24,6 +24,7 @@ import { AdminSchedulingScreen } from '@/screens/admin/AdminSchedulingScreen';
 import { AdminStaffScreen } from '@/screens/admin/AdminStaffScreen';
 import { AdminUsersScreen } from '@/screens/admin/AdminUsersScreen';
 import { AdminProfileScreen } from '@/screens/admin/AdminProfileScreen';
+import { AdminReviewsScreen } from '@/screens/admin/AdminReviewsScreen';
 import { AdminUserDetailsScreen } from '@/screens/admin/AdminUserDetailsScreen';
 import { AdminDeliveryScreen } from '@/screens/admin/AdminDeliveryScreen';
 import { DriverOrdersScreen } from '@/screens/driver/DriverOrdersScreen';
@@ -167,6 +168,7 @@ export const AppNavigator = () => {
         ) : user?.role === 'ADMIN' ? (
           <>
             <Stack.Screen name="AdminTabs" component={AdminTabs} />
+            <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
             <Stack.Screen name="AdminLoyalty" component={AdminLoyaltyRulesScreen} />
             <Stack.Screen name="AdminProfile" component={AdminProfileScreen} />
             <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />

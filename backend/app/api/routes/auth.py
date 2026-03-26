@@ -4,8 +4,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.auth import AuthUserResponse, OTPMessageResponse, SendOTPRequest, TokenResponse, VerifyOTPRequest
-from app.services.auth_service import send_otp, verify_otp
+from app.schemas.auth import (
+    AuthUserResponse,
+    OTPMessageResponse,
+    SendOTPRequest,
+    TokenResponse,
+    UpdateProfileRequest,
+    VerifyOTPRequest,
+)
+from app.services.auth_service import send_otp, update_profile, verify_otp
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -33,3 +40,12 @@ async def get_profile(current_user: User = Depends(get_current_user)) -> AuthUse
         phone_number=current_user.phone_number,
         role=current_user.role.value,
     )
+
+
+@router.patch('/me', response_model=AuthUserResponse)
+async def update_profile_endpoint(
+    payload: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AuthUserResponse:
+    return await update_profile(current_user, payload, db)

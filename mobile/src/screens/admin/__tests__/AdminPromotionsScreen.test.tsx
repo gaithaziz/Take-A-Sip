@@ -6,6 +6,7 @@ import { AdminPromotionsScreen } from '@/screens/admin/AdminPromotionsScreen';
 const mockListPromotions = jest.fn();
 const mockGetMenuTree = jest.fn();
 const mockCreatePromotion = jest.fn();
+const mockUpdatePromotion = jest.fn();
 const mockTogglePromotion = jest.fn();
 
 const translationMap: Record<string, string> = {
@@ -14,28 +15,35 @@ const translationMap: Record<string, string> = {
   'common.retry': 'Retry',
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
+  'common.add': 'Add',
+  'common.remove': 'Remove',
   'validation.requiredFields': 'Required fields',
   'admin.promotionsTitle': 'Promotions',
   'admin.createPromotion': 'Create promotion',
   'admin.editPromotion': 'Edit promotion',
   'admin.offerIdentity': 'Offer identity',
   'admin.offerRules': 'Offer rules',
+  'admin.offerBehavior': 'What should this offer do?',
+  'admin.offerBehaviorDiscount': 'Take a fixed amount off',
+  'admin.offerBehaviorDiscountHelp': 'Fixed discount help',
+  'admin.offerBehaviorBuyGet': 'Buy some, get some free',
+  'admin.offerBehaviorBuyGetHelp': 'Buy/get help',
   'admin.offerWindow': 'Active window',
   'admin.eligibleMenuItems': 'Eligible menu items',
   'admin.eligibilityTrigger': 'Eligibility trigger',
-  'admin.offerStatusSection': 'Live status',
-  'admin.quickTargetPicks': 'Quick target picks',
-  'admin.titleEn': 'Title (English)',
-  'admin.titleAr': 'Title (Arabic)',
-  'admin.promotionType': 'Promotion type',
-  'admin.promoTypeTemporary': 'Temporary',
-  'admin.promoTypeFirstTime': 'First-time offer',
-  'admin.promoTypeLoyalty': 'Loyalty',
-  'admin.promoTypeBuyGet': 'Buy N Get M Free',
-  'admin.value': 'Value',
+  'admin.eligibilityChoice': 'Who can use this offer?',
+  'admin.eligibilityEveryone': 'Everyone',
+  'admin.eligibilityEveryoneHelp': 'Any customer can use this offer while it is active.',
+  'admin.eligibilityFirstTime': 'New customers only',
+  'admin.eligibilityFirstTimeHelp': 'Only customers with no completed orders can use this offer.',
+  'admin.eligibilityAfterOrders': 'Returning customers after X orders',
+  'admin.eligibilityAfterOrdersHelp': 'Use this when the customer must finish a certain number of completed orders first.',
+  'admin.requiredCompletedOrders': 'Required completed orders',
+  'admin.requiredCompletedOrdersPlaceholder': 'Example: 5',
   'admin.buyQuantity': 'Buy quantity',
   'admin.freeQuantity': 'Free quantity',
   'admin.buyGetRule': 'Buy/Get rule',
+  'admin.discountAmount': 'Discount amount',
   'admin.startDate': 'Start date',
   'admin.startTime': 'Start time',
   'admin.endDate': 'End date',
@@ -43,21 +51,24 @@ const translationMap: Record<string, string> = {
   'admin.timeRange': 'Time range',
   'admin.targetSearch': 'Search menu targets',
   'admin.targetSearchPlaceholder': 'Search sections, items, sizes, or add-ons',
+  'admin.targetType': 'Target type',
+  'admin.matchingTargets': 'Matching targets',
+  'admin.noMatchingTargets': 'No matching targets found. Try another search or target type.',
+  'admin.specificTargets': 'Specific targets',
+  'admin.scopeWholeMenuHelp': 'Whole menu help',
+  'admin.scopeSpecificTargetsHelp': 'Specific targets help',
+  'admin.scopeChooserHelp': 'Choose menu scope',
   'admin.wholeMenu': 'Whole menu',
-  'admin.allSections': 'All sections',
+  'admin.buyFrom': 'Customer buys from',
+  'admin.buyFromHelp': 'Choose what counts toward the buy quantity.',
+  'admin.freeFrom': 'Customer gets free from',
+  'admin.freeFromHelp': 'Choose what can become free.',
+  'admin.selectedTargets': 'Selected targets',
   'admin.noTargetsSelected': 'No menu targets selected yet.',
   'admin.appliesToWholeMenu': 'Applies to the whole menu',
-  'admin.firstTimeEligibilityDetail': 'Available only to users who have not completed any previous orders.',
-  'admin.loyaltyEligibilityDetail': 'Available only when the required completed order count is reached.',
-  'admin.temporaryEligibilityDetail': 'Available to all users during the active window unless you scope it to specific menu entries.',
-  'admin.buyGetEligibilityDetail': 'Available when the cart has enough qualifying items to unlock the free quantity.',
-  'admin.requiredCompletedOrders': 'Required completed orders',
   'admin.completedOrdersEligibilityPrefix': 'Available after',
-  'admin.optional': 'Optional',
   'admin.ordersThreshold': 'orders',
-  'admin.status': 'Status',
-  'admin.active': 'Active',
-  'admin.inactive': 'Inactive',
+  'admin.offerStatusSection': 'Live status',
   'admin.offerSummary': 'Offer summary',
   'admin.scopeSummary': 'Scope',
   'admin.eligibilitySummary': 'Eligibility',
@@ -68,12 +79,21 @@ const translationMap: Record<string, string> = {
   'admin.enable': 'Enable',
   'admin.liveOfferToggleConfirm': 'This offer is live for customers right now. Are you sure you want to change its status?',
   'admin.liveNow': 'Live now',
-  'admin.scheduled': 'Scheduled',
-  'admin.expired': 'Expired',
   'admin.dateRange': 'Date range',
   'admin.edit': 'Edit',
   'admin.missingTranslation': 'Missing translation',
+  'admin.titleEn': 'Title (English)',
+  'admin.titleAr': 'Title (Arabic)',
+  'admin.active': 'Active',
+  'admin.inactive': 'Inactive',
+  'admin.section': 'Section',
+  'admin.item': 'Item',
+  'admin.type': 'Type',
+  'admin.size': 'Size',
+  'admin.addon': 'Add-on',
+  'admin.invalidDateRange': 'Invalid date range',
 };
+
 const mockTranslate = (key: string) => translationMap[key] ?? key;
 
 jest.mock('@/hooks/useAppTranslation', () => ({
@@ -102,12 +122,28 @@ jest.mock('@/components/DateTimeField', () => ({
   },
 }));
 
+jest.mock('@/components/admin/SelectDropdownField', () => ({
+  SelectDropdownField: ({ label, options, onChange }: any) => {
+    const { Pressable, Text, View } = require('react-native');
+    return (
+      <View>
+        <Text>{label}</Text>
+        {options.map((option: any) => (
+          <Pressable key={`${label}-${option.value}`} onPress={() => onChange(option.value)} accessibilityLabel={`${label}: ${option.label}`}>
+            <Text>{option.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  },
+}));
+
 jest.mock('@/services/adminService', () => ({
   adminService: {
     listPromotions: (...args: any[]) => mockListPromotions(...args),
     getMenuTree: (...args: any[]) => mockGetMenuTree(...args),
     createPromotion: (...args: any[]) => mockCreatePromotion(...args),
-    updatePromotion: jest.fn(),
+    updatePromotion: (...args: any[]) => mockUpdatePromotion(...args),
     togglePromotion: (...args: any[]) => mockTogglePromotion(...args),
   },
 }));
@@ -120,22 +156,24 @@ describe('AdminPromotionsScreen', () => {
       promotions: [
         {
           id: 'promo-1',
-          title_en: 'Latte Loyalty',
-          title_ar: 'ولاء اللاتيه',
-          type: 'LOYALTY',
-          value: '3.00',
+          title_en: 'Latte + Muffin',
+          title_ar: 'لاتيه + مافن',
+          type: 'BUY_N_GET_M_FREE',
+          value: '0.00',
           starts_at: '2026-03-23T08:00:00Z',
           ends_at: '2026-03-25T08:00:00Z',
           is_active: true,
-          required_completed_orders: 5,
-          buy_quantity: null,
-          free_quantity: null,
+          required_completed_orders: 4,
+          buy_quantity: 2,
+          free_quantity: 1,
           loyalty_rule_id: null,
-          targets: [{ id: 'target-1', promotion_id: 'promo-1', entity_type: 'item', entity_id: 'item-1', entity_name_en: 'Latte', entity_name_ar: 'لاتيه' }],
-          scope_summary_en: 'Applies to Latte',
-          scope_summary_ar: 'ينطبق على لاتيه',
-          eligibility_summary_en: 'Available after 5 completed orders',
-          eligibility_summary_ar: 'متاح بعد 5 طلبات مكتملة',
+          targets: [],
+          buy_targets: [{ id: 'target-buy', promotion_id: 'promo-1', target_group: 'buy', entity_type: 'item', entity_id: 'item-1', entity_name_en: 'Latte', entity_name_ar: 'لاتيه' }],
+          free_targets: [{ id: 'target-free', promotion_id: 'promo-1', target_group: 'free', entity_type: 'item', entity_id: 'item-2', entity_name_en: 'Muffin', entity_name_ar: 'مافن' }],
+          scope_summary_en: 'Buy from Latte; free item from Muffin',
+          scope_summary_ar: 'اشتر من لاتيه وخذ من مافن',
+          eligibility_summary_en: 'Available after 4 completed orders',
+          eligibility_summary_ar: 'متاح بعد 4 طلبات مكتملة',
         },
       ],
     });
@@ -159,13 +197,26 @@ describe('AdminPromotionsScreen', () => {
               description_ar: null,
               sort_order: 1,
               is_active: true,
-              item_types: [{ id: 'type-1', item_id: 'item-1', name_en: 'Hot', name_ar: 'ساخن', image_url: null, sort_order: 1, is_active: true, sizes: [{ id: 'size-1', type_id: 'type-1', name_en: 'Large', name_ar: 'كبير', image_url: null, price: '4.00', sort_order: 1, is_active: true, addons: [] }] }],
+              item_types: [{ id: 'type-1', item_id: 'item-1', name_en: 'Hot', name_ar: 'ساخن', image_url: null, sort_order: 1, is_active: true, sizes: [] }],
+            },
+            {
+              id: 'item-2',
+              section_id: 'section-1',
+              name_en: 'Muffin',
+              name_ar: 'مافن',
+              image_url: null,
+              description_en: null,
+              description_ar: null,
+              sort_order: 2,
+              is_active: true,
+              item_types: [{ id: 'type-2', item_id: 'item-2', name_en: 'Fresh', name_ar: 'طازج', image_url: null, sort_order: 1, is_active: true, sizes: [] }],
             },
           ],
         },
       ],
     });
     mockCreatePromotion.mockResolvedValue({ id: 'created-promo' });
+    mockUpdatePromotion.mockResolvedValue({ id: 'promo-1' });
     mockTogglePromotion.mockResolvedValue({ id: 'promo-1', is_active: false });
   });
 
@@ -173,74 +224,87 @@ describe('AdminPromotionsScreen', () => {
     jest.restoreAllMocks();
   });
 
-  it('shows offer summaries and confirms before toggling a live offer', async () => {
-    const { getByText } = render(<AdminPromotionsScreen />);
+  it('shows the saved summary, confirms before toggling, and no longer shows all sections', async () => {
+    const { getByText, queryByText } = render(<AdminPromotionsScreen />);
 
     await waitFor(() => {
       expect(getByText('Promotions')).toBeTruthy();
-      expect(getByText('Latte Loyalty')).toBeTruthy();
-      expect(getByText('Applies to Latte')).toBeTruthy();
-      expect(getByText('Available after 5 completed orders')).toBeTruthy();
+      expect(getByText('Latte + Muffin')).toBeTruthy();
+      expect(getByText('Buy from Latte; free item from Muffin')).toBeTruthy();
+      expect(getByText('Available after 4 completed orders')).toBeTruthy();
     });
 
+    expect(queryByText('All sections')).toBeNull();
     fireEvent.press(getByText('Disable'));
     expect(Alert.alert).toHaveBeenCalledWith('Disable', 'This offer is live for customers right now. Are you sure you want to change its status?', expect.any(Array));
   });
 
-  it('creates a buy-get offer with selected targets and completed-order eligibility', async () => {
-    const { getAllByText, getByLabelText, getByPlaceholderText, getByText } = render(<AdminPromotionsScreen />);
+  it('creates a buy-get offer with separate buy and free targets', async () => {
+    const { getAllByLabelText, getAllByPlaceholderText, getAllByText, getByLabelText, getByText } = render(<AdminPromotionsScreen />);
 
     await waitFor(() => {
       expect(getByText('Promotions')).toBeTruthy();
     });
 
-    fireEvent.changeText(getByLabelText('Title (English)'), 'VIP Latte');
-    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'لاتيه كبار الشخصيات');
-    fireEvent.press(getByLabelText('Promotion type: Buy N Get M Free'));
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Buy latte get muffin');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'اشتر لاتيه وخذ مافن');
+    fireEvent.press(getByLabelText('What should this offer do?: Buy some, get some free'));
     fireEvent.changeText(getByLabelText('Buy quantity'), '2');
     fireEvent.changeText(getByLabelText('Free quantity'), '1');
+    fireEvent.press(getByLabelText('Who can use this offer?: Returning customers after X orders'));
     fireEvent.changeText(getByLabelText('Required completed orders'), '4');
-    fireEvent.changeText(getByPlaceholderText('Search sections, items, sizes, or add-ons'), 'Latte');
+
+    fireEvent.press(getByLabelText('Customer buys from: Specific targets'));
+    fireEvent.press(getByLabelText('Target type: Item'));
+    fireEvent.changeText(getAllByPlaceholderText('Search sections, items, sizes, or add-ons')[0], 'Latte');
     fireEvent.press(getByLabelText('Coffee > Latte'));
+
+    fireEvent.press(getByLabelText('Customer gets free from: Specific targets'));
+    fireEvent.press(getAllByLabelText('Target type: Item')[1]);
+    fireEvent.changeText(getAllByPlaceholderText('Search sections, items, sizes, or add-ons')[1], 'Muffin');
+    fireEvent.press(getByLabelText('Coffee > Muffin'));
+
     fireEvent.press(getAllByText('Create promotion').at(-1)!);
 
     await waitFor(() => {
       expect(mockCreatePromotion).toHaveBeenCalledWith(
         expect.objectContaining({
-          title_en: 'VIP Latte',
-          title_ar: 'لاتيه كبار الشخصيات',
+          title_en: 'Buy latte get muffin',
+          title_ar: 'اشتر لاتيه وخذ مافن',
           type: 'BUY_N_GET_M_FREE',
           value: 0,
+          required_completed_orders: 4,
           buy_quantity: 2,
           free_quantity: 1,
-          required_completed_orders: 4,
-          targets: [{ entity_type: 'item', entity_id: 'item-1' }],
+          targets: [],
+          buy_targets: [{ entity_type: 'item', entity_id: 'item-1' }],
+          free_targets: [{ entity_type: 'item', entity_id: 'item-2' }],
         }),
       );
     });
   });
 
-  it('lets the admin target all sections with one tap', async () => {
+  it('creates a fixed discount for new customers on the whole menu', async () => {
     const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionsScreen />);
 
     await waitFor(() => {
       expect(getByText('Promotions')).toBeTruthy();
     });
 
-    fireEvent.changeText(getByLabelText('Title (English)'), 'Section Offer');
-    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'عرض الأقسام');
-    fireEvent.changeText(getByLabelText('Value'), '2');
-    fireEvent.press(getByText('All sections'));
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Welcome offer');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'عرض الترحيب');
+    fireEvent.changeText(getByLabelText('Discount amount'), '2');
+    fireEvent.press(getByLabelText('Who can use this offer?: New customers only'));
     fireEvent.press(getAllByText('Create promotion').at(-1)!);
 
     await waitFor(() => {
       expect(mockCreatePromotion).toHaveBeenCalledWith(
         expect.objectContaining({
-          title_en: 'Section Offer',
-          title_ar: 'عرض الأقسام',
-          type: 'TEMPORARY',
+          type: 'FIRST_TIME',
           value: 2,
-          targets: [{ entity_type: 'section', entity_id: 'section-1' }],
+          targets: [],
+          buy_targets: [],
+          free_targets: [],
         }),
       );
     });

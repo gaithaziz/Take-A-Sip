@@ -142,8 +142,7 @@ async def test_delivery_order_full_lifecycle(client, db_session):
         headers=frontdesk_headers,
         json={'status': 'COMPLETED'},
     )
-    assert complete_response.status_code == 200
-    assert complete_response.json()['status'] == 'COMPLETED'
+    assert complete_response.status_code == 400
 
 
 async def test_delivery_order_rejected_when_no_distance_band_match(client, db_session):

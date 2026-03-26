@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, SectionList, StyleSheet, View, ViewToken } from 'react-native';
+import { Image, Pressable, ScrollView, SectionList, StyleSheet, View, ViewToken, useWindowDimensions } from 'react-native';
 
 import { AppCard } from '@/components/AppCard';
 import { AppText } from '@/components/AppText';
@@ -45,8 +45,10 @@ export const HomeScreenView = ({
   onOpenCart,
   onOpenProduct,
 }: HomeScreenViewProps) => {
+  const { width } = useWindowDimensions();
   const listRef = useRef<SectionList<Item, HomeMenuSection>>(null);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const isCompact = width < 390;
 
   const visibleSections = useMemo(() => menuSections.filter((section) => section.data.length > 0), [menuSections]);
   const sectionIndexById = useMemo(
@@ -105,7 +107,7 @@ export const HomeScreenView = ({
       ListHeaderComponent={
         <View style={styles.headerBlock}>
           <AppCard style={styles.topPanel}>
-            <View style={[styles.topBar, mirroredRow(isRTL)]}>
+            <View style={[styles.topBar, mirroredRow(isRTL), isCompact ? styles.topBarCompact : null]}>
               <View style={[styles.topTitleWrap, mirroredRow(isRTL)]}>
                 <View style={styles.logoWrap}>
                   <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="cover" />
@@ -120,7 +122,7 @@ export const HomeScreenView = ({
                 </View>
               </View>
               <Pressable
-                style={[styles.cartButton, mirroredRow(isRTL)]}
+                style={[styles.cartButton, mirroredRow(isRTL), isCompact ? styles.cartButtonCompact : null]}
                 onPress={onOpenCart}
                 accessibilityRole="button"
                 accessibilityLabel={`${t('home.cart')} (${cartCount})`}
@@ -150,6 +152,9 @@ export const HomeScreenView = ({
 
           {visibleSections.length > 0 ? (
             <View style={styles.chipsWrap}>
+              <AppText variant="caption" color={theme.colors.textSecondary}>
+                {t('home.jumpToCategory')}
+              </AppText>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -234,6 +239,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
+  topBarCompact: {
+    alignItems: 'stretch',
+  },
   topTitleWrap: {
     flex: 1,
     alignItems: 'flex-start',
@@ -269,6 +277,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
+  },
+  cartButtonCompact: {
+    width: '100%',
+    justifyContent: 'center',
   },
   cartIconWrap: {
     width: 34,

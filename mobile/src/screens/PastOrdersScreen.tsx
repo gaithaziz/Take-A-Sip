@@ -25,10 +25,6 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
   const [orders, setOrders] = useState<OrderRead[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
-  const [ratingStarsByOrder, setRatingStarsByOrder] = useState<Record<string, number>>({});
-  const [ratingNotesByOrder, setRatingNotesByOrder] = useState<Record<string, string>>({});
-  const [ratingExpandedByOrder, setRatingExpandedByOrder] = useState<Record<string, boolean>>({});
-  const [submittingRatingId, setSubmittingRatingId] = useState<string | null>(null);
 
   const normalizeSnapshot = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
   const matchesSnapshotName = (snapshot: string, candidates: Array<string | null | undefined>) => {
@@ -143,40 +139,6 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
     }
   };
 
-  const onToggleRating = (orderId: string, expanded: boolean) => {
-    setRatingExpandedByOrder((previous) => ({ ...previous, [orderId]: expanded }));
-  };
-
-  const onSelectRatingStars = (orderId: string, stars: number) => {
-    setRatingStarsByOrder((previous) => ({ ...previous, [orderId]: stars }));
-  };
-
-  const onChangeRatingNote = (orderId: string, note: string) => {
-    setRatingNotesByOrder((previous) => ({ ...previous, [orderId]: note }));
-  };
-
-  const onSubmitRating = async (order: OrderRead) => {
-    const stars = ratingStarsByOrder[order.id] ?? 0;
-    const note = ratingNotesByOrder[order.id] ?? '';
-
-    if (stars < 1 || stars > 5) {
-      Alert.alert(t('common.appName'), t('orders.ratingStarsRequired'));
-      return;
-    }
-
-    try {
-      setSubmittingRatingId(order.id);
-      const rating = await orderService.submitRating(order.id, { stars, note: note.trim() || undefined });
-      setOrders((previous) => previous.map((entry) => (entry.id === order.id ? { ...entry, rating } : entry)));
-      setRatingExpandedByOrder((previous) => ({ ...previous, [order.id]: false }));
-      Alert.alert(t('common.appName'), t('orders.ratingSubmitted'));
-    } catch (e) {
-      Alert.alert(t('common.appName'), getApiErrorMessage(e, t));
-    } finally {
-      setSubmittingRatingId(null);
-    }
-  };
-
   const onOpenDetails = (orderId: string) => {
     navigation.getParent()?.navigate('ClientOrderDetails', { orderId });
   };
@@ -195,18 +157,10 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
       loading={loading}
       error={error}
       reorderingId={reorderingId}
-      ratingStarsByOrder={ratingStarsByOrder}
-      ratingNotesByOrder={ratingNotesByOrder}
-      ratingExpandedByOrder={ratingExpandedByOrder}
-      submittingRatingId={submittingRatingId}
       topInset={insets.top}
       bottomInset={insets.bottom}
       onReload={loadOrders}
       onReorder={(order) => void onReorder(order)}
-      onToggleRating={onToggleRating}
-      onSelectRatingStars={onSelectRatingStars}
-      onChangeRatingNote={onChangeRatingNote}
-      onSubmitRating={(order) => void onSubmitRating(order)}
       onOpenDetails={onOpenDetails}
       t={t}
     />

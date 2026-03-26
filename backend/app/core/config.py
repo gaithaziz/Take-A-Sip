@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24 * 7
 
     otp_ttl_minutes: int = 5
+    otp_resend_cooldown_seconds: int = 45
+    otp_max_verify_attempts: int = 5
+    otp_lock_minutes: int = 15
     otp_test_code: str = ''
     otp_provider: str = 'mock'
     twilio_account_sid: str | None = None

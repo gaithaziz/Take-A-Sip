@@ -1,5 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { AuthScreen } from '@/screens/AuthScreen';
 
@@ -16,10 +15,15 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'validation.requiredFields': 'Please fill all required fields',
         'auth.title': 'Welcome',
         'auth.subtitle': 'Sign in with your phone number',
+        'auth.trustMessage': 'We only use your phone number to verify your account and keep your orders secure.',
+        'auth.staffHint': 'Staff and admin users must sign in with the exact phone number provisioned for their account.',
         'auth.firstName': 'First name',
         'auth.lastName': 'Last name',
         'auth.phoneNumber': 'Phone number',
+        'auth.otpCode': 'OTP code',
         'auth.sendOtp': 'Send OTP',
+        'auth.verifyOtp': 'Verify OTP',
+        'common.languageArabic': 'Arabic',
       };
       return map[key] ?? key;
     },
@@ -48,15 +52,42 @@ jest.mock('react-native-safe-area-context', () => ({
 describe('AuthScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
 
-  it('shows validation alert when required fields are empty', () => {
-    const { getByText } = render(<AuthScreen />);
+  it('shows inline validation when required fields are empty', () => {
+    const { getByText, getAllByText } = render(<AuthScreen />);
 
     fireEvent.press(getByText('Send OTP'));
 
-    expect(Alert.alert).toHaveBeenCalledWith('Error', 'Please fill all required fields');
+    expect(getAllByText('Please fill all required fields').length).toBeGreaterThan(0);
     expect(mockSendOtp).not.toHaveBeenCalled();
+  });
+
+  it('verifies otp without sending an explicit role', async () => {
+    mockSendOtp.mockResolvedValue(undefined);
+    mockVerifyOtp.mockResolvedValue(undefined);
+
+    const { getByText, getByLabelText } = render(<AuthScreen />);
+
+    fireEvent.changeText(getByLabelText('First name'), 'Ali');
+    fireEvent.changeText(getByLabelText('Last name'), 'Sami');
+    fireEvent.changeText(getByLabelText('Phone number'), '+962790000111');
+    fireEvent.press(getByText('Send OTP'));
+
+    await waitFor(() => {
+      expect(mockSendOtp).toHaveBeenCalled();
+    });
+
+    fireEvent.changeText(getByLabelText('OTP code'), '1234');
+    fireEvent.press(getByText('Verify OTP'));
+
+    await waitFor(() => {
+      expect(mockVerifyOtp).toHaveBeenCalledWith({
+        phone_number: '+962790000111',
+        otp_code: '1234',
+        first_name: 'Ali',
+        last_name: 'Sami',
+      });
+    });
   });
 });

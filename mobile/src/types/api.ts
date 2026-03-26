@@ -19,7 +19,11 @@ export type VerifyOtpPayload = {
   otp_code: string;
   first_name?: string;
   last_name?: string;
-  role?: 'CLIENT' | 'DRIVER';
+};
+
+export type UpdateProfilePayload = {
+  first_name: string;
+  last_name: string;
 };
 
 export type TokenResponse = {
@@ -103,6 +107,8 @@ export type Promotion = {
   free_quantity?: number | null;
   loyalty_rule_id?: string | null;
   targets: PromotionTarget[];
+  buy_targets: PromotionTarget[];
+  free_targets: PromotionTarget[];
   scope_summary_en: string;
   scope_summary_ar: string;
   eligibility_summary_en: string;
@@ -116,11 +122,14 @@ export type ActivePromotionsResponse = {
 export type PromotionTarget = {
   id: string;
   promotion_id: string;
+  target_group: PromotionTargetGroup;
   entity_type: MenuEntityType;
   entity_id: string;
   entity_name_en?: string | null;
   entity_name_ar?: string | null;
 };
+
+export type PromotionTargetGroup = 'scope' | 'buy' | 'free';
 
 export type PromotionTargetInput = {
   entity_type: MenuEntityType;

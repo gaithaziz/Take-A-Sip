@@ -5,18 +5,49 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.logging import log_structured
+from app.core.phone import mask_phone_number
 from app.core.security import create_access_token
 from app.models.user import User, UserRole
-from app.schemas.auth import SendOTPRequest, TokenResponse, VerifyOTPRequest
-from app.services.otp_service import otp_service
+from app.schemas.auth import AuthUserResponse, SendOTPRequest, TokenResponse, UpdateProfileRequest, VerifyOTPRequest
+from app.services.otp_service import OTPRateLimitError, OTPVerifyResult, otp_service
 from app.services.sms_service import SMSProviderError, build_sms_provider
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
+def _ensure_secure_otp_configuration() -> None:
+    environment = settings.environment.strip().lower()
+    provider = settings.otp_provider.strip().lower()
+    if environment in {'production', 'prod'} and (provider == 'mock' or bool(settings.otp_test_code.strip())):
+        log_structured(
+            logger,
+            logging.ERROR,
+            'auth.otp_provider_misconfigured',
+            {'environment': environment, 'provider': provider},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='OTP service is misconfigured',
+        )
 
 
 async def send_otp(payload: SendOTPRequest) -> str:
-    code = otp_service.generate_and_store(payload.phone_number)
+    _ensure_secure_otp_configuration()
+    try:
+        code = otp_service.generate_and_store(payload.phone_number)
+    except OTPRateLimitError as exc:
+        log_structured(
+            logger,
+            logging.WARNING,
+            'auth.otp_send_rate_limited',
+            {'phone_number': mask_phone_number(payload.phone_number), 'retry_after_seconds': exc.retry_after_seconds},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f'Please wait {exc.retry_after_seconds} seconds before requesting another OTP',
+        ) from exc
+
     sms_provider = build_sms_provider()
     try:
         await sms_provider.send_sms(
@@ -28,7 +59,7 @@ async def send_otp(payload: SendOTPRequest) -> str:
             logger,
             logging.WARNING,
             'auth.otp_send_failed',
-            {'phone_number_last4': payload.phone_number[-4:]},
+            {'phone_number': mask_phone_number(payload.phone_number)},
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -38,25 +69,47 @@ async def send_otp(payload: SendOTPRequest) -> str:
         logger,
         logging.INFO,
         'auth.otp_sent',
-        {'phone_number_last4': payload.phone_number[-4:]},
+        {'phone_number': mask_phone_number(payload.phone_number)},
     )
     return code
 
 
 async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenResponse:
-    is_valid = otp_service.verify(payload.phone_number, payload.otp_code)
-    if not is_valid:
+    _ensure_secure_otp_configuration()
+    verify_result = otp_service.verify(payload.phone_number, payload.otp_code)
+    if verify_result in {OTPVerifyResult.NOT_FOUND, OTPVerifyResult.EXPIRED}:
+        log_structured(
+            logger,
+            logging.WARNING,
+            'auth.otp_verify_missing_or_expired',
+            {'phone_number': mask_phone_number(payload.phone_number)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='OTP expired or not found. Please request a new code.',
+        )
+    if verify_result == OTPVerifyResult.LOCKED:
+        log_structured(
+            logger,
+            logging.WARNING,
+            'auth.otp_verify_locked',
+            {'phone_number': mask_phone_number(payload.phone_number)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail='Too many invalid OTP attempts. Please request a new code later.',
+        )
+    if verify_result != OTPVerifyResult.SUCCESS:
         log_structured(
             logger,
             logging.WARNING,
             'auth.otp_verify_failed',
-            {'phone_number_last4': payload.phone_number[-4:]},
+            {'phone_number': mask_phone_number(payload.phone_number)},
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid OTP')
 
     result = await db.execute(select(User).where(User.phone_number == payload.phone_number))
     user = result.scalar_one_or_none()
-    requested_role = payload.role or UserRole.CLIENT.value
 
     if user is None:
         if not payload.first_name or not payload.last_name:
@@ -64,13 +117,11 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='first_name and last_name are required for signup',
             )
-        if requested_role not in {UserRole.CLIENT.value, UserRole.DRIVER.value}:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid role for signup')
         user = User(
             first_name=payload.first_name,
             last_name=payload.last_name,
             phone_number=payload.phone_number,
-            role=UserRole(requested_role),
+            role=UserRole.CLIENT,
             is_active=True,
             is_banned=False,
         )
@@ -83,8 +134,6 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
             'auth.user_created',
             {'user_id': str(user.id), 'role': user.role.value},
         )
-    elif payload.role and user.role.value != payload.role:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Role mismatch for this account')
 
     if user.is_banned:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is banned')
@@ -107,4 +156,19 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
             'phone_number': user.phone_number,
             'role': user.role.value,
         },
+    )
+
+
+async def update_profile(current_user: User, payload: UpdateProfileRequest, db: AsyncSession) -> AuthUserResponse:
+    current_user.first_name = payload.first_name
+    current_user.last_name = payload.last_name
+    await db.commit()
+    await db.refresh(current_user)
+
+    return AuthUserResponse(
+        id=current_user.id,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        phone_number=current_user.phone_number,
+        role=current_user.role.value,
     )

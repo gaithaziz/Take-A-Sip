@@ -31,6 +31,8 @@ describe('useCartPricing', () => {
         is_active: true,
         loyalty_rule_id: 'rule-1',
         targets: [],
+        buy_targets: [],
+        free_targets: [],
         scope_summary_en: 'Applies to the whole menu',
         scope_summary_ar: 'ينطبق على كامل القائمة',
         eligibility_summary_en: 'Available every 5 completed orders',

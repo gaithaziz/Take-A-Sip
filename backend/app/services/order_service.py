@@ -568,12 +568,14 @@ async def assign_driver(
     return refreshed_order
 
 
+_SUCCESSFUL_FINAL_STATUSES = {OrderStatus.DELIVERED, OrderStatus.COMPLETED}
+
 _ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.NEW: {OrderStatus.ACCEPTED, OrderStatus.CANCELLED},
     OrderStatus.ACCEPTED: {OrderStatus.ASSIGNED, OrderStatus.COMPLETED, OrderStatus.CANCELLED},
     OrderStatus.ASSIGNED: {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED},
     OrderStatus.OUT_FOR_DELIVERY: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
-    OrderStatus.DELIVERED: {OrderStatus.COMPLETED},
+    OrderStatus.DELIVERED: set(),
     OrderStatus.COMPLETED: set(),
     OrderStatus.CANCELLED: set(),
 }
@@ -594,6 +596,14 @@ def _role_can_set_status(role: UserRole, target: OrderStatus) -> bool:
     return False
 
 
+def _is_order_rating_eligible(order: Order) -> bool:
+    if order.status == OrderStatus.CANCELLED:
+        return False
+    if order.order_type == OrderType.DELIVERY:
+        return order.status in _SUCCESSFUL_FINAL_STATUSES
+    return order.status in {OrderStatus.ACCEPTED, OrderStatus.COMPLETED}
+
+
 async def update_order_status(db: AsyncSession, order_id: UUID, target_status: str, actor: User) -> Order:
     try:
         next_status = OrderStatus(target_status)
@@ -609,6 +619,8 @@ async def update_order_status(db: AsyncSession, order_id: UUID, target_status: s
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Driver can only manage assigned orders')
         if order.order_type != OrderType.DELIVERY:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Only delivery orders can be handled by driver')
+    if order.order_type == OrderType.DELIVERY and next_status == OrderStatus.COMPLETED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Delivery orders finish at DELIVERED')
 
     allowed_next = _ALLOWED_TRANSITIONS.get(order.status, set())
     if next_status not in allowed_next:
@@ -616,7 +628,9 @@ async def update_order_status(db: AsyncSession, order_id: UUID, target_status: s
 
     previous_status = order.status
     order.status = next_status
-    if next_status == OrderStatus.COMPLETED:
+    if next_status == OrderStatus.COMPLETED or (
+        order.order_type == OrderType.DELIVERY and next_status == OrderStatus.DELIVERED
+    ):
         order.completed_at = datetime.now(timezone.utc)
     await _log_event(db, order.id, 'order.status_changed', actor.id, metadata={'status': next_status.value})
     await db.commit()
@@ -633,7 +647,7 @@ async def update_order_status(db: AsyncSession, order_id: UUID, target_status: s
             'actor_role': actor.role.value,
         },
     )
-    if next_status == OrderStatus.COMPLETED:
+    if order.order_type == OrderType.DELIVERY and next_status in _SUCCESSFUL_FINAL_STATUSES:
         log_structured(
             logger,
             logging.INFO,
@@ -702,7 +716,7 @@ async def get_revenue_summary(db: AsyncSession) -> dict[str, Decimal | int]:
         )
         .outerjoin(order_totals, order_totals.c.order_id == Order.id)
         .where(
-            Order.status.in_([OrderStatus.ACCEPTED, OrderStatus.COMPLETED]),
+            Order.status.in_([OrderStatus.ACCEPTED, OrderStatus.DELIVERED, OrderStatus.COMPLETED]),
             Order.created_at >= month_start,
         )
         .subquery()
@@ -769,7 +783,7 @@ async def get_order_analytics(db: AsyncSession) -> dict:
         )
         .outerjoin(order_totals, order_totals.c.order_id == Order.id)
         .where(
-            Order.status.in_([OrderStatus.ACCEPTED, OrderStatus.COMPLETED]),
+            Order.status.in_([OrderStatus.ACCEPTED, OrderStatus.DELIVERED, OrderStatus.COMPLETED]),
             Order.created_at >= last_30_days_start,
         )
     )
@@ -807,7 +821,7 @@ async def get_driver_analytics(db: AsyncSession) -> dict:
         .join(Order, Order.assigned_driver_id == User.id)
         .where(
             User.role == UserRole.DRIVER,
-            Order.status == OrderStatus.COMPLETED,
+            Order.status.in_([OrderStatus.DELIVERED, OrderStatus.COMPLETED]),
             Order.completed_at.is_not(None),
             Order.completed_at >= today_start,
         )
@@ -902,8 +916,8 @@ async def create_order_rating(
 
     if order.user_id != actor.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Forbidden')
-    if order.status != OrderStatus.COMPLETED:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Only completed orders can be rated')
+    if not _is_order_rating_eligible(order):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Order is not ready for rating')
     if order.rating is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Order already rated')
 

@@ -3,7 +3,7 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 
 import { authService } from '@/services/authService';
 import { setAuthToken } from '@/services/http';
-import { AuthUser, SendOtpPayload, VerifyOtpPayload } from '@/types/api';
+import { AuthUser, SendOtpPayload, UpdateProfilePayload, VerifyOtpPayload } from '@/types/api';
 
 type AuthContextValue = {
   isLoading: boolean;
@@ -11,6 +11,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   sendOtp: (payload: SendOtpPayload) => Promise<void>;
   verifyOtp: (payload: VerifyOtpPayload) => Promise<void>;
+  updateProfile: (payload: UpdateProfilePayload) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -66,6 +67,12 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     ]);
   };
 
+  const updateProfile = async (payload: UpdateProfilePayload) => {
+    const updatedUser = await authService.updateProfile(payload);
+    setUser(updatedUser);
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+  };
+
   const logout = async () => {
     setToken(null);
     setUser(null);
@@ -74,7 +81,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   };
 
   const value = useMemo(
-    () => ({ isLoading, token, user, sendOtp, verifyOtp, logout }),
+    () => ({ isLoading, token, user, sendOtp, verifyOtp, updateProfile, logout }),
     [isLoading, token, user],
   );
 

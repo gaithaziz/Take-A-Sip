@@ -11,6 +11,7 @@ import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
+import { TopAppBar } from '@/components/TopAppBar';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
 import { orderService } from '@/services/orderService';
@@ -18,8 +19,9 @@ import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
 import { OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
-import { formatDateTime } from '@/utils/format';
+import { formatCurrency, formatDateTime, toNumber } from '@/utils/format';
 import { mirroredRow } from '@/utils/layout';
+import { getOrderRatingAvailabilityKey, isOrderRateable } from '@/utils/orderStatus';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClientOrderDetails'>;
 
@@ -28,10 +30,16 @@ const statusToneMap = {
   ACCEPTED: 'info',
   ASSIGNED: 'info',
   OUT_FOR_DELIVERY: 'info',
-  DELIVERED: 'info',
+  DELIVERED: 'success',
   COMPLETED: 'success',
   CANCELLED: 'error',
 } as const;
+
+const getItemsSubtotal = (order: OrderRead) =>
+  order.items.reduce((sum, item) => {
+    const addons = item.addons.reduce((addonSum, addon) => addonSum + toNumber(addon.price_snapshot), 0);
+    return sum + (toNumber(item.price_snapshot) + addons) * item.quantity;
+  }, 0);
 
 export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
   const { orderId } = route.params;
@@ -100,101 +108,182 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
     );
   }
 
+  const itemsSubtotal = getItemsSubtotal(order);
+  const deliveryFee = toNumber(order.delivery_fee ?? 0);
+  const totalAmount = itemsSubtotal + deliveryFee;
+  const canRateOrder = isOrderRateable(order);
+
   return (
-    <AppShell>
-      <View style={[styles.header, mirroredRow(isRTL)]}>
-        <AppButton title={t('common.goBack')} variant="ghost" fullWidth={false} onPress={() => navigation.goBack()} />
-        <BadgeChip label={t(`status.${order.status}`)} tone={statusToneMap[order.status]} />
-      </View>
+    <View style={styles.screen}>
+      <TopAppBar title={t('orders.detailsTitle')} onBack={() => navigation.goBack()} />
+      <AppShell>
+        <View style={[styles.header, mirroredRow(isRTL)]}>
+          <BadgeChip label={t(`status.${order.status}`)} tone={statusToneMap[order.status]} />
+          <BadgeChip label={formatCurrency(totalAmount, language)} tone="success" />
+        </View>
 
-      <View style={styles.titleBlock}>
-        <AppText variant="h1">{t('orders.detailsTitle')}</AppText>
-        <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-          #{order.order_number} - {formatDateTime(order.created_at, language)}
-        </AppText>
-      </View>
+        <View style={styles.titleBlock}>
+          <AppText variant="h2">{`#${order.order_number}`}</AppText>
+          <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+            {formatDateTime(order.created_at, language)}
+          </AppText>
+        </View>
 
-      <AppCard style={styles.card}>
-        {order.items.map((line) => (
-          <View key={line.id} style={styles.lineWrap}>
-            <View style={[styles.lineTop, mirroredRow(isRTL)]}>
-              <AppText variant="h3">{line.item_name_snapshot}</AppText>
-              <AppText variant="caption" color={theme.colors.textSecondary}>
-                {line.quantity}x
-              </AppText>
-            </View>
-            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-              {line.size_snapshot}
-            </AppText>
-          </View>
-        ))}
-      </AppCard>
-
-      {order.status === 'COMPLETED' ? (
         <AppCard style={styles.card}>
           <AppText variant="h3">{t('orders.rateOrder')}</AppText>
-          {order.rating ? (
-            <View style={styles.readOnlyRating}>
-              <View style={[styles.starRow, mirroredRow(isRTL)]}>
-                {Array.from({ length: 5 }, (_, index) => (
-                  <Ionicons
-                    key={`readonly-star-${index}`}
-                    name={index < order.rating!.stars ? 'star' : 'star-outline'}
-                    size={20}
-                    color={theme.colors.warning}
-                  />
-                ))}
+          {canRateOrder ? (
+            order.rating ? (
+              <View style={styles.readOnlyRating}>
+                <View style={[styles.starRow, mirroredRow(isRTL)]}>
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <Ionicons
+                      key={`readonly-star-${index}`}
+                      name={index < order.rating!.stars ? 'star' : 'star-outline'}
+                      size={20}
+                      color={theme.colors.warning}
+                    />
+                  ))}
+                </View>
+                {order.rating.note ? (
+                  <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                    {order.rating.note}
+                  </AppText>
+                ) : null}
               </View>
-              {order.rating.note ? (
-                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                  {order.rating.note}
-                </AppText>
-              ) : null}
-            </View>
+            ) : (
+              <View style={styles.rateWrap}>
+                <View style={[styles.starRow, mirroredRow(isRTL)]}>
+                  {Array.from({ length: 5 }, (_, index) => {
+                    const starValue = index + 1;
+                    return (
+                      <Pressable
+                        key={`input-star-${starValue}`}
+                        onPress={() => setRatingStars(starValue)}
+                        testID={`rating-star-${starValue}`}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('orders.rateOrder')} ${starValue}`}>
+                        <Ionicons
+                          name={starValue <= ratingStars ? 'star' : 'star-outline'}
+                          size={28}
+                          color={theme.colors.warning}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <AppInput
+                  multiline
+                  maxLength={500}
+                  placeholder={t('orders.ratingNotePlaceholder')}
+                  value={ratingNote}
+                  onChangeText={setRatingNote}
+                />
+                <AppButton
+                  title={t('orders.submitRating')}
+                  testID="order-details-submit-rating"
+                  loading={submitting}
+                  onPress={onSubmitRating}
+                />
+              </View>
+            )
           ) : (
-            <View style={styles.rateWrap}>
-              <View style={[styles.starRow, mirroredRow(isRTL)]}>
-                {Array.from({ length: 5 }, (_, index) => {
-                  const starValue = index + 1;
-                  return (
-                    <Pressable
-                      key={`input-star-${starValue}`}
-                      onPress={() => setRatingStars(starValue)}
-                      testID={`rating-star-${starValue}`}
-                      hitSlop={6}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${t('orders.rateOrder')} ${starValue}`}>
-                      <Ionicons
-                        name={starValue <= ratingStars ? 'star' : 'star-outline'}
-                        size={24}
-                        color={theme.colors.warning}
-                      />
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <AppInput
-                multiline
-                maxLength={500}
-                placeholder={t('orders.ratingNotePlaceholder')}
-                value={ratingNote}
-                onChangeText={setRatingNote}
-              />
-              <AppButton
-                title={t('orders.submitRating')}
-                testID="order-details-submit-rating"
-                loading={submitting}
-                onPress={onSubmitRating}
-              />
-            </View>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t(getOrderRatingAvailabilityKey(order))}
+            </AppText>
           )}
         </AppCard>
-      ) : null}
-    </AppShell>
+
+        <AppCard style={styles.card}>
+          <AppText variant="h3">{t('orders.summaryTitle')}</AppText>
+          <View style={styles.summaryList}>
+            <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('orders.orderType')}
+              </AppText>
+              <AppText variant="bodySmall">{t(order.order_type === 'pickup' ? 'checkout.pickup' : 'checkout.delivery')}</AppText>
+            </View>
+            <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('orders.placedAt')}
+              </AppText>
+              <AppText variant="bodySmall">{formatDateTime(order.created_at, language)}</AppText>
+            </View>
+            {order.completed_at ? (
+              <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                  {t('orders.completedAt')}
+                </AppText>
+                <AppText variant="bodySmall">{formatDateTime(order.completed_at, language)}</AppText>
+              </View>
+            ) : null}
+            {order.order_type === 'delivery' && order.delivery_address_text ? (
+              <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                  {t('orders.deliveryAddress')}
+                </AppText>
+                <AppText variant="bodySmall" style={styles.summaryValue}>
+                  {order.delivery_address_text}
+                </AppText>
+              </View>
+            ) : null}
+            <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('common.subtotal')}
+              </AppText>
+              <AppText variant="bodySmall">{formatCurrency(itemsSubtotal, language)}</AppText>
+            </View>
+            {order.order_type === 'delivery' ? (
+              <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                  {t('checkout.deliveryFee')}
+                </AppText>
+                <AppText variant="bodySmall">{formatCurrency(deliveryFee, language)}</AppText>
+              </View>
+            ) : null}
+            <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('common.total')}
+              </AppText>
+              <AppText variant="h3">{formatCurrency(totalAmount, language)}</AppText>
+            </View>
+          </View>
+        </AppCard>
+
+        <AppCard style={styles.card}>
+          <AppText variant="h3">{t('orders.itemsTitle')}</AppText>
+          {order.items.map((line) => (
+            <View key={line.id} style={styles.lineWrap}>
+              <View style={[styles.lineTop, mirroredRow(isRTL)]}>
+                <AppText variant="h3">{line.item_name_snapshot}</AppText>
+                <AppText variant="caption" color={theme.colors.textSecondary}>
+                  {line.quantity}x
+                </AppText>
+              </View>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {line.size_snapshot}
+              </AppText>
+              <AppText variant="caption" color={theme.colors.primary700}>
+                {formatCurrency(
+                  (toNumber(line.price_snapshot) +
+                    line.addons.reduce((sum, addon) => sum + toNumber(addon.price_snapshot), 0)) *
+                    line.quantity,
+                  language,
+                )}
+              </AppText>
+            </View>
+          ))}
+        </AppCard>
+      </AppShell>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   header: {
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -204,6 +293,18 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: theme.spacing.sm,
+  },
+  summaryList: {
+    gap: theme.spacing.sm,
+  },
+  summaryRow: {
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  summaryValue: {
+    flex: 1,
+    textAlign: 'right',
   },
   lineWrap: {
     gap: theme.spacing.xs,

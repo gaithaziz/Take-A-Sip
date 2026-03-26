@@ -8,6 +8,7 @@ const t = (key: string) => {
   const map: Record<string, string> = {
     'home.title': 'Menu',
     'home.cart': 'Cart',
+    'home.myOrders': 'My Orders',
     'home.noMenu': 'No menu available right now',
     'common.loading': 'Loading...',
   };

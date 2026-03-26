@@ -8,7 +8,7 @@ const mockOrder = {
   id: 'order-1',
   order_number: 101,
   user_id: 'user-1',
-  status: 'COMPLETED',
+  status: 'ACCEPTED',
   order_type: 'pickup',
   created_at: '2026-03-15T10:00:00.000Z',
   notes: null,
@@ -43,6 +43,9 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'orders.ratingNotePlaceholder': 'Optional review note',
         'orders.ratingStarsRequired': 'Please select a star rating',
         'orders.ratingSubmitted': 'Thanks for your feedback',
+        'orders.ratingAvailableAfterAcceptance': 'Rating will be available as soon as the shop accepts this pickup order.',
+        'orders.ratingAvailableAfterDelivery': 'Rating will be available as soon as this delivery is marked delivered.',
+        'status.ACCEPTED': 'Accepted',
         'status.COMPLETED': 'Completed',
       };
       return map[key] ?? key;
@@ -56,6 +59,10 @@ jest.mock('@/state/LanguageContext', () => ({
     isRTL: false,
     toggleLanguage: jest.fn(),
   }),
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock('@/components/AppShell', () => ({
@@ -75,7 +82,7 @@ describe('ClientOrderDetailsScreen', () => {
     jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
   });
 
-  it('shows rating inputs for completed unrated order', async () => {
+  it('shows rating inputs for accepted pickup unrated order', async () => {
     (orderService.getById as jest.Mock).mockResolvedValue(mockOrder);
 
     const { findByText, findByPlaceholderText } = render(

@@ -4,7 +4,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppCard } from '@/components/AppCard';
-import { AppShell } from '@/components/AppShell';
+import { AppButton } from '@/components/AppButton';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
@@ -35,7 +35,7 @@ const toneByStatus: Record<OrderRead['status'], 'info' | 'success' | 'warning' |
   ACCEPTED: 'info',
   ASSIGNED: 'info',
   OUT_FOR_DELIVERY: 'info',
-  DELIVERED: 'info',
+  DELIVERED: 'success',
   COMPLETED: 'success',
   CANCELLED: 'error',
 };
@@ -43,7 +43,7 @@ const toneByStatus: Record<OrderRead['status'], 'info' | 'success' | 'warning' |
 const orderTypeLabel = (orderType: OrderRead['order_type'], t: (key: string) => string): string =>
   orderType === 'pickup' ? t('checkout.pickup') : t('checkout.delivery');
 
-export const AdminUserDetailsScreen = ({ route }: Props) => {
+export const AdminUserDetailsScreen = ({ route, navigation }: Props) => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -107,6 +107,7 @@ export const AdminUserDetailsScreen = ({ route }: Props) => {
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListHeaderComponent={
         <View style={styles.headerBlock}>
+          <AppButton title={t('common.goBack')} variant="ghost" fullWidth={false} onPress={() => navigation.goBack()} />
           <AppText variant="h1">{t('admin.userOrdersTitle')}</AppText>
           <AppCard style={styles.userSummaryCard}>
             <View style={[styles.userSummaryHeader, mirroredRow(isRTL)]}>

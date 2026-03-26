@@ -124,13 +124,6 @@ async def test_admin_dashboard_analytics_and_security_guards(client, db_session)
     )
     assert delivered_response.status_code == 200
 
-    completed_response = await client.post(
-        f'/orders/{order_id}/status',
-        headers=admin_headers,
-        json={'status': OrderStatus.COMPLETED.value},
-    )
-    assert completed_response.status_code == 200
-
     rating_response = await client.post(
         f'/orders/{order_id}/rating',
         headers=client_headers,
@@ -172,8 +165,6 @@ async def test_rating_and_banned_user_guards_and_validation_payload(client, db_s
     order_id = created.json()['id']
 
     await client.post(f'/orders/{order_id}/status', headers=admin_headers, json={'status': 'ACCEPTED'})
-    await client.post(f'/orders/{order_id}/status', headers=admin_headers, json={'status': 'COMPLETED'})
-
     rate_other_users_order = await client.post(
         f'/orders/{order_id}/rating',
         headers=client_two_headers,

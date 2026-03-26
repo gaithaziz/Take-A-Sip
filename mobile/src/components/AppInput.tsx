@@ -28,6 +28,7 @@ const Input = ({ label, error, style, ...rest }: AppInputProps, ref: ForwardedRe
         ref={ref}
         placeholderTextColor={theme.colors.textMuted}
         selectionColor={theme.colors.primary500}
+        accessibilityLabel={rest.accessibilityLabel ?? label}
         style={[
           styles.input,
           multiline ? styles.multiline : null,

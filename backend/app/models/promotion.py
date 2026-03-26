@@ -44,12 +44,13 @@ class Promotion(UUIDPrimaryKeyMixin, Base):
 class PromotionTarget(UUIDPrimaryKeyMixin, Base):
     __tablename__ = 'promotion_targets'
     __table_args__ = (
-        UniqueConstraint('promotion_id', 'entity_type', 'entity_id', name='uq_promotion_target_entity'),
+        UniqueConstraint('promotion_id', 'target_group', 'entity_type', 'entity_id', name='uq_promotion_target_group_entity'),
     )
 
     promotion_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey('promotions.id', ondelete='CASCADE'), nullable=False
     )
+    target_group: Mapped[str] = mapped_column(String(16), nullable=False, default='scope')
     entity_type: Mapped[str] = mapped_column(String(16), nullable=False)
     entity_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, index=True)
 

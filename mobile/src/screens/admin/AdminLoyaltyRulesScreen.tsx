@@ -1,3 +1,4 @@
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -5,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
 import { AppInput } from '@/components/AppInput';
-import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
 import { EmptyState } from '@/components/EmptyState';
@@ -15,6 +15,7 @@ import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { ExpandableText } from '@/components/admin/ExpandableText';
 import { InfoLine } from '@/components/admin/InfoLine';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
+import { RootStackParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
@@ -44,7 +45,9 @@ const defaultForm: RuleForm = {
   is_active: true,
 };
 
-export const AdminLoyaltyRulesScreen = () => {
+type Props = NativeStackScreenProps<RootStackParamList, 'AdminLoyalty'>;
+
+export const AdminLoyaltyRulesScreen = ({ navigation }: Props) => {
   const { t } = useAppTranslation();
   const { isRTL } = useLanguage();
   const { width } = useWindowDimensions();
@@ -184,6 +187,7 @@ export const AdminLoyaltyRulesScreen = () => {
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListHeaderComponent={
         <View style={styles.headerBlock}>
+          <AppButton title={t('common.goBack')} variant="ghost" fullWidth={false} onPress={() => navigation.goBack()} />
           <AppText variant="h1">{t('admin.loyaltyTitle')}</AppText>
 
           <AdminPageSection title={editingRuleId ? t('admin.editLoyaltyRule') : t('admin.createLoyaltyRule')}>

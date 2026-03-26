@@ -17,7 +17,7 @@ import { getApiErrorMessage } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverOrderDetails'>;
 
-export const DriverOrderDetailsScreen = ({ route }: Props) => {
+export const DriverOrderDetailsScreen = ({ route, navigation }: Props) => {
   const { t } = useAppTranslation();
   const [order, setOrder] = useState<OrderRead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,6 +77,25 @@ export const DriverOrderDetailsScreen = ({ route }: Props) => {
     [load, order, t],
   );
 
+  const confirmStatusUpdate = useCallback(
+    (status: 'OUT_FOR_DELIVERY' | 'DELIVERED') => {
+      const title =
+        status === 'DELIVERED' ? t('driver.confirmDeliveredTitle') : t('driver.confirmOutForDeliveryTitle');
+      const message =
+        status === 'DELIVERED' ? t('driver.confirmDeliveredMessage') : t('driver.confirmOutForDeliveryMessage');
+      Alert.alert(title, message, [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            void updateStatus(status);
+          },
+        },
+      ]);
+    },
+    [t, updateStatus],
+  );
+
   const openMaps = useCallback(async () => {
     if (!order || !mapsUrl) {
       Alert.alert(t('common.appName'), t('driver.noDestination'));
@@ -109,6 +128,7 @@ export const DriverOrderDetailsScreen = ({ route }: Props) => {
 
   return (
     <AppShell>
+      <AppButton title={t('common.goBack')} variant="ghost" fullWidth={false} onPress={() => navigation.goBack()} />
       <AppText variant="h1">#{order.order_number}</AppText>
       <AppCard style={styles.block}>
         <AppText variant="h3">{order.customer_name ?? '-'}</AppText>
@@ -133,13 +153,15 @@ export const DriverOrderDetailsScreen = ({ route }: Props) => {
         />
         <AppButton
           title={t('driver.markOutForDelivery')}
-          onPress={() => void updateStatus('OUT_FOR_DELIVERY')}
+          testID="driver-mark-out-for-delivery"
+          onPress={() => confirmStatusUpdate('OUT_FOR_DELIVERY')}
           disabled={statusLoading || order.status !== 'ASSIGNED'}
           loading={statusLoading && order.status === 'ASSIGNED'}
         />
         <AppButton
           title={t('driver.markDelivered')}
-          onPress={() => void updateStatus('DELIVERED')}
+          testID="driver-mark-delivered"
+          onPress={() => confirmStatusUpdate('DELIVERED')}
           disabled={statusLoading || order.status !== 'OUT_FOR_DELIVERY'}
           loading={statusLoading && order.status === 'OUT_FOR_DELIVERY'}
         />
