@@ -55,6 +55,12 @@ export const en = {
     resendCountdown: 'Resend in {{seconds}}s',
     editNumber: 'Edit number',
   },
+  welcome: {
+    arabicGreeting: 'أهلاً بك في خذ لك شفة',
+    englishGreeting: 'Welcome to Take A Sip',
+    poweredBy: 'Powered by Codevex',
+    poweredByArabic: 'بدعم من Codevex',
+  },
   tabs: {
     home: 'Home',
     orders: 'My Orders',
@@ -174,6 +180,8 @@ export const en = {
     accountStatusActive: 'Active',
     accountSupportHint: 'Manage your account details, language, and quick shortcuts from one place.',
     settings: 'Settings',
+    deleteAccount: 'Delete account',
+    deleteAccountConfirm: 'This will permanently remove your account access and sign you out. Order history may be retained for operational records.',
   },
   admin: {
     dashboardTitle: 'Admin Overview',
@@ -530,6 +538,12 @@ export const ar = {
     resendCountdown: '\u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u062E\u0644\u0627\u0644 {{seconds}} \u062B',
     editNumber: '\u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0631\u0642\u0645',
   },
+  welcome: {
+    arabicGreeting: '\u0623\u0647\u0644\u0627\u064B \u0628\u0643 \u0641\u064A \u062E\u0630 \u0644\u0643 \u0634\u0641\u0629',
+    englishGreeting: 'Welcome to Take A Sip',
+    poweredBy: 'Powered by Codevex',
+    poweredByArabic: '\u0628\u062F\u0639\u0645 \u0645\u0646 Codevex',
+  },
   tabs: {
     home: '\u0627\u0644\u0631\u0626\u064A\u0633\u064A\u0629',
     orders: '\u0637\u0644\u0628\u0627\u062A\u064A',
@@ -649,6 +663,8 @@ export const ar = {
     accountStatusActive: '\u0646\u0634\u0637',
     accountSupportHint: '\u0623\u062F\u0631 \u0628\u064A\u0627\u0646\u0627\u062A \u062D\u0633\u0627\u0628\u0643 \u0648\u0627\u0644\u0644\u063A\u0629 \u0648\u0627\u0644\u0627\u062E\u062A\u0635\u0627\u0631\u0627\u062A \u0645\u0646 \u0645\u0643\u0627\u0646 \u0648\u0627\u062D\u062F.',
     settings: '\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A',
+    deleteAccount: '\u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628',
+    deleteAccountConfirm: '\u0633\u064A\u0624\u062F\u064A \u0647\u0630\u0627 \u0625\u0644\u0649 \u0625\u0632\u0627\u0644\u0629 \u0648\u0635\u0648\u0644\u0643 \u0625\u0644\u0649 \u0627\u0644\u062D\u0633\u0627\u0628 \u0628\u0634\u0643\u0644 \u0646\u0647\u0627\u0626\u064A \u0648\u062A\u0633\u062C\u064A\u0644 \u062E\u0631\u0648\u062C\u0643. \u0642\u062F \u064A\u062A\u0645 \u0627\u0644\u0627\u062D\u062A\u0641\u0627\u0638 \u0628\u0633\u062C\u0644 \u0627\u0644\u0637\u0644\u0628\u0627\u062A \u0644\u0623\u063A\u0631\u0627\u0636 \u062A\u0634\u063A\u064A\u0644\u064A\u0629.',
   },
   admin: {
     dashboardTitle: '\u0646\u0638\u0631\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u0629',

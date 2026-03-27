@@ -15,12 +15,13 @@ type Props = BottomTabScreenProps<MainTabParamList, 'Profile'>;
 
 export const ProfileScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, deleteAccount } = useAuth();
   const { toggleLanguage, isRTL } = useLanguage();
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.first_name ?? '');
   const [lastName, setLastName] = useState(user?.last_name ?? '');
   const [saving, setSaving] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
 
@@ -45,6 +46,17 @@ export const ProfileScreen = ({ navigation }: Props) => {
 
   const onLogout = async () => {
     await logout();
+  };
+
+  const onDeleteAccount = async () => {
+    try {
+      setDeletingAccount(true);
+      await deleteAccount();
+    } catch (error: unknown) {
+      Alert.alert(t('common.appName'), getApiErrorMessage(error, t));
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const onStartEdit = () => {
@@ -115,8 +127,10 @@ export const ProfileScreen = ({ navigation }: Props) => {
       accountSupportHint={t('profile.accountSupportHint')}
       settingsLabel={t('profile.settings')}
       cancelLabel={t('common.cancel')}
+      deleteAccountLabel={t('profile.deleteAccount')}
       formError={formError}
       saving={saving}
+      deletingAccount={deletingAccount}
       onChangeFirstName={(value) => {
         setFirstName(value);
         setFormError(null);
@@ -135,6 +149,12 @@ export const ProfileScreen = ({ navigation }: Props) => {
       onOpenOrders={() => navigation.navigate('PastOrders')}
       onOpenCart={() => navigation.getParent()?.navigate('Cart')}
       onRemoveSavedAddress={onRemoveSavedAddress}
+      onDeleteAccount={() => {
+        Alert.alert(t('common.appName'), t('profile.deleteAccountConfirm'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.deleteAccount'), style: 'destructive', onPress: () => void onDeleteAccount() },
+        ]);
+      }}
       onLogout={() => {
         Alert.alert(t('common.appName'), t('common.logout'), [
           { text: t('common.cancel'), style: 'cancel' },

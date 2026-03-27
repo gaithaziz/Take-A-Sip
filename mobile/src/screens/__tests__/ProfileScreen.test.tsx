@@ -6,6 +6,7 @@ import { addressBook } from '@/services/addressBook';
 
 const mockLogout = jest.fn();
 const mockUpdateProfile = jest.fn();
+const mockDeleteAccount = jest.fn();
 const mockNavigate = jest.fn();
 
 jest.mock('@/hooks/useAppTranslation', () => ({
@@ -32,10 +33,13 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'profile.accountStatusActive': 'Active',
         'profile.accountSupportHint': 'Manage your account details, language, and quick shortcuts from one place.',
         'profile.settings': 'Settings',
+        'profile.deleteAccount': 'Delete account',
+        'profile.deleteAccountConfirm': 'Delete account confirmation',
         'auth.firstName': 'First name',
         'auth.lastName': 'Last name',
         'common.language': 'Language',
         'common.languageEnglish': 'English',
+        'common.appName': 'Take A Sip',
         'common.logout': 'Logout',
         'common.cancel': 'Cancel',
         'common.confirm': 'Confirm',
@@ -56,6 +60,7 @@ jest.mock('@/state/AuthContext', () => ({
     },
     logout: mockLogout,
     updateProfile: mockUpdateProfile,
+    deleteAccount: mockDeleteAccount,
   }),
 }));
 
@@ -118,5 +123,31 @@ describe('ProfileScreen', () => {
     expect(getByText('Account safety')).toBeTruthy();
     expect(getAllByText('Current cart').length).toBeGreaterThan(0);
     expect(getByText('Language')).toBeTruthy();
+  });
+
+  it('deletes the account after confirmation', async () => {
+    mockDeleteAccount.mockResolvedValue(undefined);
+
+    const { getByText } = render(
+      <ProfileScreen navigation={{ navigate: mockNavigate, getParent: () => ({ navigate: mockNavigate }) } as never} route={{} as never} />,
+    );
+
+    fireEvent.press(getByText('Delete account'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Take A Sip',
+      'Delete account confirmation',
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Cancel', style: 'cancel' }),
+        expect.objectContaining({ text: 'Delete account', style: 'destructive' }),
+      ]),
+    );
+
+    const deleteAction = (Alert.alert as jest.Mock).mock.calls[0][2][1];
+    await deleteAction.onPress();
+
+    await waitFor(() => {
+      expect(mockDeleteAccount).toHaveBeenCalled();
+    });
   });
 });

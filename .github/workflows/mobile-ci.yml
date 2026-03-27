@@ -1,0 +1,70 @@
+name: Mobile CI
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate mobile app config
+        run: node scripts/validate-app-config.js
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run mobile tests
+        run: npm test -- --runInBand
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit mobile dependencies
+        run: npm audit --audit-level=high

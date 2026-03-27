@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 
 import { authService } from '@/services/authService';
+import { addressBook } from '@/services/addressBook';
 import { setAuthToken } from '@/services/http';
+import { notificationService } from '@/services/notificationService';
+import { useLanguage } from '@/state/LanguageContext';
 import { AuthUser, SendOtpPayload, UpdateProfilePayload, VerifyOtpPayload } from '@/types/api';
 
 type AuthContextValue = {
@@ -12,6 +15,7 @@ type AuthContextValue = {
   sendOtp: (payload: SendOtpPayload) => Promise<void>;
   verifyOtp: (payload: VerifyOtpPayload) => Promise<void>;
   updateProfile: (payload: UpdateProfilePayload) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -21,6 +25,7 @@ const USER_KEY = 'take_a_sip_user';
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
+  const { language } = useLanguage();
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -52,6 +57,22 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     void run();
   }, []);
 
+  useEffect(() => {
+    if (!token || !user) {
+      return;
+    }
+
+    const run = async () => {
+      try {
+        await notificationService.syncPushRegistration(user, language);
+      } catch {
+        // Ignore push registration failures so auth flow stays responsive.
+      }
+    };
+
+    void run();
+  }, [language, token, user]);
+
   const sendOtp = async (payload: SendOtpPayload) => {
     await authService.sendOtp(payload);
   };
@@ -73,15 +94,35 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
   };
 
-  const logout = async () => {
+  const clearLocalSession = async (options?: { userId?: string | null; unregisterPush?: boolean }) => {
+    if (options?.unregisterPush) {
+      try {
+        await notificationService.unregisterCurrentPushToken();
+      } catch {
+        // Ignore push cleanup failures during sign-out style cleanup.
+      }
+    }
+    if (options?.userId) {
+      await addressBook.clear(options.userId);
+    }
     setToken(null);
     setUser(null);
     setAuthToken(null);
     await Promise.all([AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
   };
 
+  const deleteAccount = async () => {
+    const currentUserId = user?.id ?? null;
+    await authService.deleteAccount();
+    await clearLocalSession({ userId: currentUserId, unregisterPush: false });
+  };
+
+  const logout = async () => {
+    await clearLocalSession({ userId: user?.id ?? null, unregisterPush: true });
+  };
+
   const value = useMemo(
-    () => ({ isLoading, token, user, sendOtp, verifyOtp, updateProfile, logout }),
+    () => ({ isLoading, token, user, sendOtp, verifyOtp, updateProfile, deleteAccount, logout }),
     [isLoading, token, user],
   );
 

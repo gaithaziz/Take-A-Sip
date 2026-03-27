@@ -56,6 +56,10 @@ class OTPMessageResponse(AppBaseModel):
     message: str
 
 
+class AccountDeletionResponse(AppBaseModel):
+    message: str
+
+
 class AuthUserResponse(AppBaseModel):
     id: UUID
     first_name: str

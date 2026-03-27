@@ -10,7 +10,15 @@ from app.core.logging import log_structured
 from app.core.phone import mask_phone_number
 from app.core.security import create_access_token
 from app.models.user import User, UserRole
-from app.schemas.auth import AuthUserResponse, SendOTPRequest, TokenResponse, UpdateProfileRequest, VerifyOTPRequest
+from app.models.user_event import UserEvent
+from app.schemas.auth import (
+    AccountDeletionResponse,
+    AuthUserResponse,
+    SendOTPRequest,
+    TokenResponse,
+    UpdateProfileRequest,
+    VerifyOTPRequest,
+)
 from app.services.otp_service import OTPRateLimitError, OTPVerifyResult, otp_service
 from app.services.sms_service import SMSProviderError, build_sms_provider
 
@@ -172,3 +180,33 @@ async def update_profile(current_user: User, payload: UpdateProfileRequest, db: 
         phone_number=current_user.phone_number,
         role=current_user.role.value,
     )
+
+
+def _deleted_phone_number(user_id: str) -> str:
+    suffix = user_id.replace('-', '')[-12:]
+    return f'deleted-{suffix}'
+
+
+async def delete_account(current_user: User, db: AsyncSession) -> AccountDeletionResponse:
+    now = datetime.now(timezone.utc)
+    original_role = current_user.role.value
+
+    current_user.first_name = 'Deleted'
+    current_user.last_name = 'User'
+    current_user.phone_number = _deleted_phone_number(str(current_user.id))
+    current_user.is_active = False
+    current_user.is_banned = False
+    current_user.banned_at = now
+    current_user.banned_reason = 'self_deleted'
+    current_user.push_tokens.clear()
+    db.add(
+        UserEvent(
+            user_id=current_user.id,
+            event_type='user.self_deleted',
+            actor_user_id=current_user.id,
+            reason=f'role:{original_role}',
+        )
+    )
+    await db.commit()
+
+    return AccountDeletionResponse(message='Account deleted successfully')

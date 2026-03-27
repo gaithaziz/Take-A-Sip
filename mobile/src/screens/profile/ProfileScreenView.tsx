@@ -42,8 +42,10 @@ type ProfileScreenViewProps = {
   accountSupportHint: string;
   settingsLabel: string;
   cancelLabel: string;
+  deleteAccountLabel: string;
   formError: string | null;
   saving: boolean;
+  deletingAccount: boolean;
   onChangeFirstName: (value: string) => void;
   onChangeLastName: (value: string) => void;
   onToggleLanguage: () => void;
@@ -53,6 +55,7 @@ type ProfileScreenViewProps = {
   onOpenOrders: () => void;
   onOpenCart: () => void;
   onRemoveSavedAddress: (addressId: string) => void;
+  onDeleteAccount: () => void;
   onLogout: () => void;
 };
 
@@ -98,8 +101,10 @@ export const ProfileScreenView = ({
   accountSupportHint,
   settingsLabel,
   cancelLabel,
+  deleteAccountLabel,
   formError,
   saving,
+  deletingAccount,
   onChangeFirstName,
   onChangeLastName,
   onToggleLanguage,
@@ -109,6 +114,7 @@ export const ProfileScreenView = ({
   onOpenOrders,
   onOpenCart,
   onRemoveSavedAddress,
+  onDeleteAccount,
   onLogout,
 }: ProfileScreenViewProps) => {
   return (
@@ -228,6 +234,12 @@ export const ProfileScreenView = ({
       </AppCard>
 
       <AppCard style={styles.safetyCard}>
+        <AppButton
+          title={deleteAccountLabel}
+          variant="destructive"
+          onPress={onDeleteAccount}
+          loading={deletingAccount}
+        />
         <View style={styles.logoutWrap}>
           <AppButton title={logoutLabel} variant="destructive" onPress={onLogout} />
         </View>

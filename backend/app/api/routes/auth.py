@@ -5,6 +5,7 @@ from app.core.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    AccountDeletionResponse,
     AuthUserResponse,
     OTPMessageResponse,
     SendOTPRequest,
@@ -12,7 +13,7 @@ from app.schemas.auth import (
     UpdateProfileRequest,
     VerifyOTPRequest,
 )
-from app.services.auth_service import send_otp, update_profile, verify_otp
+from app.services.auth_service import delete_account, send_otp, update_profile, verify_otp
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -49,3 +50,11 @@ async def update_profile_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> AuthUserResponse:
     return await update_profile(current_user, payload, db)
+
+
+@router.delete('/me', response_model=AccountDeletionResponse)
+async def delete_account_endpoint(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AccountDeletionResponse:
+    return await delete_account(current_user, db)

@@ -102,6 +102,9 @@ Run on every PR:
 - run unit/integration tests
 - optionally build backend container without pushing
 - optionally build admin frontend to catch compile issues
+- run secret scanning
+- validate mobile permission metadata and required app config
+- run backend integration tests against a CI PostgreSQL service
 
 ### Main Branch Pipeline
 Run on merges to main:
@@ -243,6 +246,16 @@ Recommended:
 
 This usually gives better PR ergonomics and easier workflow visibility.
 
+### Recommended Required GitHub Checks
+Protect `main` with required status checks:
+- `Backend CI / test`
+- `Mobile CI / test`
+- `Secret Scan / gitleaks`
+
+Advisory but not blocking at first:
+- `Backend CI / dependency-audit`
+- `Mobile CI / dependency-audit`
+
 ## Suggested Pipeline Files
 
 ### Backend
@@ -293,6 +306,20 @@ Manage:
   - manual approval, or
   - release tag such as `v1.2.0`
 
+### Branch Protection Settings
+For the `main` branch enable:
+- require a pull request before merging
+- require status checks to pass before merging
+- require branches to be up to date before merging
+- require at least 1 approving review
+- dismiss stale approvals when new commits are pushed
+- block force pushes
+- block branch deletion
+
+Recommended if team size allows:
+- require conversation resolution before merge
+- restrict who can push directly to `main`
+
 ### Benefit
 - the exact same image tested in staging can be promoted to production
 - this reduces “works in staging but not prod” drift
@@ -309,6 +336,78 @@ Manage:
 - internal QA builds on merge to main
 - store build artifacts or distribute to testers
 - app store release remains manual until backend deployment is stable
+
+## Apple And Google Play Compliance
+
+### Goal
+- make mobile release readiness part of the delivery plan, not a last-minute store submission task
+- ensure the app can pass Apple App Store Review and Google Play review with predictable checks
+
+### Required Release Readiness Areas
+- app privacy disclosures must match actual SDK and app data usage
+- permission prompts must be necessary, user-facing, and explained clearly in-app
+- account flows must satisfy store rules for sign-in, account deletion, and user consent
+- release builds must be signed correctly and generated from a controlled pipeline
+- app content, screenshots, metadata, and age rating must match shipped behavior
+- crash rate, broken flows, placeholder screens, and incomplete features must be caught before submission
+
+### Apple App Store Compliance Checks
+- provide accurate `App Privacy` answers for all collected data, linked data, and tracking behavior
+- include purpose strings for every iOS permission used, such as camera, photo library, notifications, or location
+- if account creation is supported, provide account deletion flow inside the app
+- if third-party sign-in is used, ensure Apple sign-in requirements are reviewed where applicable
+- avoid hidden or unfinished features, placeholder purchase flows, and dead links during review
+- verify subscription, payment, and digital purchase flows follow Apple in-app purchase rules where applicable
+
+### Google Play Compliance Checks
+- complete the `Data safety` form accurately for all collected and shared user data
+- declare and justify every Android permission, especially sensitive permissions
+- provide in-app account deletion when user accounts are supported
+- meet Play target API level requirements and keep dependencies current enough to stay compliant
+- satisfy foreground service, background location, notification, and exact alarm policies if any are used
+- verify billing flows follow Google Play Billing rules for digital goods where applicable
+
+### Mobile CI/CD Security And Compliance Gates
+Run on mobile PRs and release branches:
+- lint
+- typecheck
+- unit and integration tests
+- dependency vulnerability scan
+- secret scan to prevent keys and certificates entering the repo
+- release build validation for Android and iOS
+- check that privacy manifest, permission strings, and store metadata files are present and updated when app capabilities change
+
+### Manual Pre-Submission Checklist
+- verify privacy policy URL is published and matches current app behavior
+- verify support URL, contact email, and app metadata are valid
+- test sign-up, sign-in, password reset, logout, and account deletion flows
+- test permission denial flows so the app still behaves acceptably if access is denied
+- test on real devices for current supported iOS and Android versions
+- confirm screenshots and promotional text match the real product
+- confirm no test banners, debug menus, seeded test accounts, or staging endpoints are present in production builds
+
+### Signing And Secrets
+- keep signing keys, keystores, API keys, and push credentials out of source control
+- store mobile secrets in the CI secret store or GCP Secret Manager
+- restrict access to release signing credentials to the release pipeline and limited maintainers
+- document certificate, provisioning profile, and keystore ownership and renewal dates
+
+### Store Operations
+- keep release notes, version codes, and version numbers part of the release checklist
+- maintain internal testing tracks before production rollout
+- use phased release or staged rollout when possible
+- keep a rollback plan for bad mobile releases, including store unpublish or halt options
+
+### Recommended Implementation Additions
+- add `mobile-release-checklist.md` covering Apple and Google Play submission requirements
+- add CI validation for Android permissions and iOS usage description keys
+- track all third-party SDKs so privacy disclosures stay in sync with shipped code
+- review app store compliance every time auth, analytics, notifications, payments, location, camera, or file access changes
+- implement in-app account deletion if customer or staff accounts are distributed through public app stores
+- verify Expo/native permission strings and generated platform permissions every release
+
+Checklist location:
+- `docs/mobile-release-checklist.md`
 
 ## Implementation Phases
 
@@ -333,6 +432,8 @@ Manage:
 - add Terraform
 - add mobile build automation
 - add rollback playbooks and release docs
+- implement and test mobile account deletion flow
+- add store submission validation for privacy disclosures and permission metadata
 
 ## Concrete First Tasks
 - decide whether CI orchestration will be `GitHub Actions` or `Cloud Build`
@@ -345,6 +446,9 @@ Manage:
 - store secrets in Secret Manager
 - add a first backend CI workflow
 - add a first staging deploy workflow
+- confirm mobile distribution model for customer, driver, and admin roles
+- add mobile permission descriptions and generated permission review to release prep
+- scope backend and mobile work for in-app account deletion
 
 ## Risks And Things To Decide Early
 - whether admin/frontdesk are web or native deployment targets

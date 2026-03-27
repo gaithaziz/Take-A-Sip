@@ -11,19 +11,29 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
+        "NSUserNotificationsUsageDescription": "Take A Sip uses notifications to send order updates and operational alerts.",
+        "NSLocationWhenInUseUsageDescription": "Take A Sip uses your location during checkout to help select your delivery address and estimate delivery fees.",
+        "NSPhotoLibraryUsageDescription": "Take A Sip allows admin users to choose menu images from the photo library.",
         "LSApplicationQueriesSchemes": [
           "comgooglemaps"
         ]
       }
     },
     "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "READ_MEDIA_IMAGES"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#f5f1eb"
       }
     },
     "plugins": [
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-notifications"
     ]
   }
 }

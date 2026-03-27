@@ -19,4 +19,8 @@ export const authService = {
     const { data } = await http.patch('/auth/me', payload);
     return data;
   },
+  async deleteAccount(): Promise<{ message: string }> {
+    const { data } = await http.delete('/auth/me');
+    return data;
+  },
 };

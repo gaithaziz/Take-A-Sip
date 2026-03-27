@@ -69,4 +69,8 @@ export const addressBook = {
     await AsyncStorage.setItem(storageKey(userId), JSON.stringify(next));
     return next;
   },
+
+  async clear(userId: string): Promise<void> {
+    await AsyncStorage.removeItem(storageKey(userId));
+  },
 };
