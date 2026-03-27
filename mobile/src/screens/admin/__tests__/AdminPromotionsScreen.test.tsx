@@ -152,6 +152,7 @@ describe('AdminPromotionsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const now = Date.now();
     mockListPromotions.mockResolvedValue({
       promotions: [
         {
@@ -160,8 +161,8 @@ describe('AdminPromotionsScreen', () => {
           title_ar: 'لاتيه + مافن',
           type: 'BUY_N_GET_M_FREE',
           value: '0.00',
-          starts_at: '2026-03-23T08:00:00Z',
-          ends_at: '2026-03-25T08:00:00Z',
+          starts_at: new Date(now - 60 * 60 * 1000).toISOString(),
+          ends_at: new Date(now + 60 * 60 * 1000).toISOString(),
           is_active: true,
           required_completed_orders: 4,
           buy_quantity: 2,
