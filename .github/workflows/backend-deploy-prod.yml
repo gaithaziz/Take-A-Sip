@@ -1,0 +1,125 @@
+name: Backend Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Artifact tag to promote, usually the commit SHA deployed to staging
+        required: true
+        type: string
+      run_migrations:
+        description: Run alembic upgrade head before shifting traffic
+        required: true
+        default: true
+        type: boolean
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: backend-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Derive deployment metadata
+        run: |
+          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$IMAGE_TAG" ]; then
+            IMAGE_TAG="$GITHUB_SHA"
+          fi
+          IMAGE_URI="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/backend:${IMAGE_TAG}"
+          SMOKE_PATH="${{ vars.BACKEND_SMOKE_PATH }}"
+          if [ -z "$SMOKE_PATH" ]; then
+            SMOKE_PATH="/health"
+          fi
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+          echo "SMOKE_PATH=$SMOKE_PATH" >> "$GITHUB_ENV"
+
+      - name: Verify image exists
+        run: gcloud artifacts docker images describe "$IMAGE_URI"
+
+      - name: Run database migrations
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_migrations }}
+        run: |
+          SECRET_FLAGS=''
+          ENV_FLAGS=''
+          EXTRA_ARGS="${{ vars.BACKEND_DEPLOY_EXTRA_ARGS }}"
+          if [ -n "${{ vars.BACKEND_SECRET_ENV_VARS }}" ]; then
+            SECRET_FLAGS="--set-secrets ${{ vars.BACKEND_SECRET_ENV_VARS }}"
+          fi
+          if [ -n "${{ vars.BACKEND_RUNTIME_ENV_VARS }}" ]; then
+            ENV_FLAGS="--set-env-vars ${{ vars.BACKEND_RUNTIME_ENV_VARS }}"
+          fi
+
+          gcloud run jobs deploy "${{ vars.GCP_MIGRATION_JOB }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --image "$IMAGE_URI" \
+            --command alembic \
+            --args upgrade,head \
+            --task-timeout 1800s \
+            $SECRET_FLAGS \
+            $ENV_FLAGS \
+            $EXTRA_ARGS \
+            --quiet
+
+          gcloud run jobs execute "${{ vars.GCP_MIGRATION_JOB }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --wait
+
+      - name: Deploy backend service
+        run: |
+          SECRET_FLAGS=''
+          ENV_FLAGS=''
+          EXTRA_ARGS="${{ vars.BACKEND_DEPLOY_EXTRA_ARGS }}"
+          if [ -n "${{ vars.BACKEND_SECRET_ENV_VARS }}" ]; then
+            SECRET_FLAGS="--set-secrets ${{ vars.BACKEND_SECRET_ENV_VARS }}"
+          fi
+          if [ -n "${{ vars.BACKEND_RUNTIME_ENV_VARS }}" ]; then
+            ENV_FLAGS="--set-env-vars ${{ vars.BACKEND_RUNTIME_ENV_VARS }}"
+          fi
+
+          gcloud run deploy "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --image "$IMAGE_URI" \
+            --port 8000 \
+            --allow-unauthenticated \
+            $SECRET_FLAGS \
+            $ENV_FLAGS \
+            $EXTRA_ARGS \
+            --quiet
+
+      - name: Smoke test deployment
+        run: |
+          SERVICE_URL="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format='value(status.url)')"
+          echo "Smoke testing ${SERVICE_URL}${SMOKE_PATH}"
+          curl --fail --silent --show-error "${SERVICE_URL}${SMOKE_PATH}"

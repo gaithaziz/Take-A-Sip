@@ -1,0 +1,59 @@
+name: Backend Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: Which GitHub environment to use for rollback
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      revision:
+        description: Cloud Run revision name to restore to 100 percent traffic
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  rollback:
+    name: rollback
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Roll traffic back
+        run: |
+          gcloud run services update-traffic "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --to-revisions "${{ inputs.revision }}=100" \
+            --quiet
+
+      - name: Smoke test rollback
+        run: |
+          SMOKE_PATH="${{ vars.BACKEND_SMOKE_PATH }}"
+          if [ -z "$SMOKE_PATH" ]; then
+            SMOKE_PATH="/health"
+          fi
+          SERVICE_URL="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format='value(status.url)')"
+          echo "Smoke testing ${SERVICE_URL}${SMOKE_PATH}"
+          curl --fail --silent --show-error "${SERVICE_URL}${SMOKE_PATH}"

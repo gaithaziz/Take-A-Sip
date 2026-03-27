@@ -251,6 +251,8 @@ Protect `main` with required status checks:
 - `Backend CI / test`
 - `Mobile CI / test`
 - `Secret Scan / gitleaks`
+- `Admin CI / build`
+- `Frontdesk CI / verify`
 
 Advisory but not blocking at first:
 - `Backend CI / dependency-audit`
@@ -262,14 +264,16 @@ Advisory but not blocking at first:
 - `.github/workflows/backend-ci.yml`
 - `.github/workflows/backend-deploy-staging.yml`
 - `.github/workflows/backend-deploy-prod.yml`
+- `.github/workflows/backend-rollback.yml`
 
 ### Frontend/Admin
 - `.github/workflows/admin-ci.yml`
-- `.github/workflows/admin-deploy.yml`
+- deploy target still needs to be chosen after hosting strategy is finalized
 
 ### Mobile
 - `.github/workflows/mobile-ci.yml`
-- optional EAS-trigger workflow later
+- `.github/workflows/mobile-release.yml`
+- `mobile/eas.json`
 
 ### Infra
 - `infra/` folder for:
@@ -465,3 +469,19 @@ Checklist location:
 - Mobile release automation later: `EAS Build`
 
 This gives the cleanest path with the least operational overhead for a project at this stage.
+
+## Current Repository Implementation
+
+The repository now includes:
+- backend CI, staging deploy, production deploy, and rollback workflow scaffolds
+- mobile CI plus manual EAS release workflow and `eas.json`
+- admin CI workflow
+- frontdesk CI workflow
+- Terraform scaffolding in `infra/` for Artifact Registry, Cloud Run, Secret Manager, service accounts, and uptime monitoring
+- `docs/DEPLOYMENT_RUNBOOK.md` documenting GitHub environment setup, rollout, rollback, and monitoring expectations
+
+Still required outside the repo:
+- create GitHub environments and add the documented vars/secrets
+- configure branch protection in GitHub
+- create the GCP Workload Identity Federation providers
+- apply Terraform with real project IDs, regions, and initial image values
