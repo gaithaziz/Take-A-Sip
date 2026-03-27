@@ -23,6 +23,7 @@ jobs:
     name: deploy
     runs-on: ubuntu-latest
     environment: staging
+    if: ${{ vars.ENABLE_STAGING_DEPLOY == 'true' }}
 
     defaults:
       run:

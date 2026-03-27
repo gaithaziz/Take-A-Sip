@@ -27,6 +27,7 @@ terraform apply -var-file=environments/staging.tfvars
 
 Create GitHub environments named `staging` and `production` and add these variables:
 
+- `ENABLE_STAGING_DEPLOY` or `ENABLE_PRODUCTION_DEPLOY`
 - `GCP_PROJECT_ID`
 - `GCP_REGION`
 - `GCP_ARTIFACT_REPOSITORY`

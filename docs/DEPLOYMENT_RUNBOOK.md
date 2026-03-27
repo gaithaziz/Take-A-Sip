@@ -25,6 +25,7 @@ Create three environments in GitHub:
 ### `staging`
 - used by `.github/workflows/backend-deploy-staging.yml`
 - add variables:
+  - `ENABLE_STAGING_DEPLOY=true`
   - `GCP_PROJECT_ID`
   - `GCP_REGION`
   - `GCP_ARTIFACT_REPOSITORY`
@@ -41,6 +42,7 @@ Create three environments in GitHub:
 ### `production`
 - used by `.github/workflows/backend-deploy-prod.yml` and `.github/workflows/backend-rollback.yml`
 - use the same variable and secret names as `staging`, but with production values
+- set `ENABLE_PRODUCTION_DEPLOY=true`
 - add required reviewers to the environment so production deploys require approval
 
 ### `mobile-release`

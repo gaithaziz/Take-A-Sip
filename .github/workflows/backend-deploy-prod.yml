@@ -29,6 +29,7 @@ jobs:
     name: deploy
     runs-on: ubuntu-latest
     environment: production
+    if: ${{ vars.ENABLE_PRODUCTION_DEPLOY == 'true' }}
 
     steps:
       - name: Checkout
