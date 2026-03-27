@@ -6,6 +6,7 @@ from app.models.promotion import LoyaltyRule, Promotion, PromotionTarget, Promot
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 from app.models.user_event import UserEvent
+from app.models.user_push_token import UserPushToken
 
 __all__ = [
     'Addon',
@@ -30,5 +31,6 @@ __all__ = [
     'StoreSettings',
     'User',
     'UserEvent',
+    'UserPushToken',
     'UserRole',
 ]

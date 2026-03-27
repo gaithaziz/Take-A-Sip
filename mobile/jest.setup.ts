@@ -14,6 +14,22 @@ jest.mock('react-native-maps', () => {
   };
 });
 
+jest.mock('expo-notifications', () => {
+  return {
+    __esModule: true,
+    setNotificationHandler: jest.fn(),
+    getPermissionsAsync: jest.fn(async () => ({ granted: true })),
+    requestPermissionsAsync: jest.fn(async () => ({ granted: true })),
+    getDevicePushTokenAsync: jest.fn(async () => ({ data: 'device-token-123' })),
+    getLastNotificationResponseAsync: jest.fn(async () => null),
+    addNotificationResponseReceivedListener: jest.fn((listener) => {
+      return {
+        remove: () => listener,
+      };
+    }),
+  };
+});
+
 beforeAll(() => {
   jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
     const text = args.map((value) => String(value)).join(' ');

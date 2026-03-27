@@ -20,6 +20,7 @@ from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 from app.schemas.order import AssignDriverRequest, OrderCreateRequest
 from app.services.menu_service import get_schedules_index, is_entity_available
+from app.services.notification_service import emit_post_commit_order_notifications
 
 logger = logging.getLogger(__name__)
 
@@ -347,7 +348,9 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
             'actor_user_id': str(user.id),
         },
     )
-    return await get_order_by_id_or_404(db, order.id)
+    created_order = await get_order_by_id_or_404(db, order.id)
+    await emit_post_commit_order_notifications(db, event='order.created', order=created_order)
+    return created_order
 
 
 async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> Order:
@@ -517,7 +520,9 @@ async def accept_order(db: AsyncSession, order_id: UUID, actor: User) -> Order:
             'actor_role': actor.role.value,
         },
     )
-    return await get_order_by_id_or_404(db, order.id)
+    refreshed_order = await get_order_by_id_or_404(db, order.id)
+    await emit_post_commit_order_notifications(db, event='order.accepted', order=refreshed_order)
+    return refreshed_order
 
 
 async def assign_driver(
@@ -565,6 +570,7 @@ async def assign_driver(
     # Ensure assignment responses can immediately display driver name/phone even if relationship
     # loader strategy does not populate in the same transaction on some backends.
     refreshed_order.assigned_driver = driver
+    await emit_post_commit_order_notifications(db, event='order.driver_assigned', order=refreshed_order)
     return refreshed_order
 
 
@@ -659,7 +665,9 @@ async def update_order_status(db: AsyncSession, order_id: UUID, target_status: s
                 'actor_role': actor.role.value,
             },
         )
-    return await get_order_by_id_or_404(db, order.id)
+    refreshed_order = await get_order_by_id_or_404(db, order.id)
+    await emit_post_commit_order_notifications(db, event='order.status_changed', order=refreshed_order)
+    return refreshed_order
 
 
 async def list_driver_assigned_orders(

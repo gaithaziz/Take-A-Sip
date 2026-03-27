@@ -24,6 +24,7 @@ export type AdminTabParamList = {
 };
 
 export type RootStackParamList = {
+  Welcome: undefined;
   Auth: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   AdminTabs: NavigatorScreenParams<AdminTabParamList>;

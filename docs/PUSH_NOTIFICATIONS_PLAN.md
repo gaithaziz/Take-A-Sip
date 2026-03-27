@@ -203,4 +203,3 @@ Suggested request shape for registration:
 - Profile screen footer: safest and cleanest. Small text like Made by Me at the very
   bottom.
 - Login/Auth screen: also good, because it doesn’t interfere with app usage.
-

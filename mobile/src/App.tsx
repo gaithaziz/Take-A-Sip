@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { useAssets } from 'expo-asset';
 import {
   Inter_400Regular,
   Inter_600SemiBold,
@@ -26,11 +27,15 @@ export const AppRoot = () => {
     IBMPlexSansArabic_600SemiBold,
     IBMPlexSansArabic_700Bold,
   });
+  const [assetsLoaded] = useAssets([
+    require('../assets/welcome-logo.png'),
+    require('../assets/codevex-logo.png'),
+  ]);
 
   return (
     <AppProviders>
       <StatusBar style="dark" />
-      {fontsLoaded ? <AppNavigator /> : <LoadingState label="Loading..." />}
+      {fontsLoaded && assetsLoaded ? <AppNavigator /> : <LoadingState label="Loading..." />}
     </AppProviders>
   );
 };

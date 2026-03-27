@@ -32,6 +32,28 @@ export type TokenResponse = {
   user: AuthUser;
 };
 
+export type PushProvider = 'fcm' | 'apns';
+export type PushPlatform = 'android' | 'ios';
+
+export type PushNotificationPayload = {
+  type: string;
+  order_id: string;
+  role_target: 'CLIENT' | 'ADMIN' | 'DRIVER';
+  screen?: 'ClientOrderDetails' | 'DriverOrderDetails' | 'AdminTabs';
+};
+
+export type RegisterPushTokenPayload = {
+  push_token: string;
+  platform: PushPlatform;
+  push_provider: PushProvider;
+  device_id: string;
+  language: LanguageCode;
+};
+
+export type DeactivatePushTokenPayload = {
+  push_token: string;
+};
+
 export type Addon = {
   id: string;
   size_id: string;

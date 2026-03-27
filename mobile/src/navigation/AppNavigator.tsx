@@ -1,13 +1,16 @@
-import { NavigationContainer, Theme } from '@react-navigation/native';
+import { NavigationContainer, Theme, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { LoadingState } from '@/components/LoadingState';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
+import { notificationService } from '@/services/notificationService';
 import { useAuth } from '@/state/AuthContext';
 import { theme } from '@/theme';
+import { PushNotificationPayload } from '@/types/api';
 
 import { AuthScreen } from '@/screens/AuthScreen';
 import { CartScreen } from '@/screens/CartScreen';
@@ -16,6 +19,7 @@ import { HomeScreen } from '@/screens/HomeScreen';
 import { PastOrdersScreen } from '@/screens/PastOrdersScreen';
 import { ProductDetailsScreen } from '@/screens/ProductDetailsScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
+import { WelcomeScreen } from '@/screens/WelcomeScreen';
 import { AdminDashboardScreen } from '@/screens/admin/AdminDashboardScreen';
 import { AdminMenuEditorScreen } from '@/screens/admin/AdminMenuEditorScreen';
 import { AdminPromotionsScreen } from '@/screens/admin/AdminPromotionsScreen';
@@ -38,6 +42,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
 const AdminTabsNavigator = createBottomTabNavigator<AdminTabParamList>();
 const DriverTabsNavigator = createBottomTabNavigator<DriverTabParamList>();
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const navTheme: Theme = {
   dark: false,
@@ -151,6 +156,34 @@ export const AppNavigator = () => {
   const { t } = useAppTranslation();
   const { token, user, isLoading } = useAuth();
   const appName = t('common.appName');
+  const initialSignedInRoute =
+    user?.role === 'ADMIN' ? 'AdminTabs' : user?.role === 'DRIVER' ? 'DriverTabs' : 'MainTabs';
+
+  useEffect(() => {
+    if (!token || !user) {
+      return;
+    }
+
+    return notificationService.subscribeToNotificationResponses((payload: PushNotificationPayload) => {
+      if (!navigationRef.isReady() || payload.role_target !== user.role) {
+        return;
+      }
+
+      if (user.role === 'CLIENT') {
+        navigationRef.navigate('ClientOrderDetails', { orderId: payload.order_id });
+        return;
+      }
+
+      if (user.role === 'DRIVER') {
+        navigationRef.navigate('DriverOrderDetails', { orderId: payload.order_id });
+        return;
+      }
+
+      if (user.role === 'ADMIN') {
+        navigationRef.navigate('AdminTabs', { screen: 'AdminDashboard' });
+      }
+    });
+  }, [token, user]);
 
   if (isLoading) {
     return (
@@ -161,8 +194,16 @@ export const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
+      <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Welcome">
+          {(props) => (
+            <WelcomeScreen
+              {...props}
+              targetRoute={token ? initialSignedInRoute : 'Auth'}
+            />
+          )}
+        </Stack.Screen>
         {!token ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
         ) : user?.role === 'ADMIN' ? (

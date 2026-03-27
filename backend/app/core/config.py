@@ -31,6 +31,16 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_from_number: str | None = None
+    push_enabled: bool = False
+    push_android_provider: str = 'fcm'
+    push_ios_provider: str = 'apns'
+    fcm_project_id: str | None = None
+    fcm_service_account_json: str | None = None
+    apns_key_id: str | None = None
+    apns_team_id: str | None = None
+    apns_bundle_id: str | None = None
+    apns_private_key_path: str | None = None
+    apns_use_sandbox: bool = True
     upload_dir: str = 'uploads'
     max_upload_size_mb: int = 10
     store_latitude: float | None = None
@@ -52,6 +62,19 @@ class Settings(BaseSettings):
     @field_validator('sql_echo', mode='before')
     @classmethod
     def coerce_sql_echo(cls, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {'1', 'true', 'yes', 'on'}:
+                return True
+            if normalized in {'0', 'false', 'no', 'off', ''}:
+                return False
+        return False
+
+    @field_validator('push_enabled', 'apns_use_sandbox', mode='before')
+    @classmethod
+    def coerce_bool_flags(cls, value):
         if isinstance(value, bool):
             return value
         if isinstance(value, str):
