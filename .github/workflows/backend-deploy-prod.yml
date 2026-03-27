@@ -69,11 +69,15 @@ jobs:
           SECRET_FLAGS=''
           ENV_FLAGS=''
           EXTRA_ARGS="${{ vars.BACKEND_DEPLOY_EXTRA_ARGS }}"
+          CLOUDSQL_FLAGS=''
           if [ -n "${{ vars.BACKEND_SECRET_ENV_VARS }}" ]; then
             SECRET_FLAGS="--set-secrets ${{ vars.BACKEND_SECRET_ENV_VARS }}"
           fi
           if [ -n "${{ vars.BACKEND_RUNTIME_ENV_VARS }}" ]; then
             ENV_FLAGS="--set-env-vars ${{ vars.BACKEND_RUNTIME_ENV_VARS }}"
+          fi
+          if [ -n "${{ vars.GCP_CLOUDSQL_INSTANCES }}" ]; then
+            CLOUDSQL_FLAGS="--set-cloudsql-instances ${{ vars.GCP_CLOUDSQL_INSTANCES }}"
           fi
 
           gcloud run jobs deploy "${{ vars.GCP_MIGRATION_JOB }}" \
@@ -85,6 +89,7 @@ jobs:
             --task-timeout 1800s \
             $SECRET_FLAGS \
             $ENV_FLAGS \
+            $CLOUDSQL_FLAGS \
             $EXTRA_ARGS \
             --quiet
 
@@ -98,11 +103,15 @@ jobs:
           SECRET_FLAGS=''
           ENV_FLAGS=''
           EXTRA_ARGS="${{ vars.BACKEND_DEPLOY_EXTRA_ARGS }}"
+          CLOUDSQL_FLAGS=''
           if [ -n "${{ vars.BACKEND_SECRET_ENV_VARS }}" ]; then
             SECRET_FLAGS="--set-secrets ${{ vars.BACKEND_SECRET_ENV_VARS }}"
           fi
           if [ -n "${{ vars.BACKEND_RUNTIME_ENV_VARS }}" ]; then
             ENV_FLAGS="--set-env-vars ${{ vars.BACKEND_RUNTIME_ENV_VARS }}"
+          fi
+          if [ -n "${{ vars.GCP_CLOUDSQL_INSTANCES }}" ]; then
+            CLOUDSQL_FLAGS="--add-cloudsql-instances ${{ vars.GCP_CLOUDSQL_INSTANCES }}"
           fi
 
           gcloud run deploy "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
@@ -113,6 +122,7 @@ jobs:
             --allow-unauthenticated \
             $SECRET_FLAGS \
             $ENV_FLAGS \
+            $CLOUDSQL_FLAGS \
             $EXTRA_ARGS \
             --quiet
 

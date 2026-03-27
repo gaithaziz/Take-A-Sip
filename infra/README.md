@@ -33,6 +33,7 @@ Create GitHub environments named `staging` and `production` and add these variab
 - `GCP_ARTIFACT_REPOSITORY`
 - `GCP_CLOUD_RUN_SERVICE`
 - `GCP_MIGRATION_JOB`
+- `GCP_CLOUDSQL_INSTANCES`
 - `BACKEND_RUNTIME_ENV_VARS`
 - `BACKEND_SECRET_ENV_VARS`
 - `BACKEND_SMOKE_PATH`
