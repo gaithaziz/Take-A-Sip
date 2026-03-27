@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import logging
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -11,6 +11,7 @@ from app.core.phone import mask_phone_number
 from app.core.security import create_access_token
 from app.models.user import User, UserRole
 from app.models.user_event import UserEvent
+from app.models.user_push_token import UserPushToken
 from app.schemas.auth import (
     AccountDeletionResponse,
     AuthUserResponse,
@@ -196,6 +197,7 @@ async def delete_account(current_user: User, db: AsyncSession) -> AccountDeletio
     now = datetime.now(timezone.utc)
     original_role = current_user.role.value
 
+    await db.execute(delete(UserPushToken).where(UserPushToken.user_id == current_user.id))
     current_user.first_name = 'Deleted'
     current_user.last_name = 'User'
     current_user.phone_number = _deleted_phone_number(str(current_user.id))
@@ -203,7 +205,6 @@ async def delete_account(current_user: User, db: AsyncSession) -> AccountDeletio
     current_user.is_banned = False
     current_user.banned_at = now
     current_user.banned_reason = 'self_deleted'
-    current_user.push_tokens.clear()
     db.add(
         UserEvent(
             user_id=current_user.id,

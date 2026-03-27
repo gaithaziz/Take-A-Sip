@@ -4,7 +4,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -394,12 +394,12 @@ async def _replace_target_groups(
     promotion: Promotion,
     grouped_targets: dict[str, list[PromotionTargetCreate]],
 ) -> None:
-    promotion.targets.clear()
-    await db.flush()
+    await db.execute(delete(PromotionTarget).where(PromotionTarget.promotion_id == promotion.id))
     for target_group in (TARGET_GROUP_SCOPE, TARGET_GROUP_BUY, TARGET_GROUP_FREE):
         for target in grouped_targets.get(target_group, []):
-            promotion.targets.append(
+            db.add(
                 PromotionTarget(
+                    promotion_id=promotion.id,
                     target_group=target_group,
                     entity_type=target.entity_type,
                     entity_id=target.entity_id,

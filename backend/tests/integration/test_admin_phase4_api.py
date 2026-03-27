@@ -209,7 +209,6 @@ async def test_client_promotion_evaluation_applies_best_targeted_offer(client, d
         loyalty_rule=loyalty_rule,
     )
     db_session.add_all([client_user, section, item, item_type, size, addon, loyalty_rule, loyalty_promotion])
-    loyalty_promotion.targets.append(PromotionTarget(entity_type='item', entity_id=item.id))
 
     first_time_promotion = Promotion(
         title_en='New User Deal',
@@ -231,7 +230,13 @@ async def test_client_promotion_evaluation_applies_best_targeted_offer(client, d
     )
     db_session.add_all([first_time_promotion, mismatch_promotion])
     await db_session.flush()
-    mismatch_promotion.targets.append(PromotionTarget(entity_type='section', entity_id=section.id))
+    mismatch_target = PromotionTarget(promotion_id=mismatch_promotion.id, entity_type='section', entity_id=section.id)
+    db_session.add_all(
+        [
+            PromotionTarget(promotion_id=loyalty_promotion.id, entity_type='item', entity_id=item.id),
+            mismatch_target,
+        ]
+    )
 
     for order_number in range(1, 6):
         db_session.add(
@@ -250,7 +255,7 @@ async def test_client_promotion_evaluation_applies_best_targeted_offer(client, d
     other_section = Section(name_en='Tea', name_ar='شاي', sort_order=2, is_active=True)
     db_session.add(other_section)
     await db_session.flush()
-    mismatch_promotion.targets[0].entity_id = other_section.id
+    mismatch_target.entity_id = other_section.id
     await db_session.commit()
 
     headers = {'Authorization': f"Bearer {create_access_token(str(client_user.id), client_user.role.value)}"}
@@ -304,7 +309,8 @@ async def test_client_buy_get_offer_uses_qualifying_quantity(client, db_session)
         free_quantity=1,
     )
     db_session.add_all([client_user, section, item, item_type, size, buy_get_promotion])
-    buy_get_promotion.targets.append(PromotionTarget(entity_type='item', entity_id=item.id))
+    await db_session.flush()
+    db_session.add(PromotionTarget(promotion_id=buy_get_promotion.id, entity_type='item', entity_id=item.id))
     await db_session.commit()
 
     headers = {'Authorization': f"Bearer {create_access_token(str(client_user.id), client_user.role.value)}"}
@@ -397,8 +403,12 @@ async def test_client_buy_get_offer_can_use_different_buy_and_free_targets(clien
     )
     db_session.add_all([client_user, section, latte, muffin, latte_type, muffin_type, latte_size, muffin_size, promo])
     await db_session.flush()
-    promo.targets.append(PromotionTarget(target_group='buy', entity_type='item', entity_id=latte.id))
-    promo.targets.append(PromotionTarget(target_group='free', entity_type='item', entity_id=muffin.id))
+    db_session.add_all(
+        [
+            PromotionTarget(promotion_id=promo.id, target_group='buy', entity_type='item', entity_id=latte.id),
+            PromotionTarget(promotion_id=promo.id, target_group='free', entity_type='item', entity_id=muffin.id),
+        ]
+    )
     await db_session.commit()
 
     headers = {'Authorization': f"Bearer {create_access_token(str(client_user.id), client_user.role.value)}"}

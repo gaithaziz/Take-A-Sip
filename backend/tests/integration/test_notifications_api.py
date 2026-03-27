@@ -123,16 +123,6 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
         store_latitude=Decimal('31.9539000'),
         store_longitude=Decimal('35.9106000'),
     )
-    invalid_token = UserPushToken(
-        user_id=customer.id,
-        platform='android',
-        push_provider='fcm',
-        push_token='client-token-invalid',
-        device_id='client-device-2',
-        language='ar',
-        is_active=True,
-    )
-
     db_session.add_all(
         [
             admin,
@@ -150,6 +140,22 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
                 is_active=True,
                 sort_order=0,
             ),
+        ]
+    )
+    await db_session.flush()
+
+    invalid_token = UserPushToken(
+        user_id=customer.id,
+        platform='android',
+        push_provider='fcm',
+        push_token='client-token-invalid',
+        device_id='client-device-2',
+        language='ar',
+        is_active=True,
+    )
+
+    db_session.add_all(
+        [
             UserPushToken(
                 user_id=admin.id,
                 platform='android',
@@ -270,24 +276,18 @@ async def test_pickup_completed_sends_completion_notification(client, db_session
     item_type = ItemType(item=item, name_en='Hot', name_ar='Hot', is_active=True)
     size = Size(item_type=item_type, name_en='Regular', name_ar='Regular', price=Decimal('3.50'), is_active=True)
 
-    db_session.add_all(
-        [
-            admin,
-            customer,
-            section,
-            item,
-            item_type,
-            size,
-            UserPushToken(
-                user_id=customer.id,
-                platform='android',
-                push_provider='fcm',
-                push_token='pickup-client-token',
-                device_id='pickup-client-device',
-                language='ar',
-                is_active=True,
-            ),
-        ]
+    db_session.add_all([admin, customer, section, item, item_type, size])
+    await db_session.flush()
+    db_session.add(
+        UserPushToken(
+            user_id=customer.id,
+            platform='android',
+            push_provider='fcm',
+            push_token='pickup-client-token',
+            device_id='pickup-client-device',
+            language='ar',
+            is_active=True,
+        )
     )
     await db_session.commit()
 

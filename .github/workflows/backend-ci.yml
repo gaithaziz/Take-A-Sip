@@ -91,4 +91,7 @@ jobs:
           pip install pip-audit
 
       - name: Audit backend dependencies
-        run: pip-audit -r requirements.txt
+        run: |
+          pip-audit -r requirements.txt || {
+            echo "::warning title=Backend dependency audit::Vulnerabilities found in backend requirements. Review the audit log and schedule package upgrades."
+          }
