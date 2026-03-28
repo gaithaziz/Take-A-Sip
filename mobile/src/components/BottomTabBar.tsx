@@ -14,7 +14,7 @@ import { AdminTabParamList, DriverTabParamList, MainTabParamList } from '@/navig
 const iconByRoute = {
   Home: 'home-outline',
   PastOrders: 'time-outline',
-  Profile: 'person-outline',
+  Profile: 'settings-outline',
   AdminDashboard: 'grid-outline',
   AdminMenu: 'restaurant-outline',
   AdminPromotions: 'pricetag-outline',
@@ -23,13 +23,13 @@ const iconByRoute = {
   AdminUsers: 'people-outline',
   AdminDelivery: 'car-outline',
   DriverOrders: 'bicycle-outline',
-  DriverProfile: 'person-outline',
+  DriverProfile: 'settings-outline',
 } as const;
 
 const iconByRouteFocused = {
   Home: 'home',
   PastOrders: 'time',
-  Profile: 'person',
+  Profile: 'settings',
   AdminDashboard: 'grid',
   AdminMenu: 'restaurant',
   AdminPromotions: 'pricetag',
@@ -38,7 +38,7 @@ const iconByRouteFocused = {
   AdminUsers: 'people',
   AdminDelivery: 'car',
   DriverOrders: 'bicycle',
-  DriverProfile: 'person',
+  DriverProfile: 'settings',
 } as const;
 
 export const BottomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {

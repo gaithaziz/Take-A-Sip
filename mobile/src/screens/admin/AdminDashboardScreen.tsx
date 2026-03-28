@@ -194,7 +194,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
       {
         key: 'profile',
         label: t('admin.profileTitle'),
-        icon: 'person-circle-outline',
+        icon: 'settings-outline',
         value: t('admin.tapToOpen'),
         onPress: () => navigateToAdminStackScreen('AdminProfile'),
       },
