@@ -5,7 +5,7 @@ artifact_registry_repository_id = "take-a-sip-backend"
 cloud_run_service_name         = "take-a-sip-backend-staging"
 migration_job_name             = "take-a-sip-backend-migrate-staging"
 initial_backend_image          = "us-central1-docker.pkg.dev/take-a-sip-staging/take-a-sip-backend/backend:bootstrap"
-health_path                    = "/ready"
+health_path                    = "/health"
 min_instance_count             = 0
 max_instance_count             = 2
 

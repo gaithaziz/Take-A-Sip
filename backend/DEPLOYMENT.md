@@ -128,7 +128,8 @@ APNS_USE_SANDBOX=false
 
 Recommended uptime target:
 
-- Cloud Monitoring uptime check against `/ready`
+- Cloud Monitoring uptime check against `/health`
+- Reserve `/ready` for deployment validation, debugging, and deeper checks because it verifies database connectivity
 
 ## Deployment Order
 
@@ -185,6 +186,7 @@ gcloud builds submit \
 - `memory=512Mi`
 - `concurrency=80`
 - public unauthenticated ingress enabled if mobile clients access the API directly
+- avoid external uptime monitors against `/ready` unless you explicitly want continuous DB checks
 
 ## Local Verification
 

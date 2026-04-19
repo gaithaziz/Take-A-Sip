@@ -23,6 +23,11 @@ terraform plan -var-file=environments/staging.tfvars
 terraform apply -var-file=environments/staging.tfvars
 ```
 
+Cost-safe defaults:
+- use `/health` for external uptime checks so idle monitoring does not wake the database
+- keep `min_instance_count = 0` unless you intentionally want to pay for reduced cold starts
+- start with a small `max_instance_count` and raise it only when real traffic needs it
+
 ## GitHub Environment Contract
 
 Create GitHub environments named `staging` and `production` and add these variables:

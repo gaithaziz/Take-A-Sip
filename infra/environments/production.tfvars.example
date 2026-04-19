@@ -5,9 +5,9 @@ artifact_registry_repository_id = "take-a-sip-backend"
 cloud_run_service_name         = "take-a-sip-backend-prod"
 migration_job_name             = "take-a-sip-backend-migrate-prod"
 initial_backend_image          = "us-central1-docker.pkg.dev/take-a-sip-production/take-a-sip-backend/backend:bootstrap"
-health_path                    = "/ready"
-min_instance_count             = 1
-max_instance_count             = 4
+health_path                    = "/health"
+min_instance_count             = 0
+max_instance_count             = 3
 
 backend_runtime_env = {
   ENVIRONMENT = "production"
