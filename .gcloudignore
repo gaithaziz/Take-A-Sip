@@ -1,0 +1,44 @@
+# Keep Cloud Build uploads focused on the backend deployment path.
+.gcloudignore
+.git
+.gitignore
+.venv/
+.neon
+__pycache__/
+*.py[cod]
+*.salive
+.DS_Store
+Thumbs.db
+
+# Local environment and generated runtime data
+backend/.env
+backend/.venv/
+backend/.pytest_cache/
+backend/uploads/
+logs/
+
+# Non-backend apps are not needed for backend image builds
+admin/
+frontdesk/
+mobile/
+
+# Large local/build artifacts
+**/node_modules/
+**/.expo/
+**/android/build/
+**/.gradle/
+**/.kotlin/
+**/.cxx/
+tmp_*.zip
+tmp_*/
+
+# Terraform local state and plans
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+infra/environments/*.tfvars
+
+# Misc large repo assets not needed for backend container builds
+LOGO.PNG
+frontdesk_dump.xml

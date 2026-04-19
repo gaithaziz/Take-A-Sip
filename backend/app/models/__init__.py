@@ -1,6 +1,7 @@
 from app.models.base import Base
 from app.models.delivery import DeliveryDistanceBand
 from app.models.menu import Addon, Item, ItemType, MenuSchedule, Section, Size
+from app.models.otp_challenge import OTPChallenge
 from app.models.order import Order, OrderEvent, OrderItem, OrderItemAddon, OrderRating, OrderStatus, OrderType
 from app.models.promotion import LoyaltyRule, Promotion, PromotionTarget, PromotionType
 from app.models.store_settings import StoreSettings
@@ -23,6 +24,7 @@ __all__ = [
     'OrderRating',
     'OrderStatus',
     'OrderType',
+    'OTPChallenge',
     'Promotion',
     'PromotionTarget',
     'PromotionType',

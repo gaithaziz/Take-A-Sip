@@ -47,11 +47,11 @@ class Settings(BaseSettings):
     mersal_api_url: str | None = None
     mersal_api_key: str | None = None
     mersal_sender_id: str | None = None
-    mersal_auth_header: str = 'Authorization'
-    mersal_auth_scheme: str = 'Bearer'
-    mersal_phone_field: str = 'phone'
-    mersal_message_field: str = 'message'
-    mersal_sender_field: str = 'sender'
+    mersal_auth_header: str = 'X-API-Key'
+    mersal_auth_scheme: str = ''
+    mersal_phone_field: str = 'PhoneNumber'
+    mersal_message_field: str = 'Message'
+    mersal_sender_field: str = 'Sender'
     mersal_extra_payload_json: str | None = None
     push_enabled: bool = False
     push_android_provider: str = 'fcm'

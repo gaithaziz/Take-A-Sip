@@ -25,6 +25,8 @@ from app.services.sms_service import SMSProviderError, build_sms_provider
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
 def _ensure_secure_otp_configuration() -> None:
     environment = settings.environment.strip().lower()
     provider = settings.otp_provider.strip().lower()
@@ -41,10 +43,23 @@ def _ensure_secure_otp_configuration() -> None:
         )
 
 
-async def send_otp(payload: SendOTPRequest) -> str:
+async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> str:
     _ensure_secure_otp_configuration()
     try:
-        code = otp_service.generate_and_store(payload.phone_number)
+        sms_provider = build_sms_provider()
+    except SMSProviderError as exc:
+        log_structured(
+            logger,
+            logging.WARNING,
+            'auth.otp_provider_unavailable',
+            {'phone_number': mask_phone_number(payload.phone_number)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='OTP delivery is temporarily unavailable',
+        ) from exc
+    try:
+        code = await otp_service.generate_and_store(db, payload.phone_number)
     except OTPRateLimitError as exc:
         log_structured(
             logger,
@@ -57,13 +72,13 @@ async def send_otp(payload: SendOTPRequest) -> str:
             detail=f'Please wait {exc.retry_after_seconds} seconds before requesting another OTP',
         ) from exc
 
-    sms_provider = build_sms_provider()
     try:
         await sms_provider.send_sms(
             payload.phone_number,
             f'Your verification code is {code}. It expires in {settings.otp_ttl_minutes} minutes.',
         )
     except SMSProviderError as exc:
+        await otp_service.clear_challenge(db, payload.phone_number)
         log_structured(
             logger,
             logging.WARNING,
@@ -85,7 +100,7 @@ async def send_otp(payload: SendOTPRequest) -> str:
 
 async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenResponse:
     _ensure_secure_otp_configuration()
-    verify_result = otp_service.verify(payload.phone_number, payload.otp_code)
+    verify_result = await otp_service.verify(db, payload.phone_number, payload.otp_code)
     if verify_result in {OTPVerifyResult.NOT_FOUND, OTPVerifyResult.EXPIRED}:
         log_structured(
             logger,

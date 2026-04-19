@@ -19,8 +19,11 @@ router = APIRouter(prefix='/auth', tags=['auth'])
 
 
 @router.post('/send-otp', response_model=OTPMessageResponse)
-async def send_otp_endpoint(payload: SendOTPRequest) -> OTPMessageResponse:
-    await send_otp(payload)
+async def send_otp_endpoint(
+    payload: SendOTPRequest,
+    db: AsyncSession = Depends(get_db),
+) -> OTPMessageResponse:
+    await send_otp(payload, db)
     return OTPMessageResponse(message='OTP sent successfully')
 
 

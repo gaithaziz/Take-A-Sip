@@ -7,7 +7,6 @@ from app.services.otp_service import otp_service
 
 
 async def test_auth_send_and_verify_otp(client):
-    otp_service.reset()
     phone = '+962790000111'
     send_payload = {
         'first_name': 'Nora',
@@ -38,7 +37,6 @@ async def test_auth_send_and_verify_otp(client):
 
 
 async def test_auth_update_profile(client):
-    otp_service.reset()
     phone = '+962790000112'
     send_payload = {
         'first_name': 'Maya',
@@ -73,7 +71,6 @@ async def test_auth_update_profile(client):
 
 
 async def test_auth_delete_account_anonymizes_and_allows_new_signup(client, db_session):
-    otp_service.reset()
     phone = '+962790000113'
 
     send_response = await client.post(

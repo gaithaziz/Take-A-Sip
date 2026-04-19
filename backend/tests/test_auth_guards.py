@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -33,7 +33,7 @@ async def test_verify_otp_rejects_banned_user() -> None:
 
     payload = VerifyOTPRequest(phone_number='0790000000', otp_code='123456')
 
-    with patch('app.services.auth_service.otp_service.verify', return_value=OTPVerifyResult.SUCCESS):
+    with patch('app.services.auth_service.otp_service.verify', new=AsyncMock(return_value=OTPVerifyResult.SUCCESS)):
         with pytest.raises(HTTPException) as exc:
             await verify_otp(payload, db)
 
@@ -61,7 +61,7 @@ async def test_verify_otp_rejects_non_client_self_signup() -> None:
         role='DRIVER',
     )
 
-    with patch('app.services.auth_service.otp_service.verify', return_value=OTPVerifyResult.SUCCESS):
+    with patch('app.services.auth_service.otp_service.verify', new=AsyncMock(return_value=OTPVerifyResult.SUCCESS)):
         with pytest.raises(HTTPException) as exc:
             await verify_otp(payload, db)
 

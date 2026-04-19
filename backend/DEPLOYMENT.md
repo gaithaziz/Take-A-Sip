@@ -89,11 +89,11 @@ OTP_TEST_CODE=
 MERSAL_API_URL=https://your-mersal-send-endpoint
 MERSAL_API_KEY=<mersal-api-key>
 MERSAL_SENDER_ID=TakeASip
-MERSAL_AUTH_HEADER=Authorization
-MERSAL_AUTH_SCHEME=Bearer
-MERSAL_PHONE_FIELD=phone
-MERSAL_MESSAGE_FIELD=message
-MERSAL_SENDER_FIELD=sender
+MERSAL_AUTH_HEADER=X-API-Key
+MERSAL_AUTH_SCHEME=
+MERSAL_PHONE_FIELD=PhoneNumber
+MERSAL_MESSAGE_FIELD=Message
+MERSAL_SENDER_FIELD=Sender
 MERSAL_EXTRA_PAYLOAD_JSON=
 ```
 
@@ -162,7 +162,7 @@ SERVICE_NAME=take-a-sip-backend-prod \
 MIGRATION_JOB_NAME=take-a-sip-backend-migrate-prod \
 RUNTIME_SERVICE_ACCOUNT=take-a-sip-production-runtime@your-gcp-project.iam.gserviceaccount.com \
 MIGRATION_SERVICE_ACCOUNT=take-a-sip-production-migrate@your-gcp-project.iam.gserviceaccount.com \
-RUNTIME_ENV_VARS="ENVIRONMENT=production,DEBUG=false,LOG_LEVEL=INFO,PUBLIC_API_BASE_URL=https://api.example.com,OTP_PROVIDER=mersal,MERSAL_API_URL=https://your-mersal-send-endpoint,MERSAL_SENDER_ID=TakeASip,MERSAL_AUTH_HEADER=Authorization,MERSAL_AUTH_SCHEME=Bearer,MERSAL_PHONE_FIELD=phone,MERSAL_MESSAGE_FIELD=message,MERSAL_SENDER_FIELD=sender,STORAGE_BACKEND=s3,STORAGE_PUBLIC_BASE_URL=https://pub-your-bucket.example.com,S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com,S3_REGION=auto,S3_BUCKET_NAME=take-a-sip-assets,S3_KEY_PREFIX=menu,S3_ADDRESSING_STYLE=path,READY_CHECK_DB=true" \
+RUNTIME_ENV_VARS="ENVIRONMENT=production,DEBUG=false,LOG_LEVEL=INFO,PUBLIC_API_BASE_URL=https://api.example.com,OTP_PROVIDER=mersal,MERSAL_API_URL=https://your-mersal-send-endpoint,MERSAL_SENDER_ID=TakeASip,MERSAL_AUTH_HEADER=X-API-Key,MERSAL_AUTH_SCHEME=,MERSAL_PHONE_FIELD=PhoneNumber,MERSAL_MESSAGE_FIELD=Message,MERSAL_SENDER_FIELD=Sender,STORAGE_BACKEND=s3,STORAGE_PUBLIC_BASE_URL=https://pub-your-bucket.example.com,S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com,S3_REGION=auto,S3_BUCKET_NAME=take-a-sip-assets,S3_KEY_PREFIX=menu,S3_ADDRESSING_STYLE=path,READY_CHECK_DB=true" \
 RUNTIME_SECRETS="DATABASE_URL=database-url:latest,MIGRATION_DATABASE_URL=migration-database-url:latest,JWT_SECRET_KEY=jwt-secret-key:latest,MERSAL_API_KEY=mersal-api-key:latest,S3_ACCESS_KEY_ID=s3-access-key-id:latest,S3_SECRET_ACCESS_KEY=s3-secret-access-key:latest" \
 ./deploy.sh
 ```
