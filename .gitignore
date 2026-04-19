@@ -5,6 +5,7 @@ __pycache__/
 # Environments
 backend/.env
 .venv/
+.neon
 
 # OS
 .DS_Store
