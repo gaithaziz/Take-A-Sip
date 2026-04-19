@@ -1,0 +1,21 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - backend/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+      - backend
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+
+substitutions:
+  _REGION: us-central1
+  _REPOSITORY: take-a-sip-backend
+  _IMAGE: backend
+  _TAG: latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

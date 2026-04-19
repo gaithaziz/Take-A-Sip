@@ -3,6 +3,10 @@ async def test_health_and_metrics_endpoints(client):
     assert health_response.status_code == 200
     assert health_response.json() == {'status': 'ok'}
 
+    ready_response = await client.get('/ready')
+    assert ready_response.status_code == 200
+    assert ready_response.json() == {'status': 'ok'}
+
     metrics_response = await client.get('/metrics')
     assert metrics_response.status_code == 200
     body = metrics_response.json()

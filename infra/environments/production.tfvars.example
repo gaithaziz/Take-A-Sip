@@ -5,7 +5,7 @@ artifact_registry_repository_id = "take-a-sip-backend"
 cloud_run_service_name         = "take-a-sip-backend-prod"
 migration_job_name             = "take-a-sip-backend-migrate-prod"
 initial_backend_image          = "us-central1-docker.pkg.dev/take-a-sip-production/take-a-sip-backend/backend:bootstrap"
-health_path                    = "/health"
+health_path                    = "/ready"
 min_instance_count             = 1
 max_instance_count             = 4
 
@@ -16,6 +16,10 @@ backend_runtime_env = {
 
 secret_ids = [
   "database-url",
+  "migration-database-url",
+  "mersal-api-key",
+  "s3-access-key-id",
+  "s3-secret-access-key",
   "jwt-secret-key",
   "twilio-account-sid",
   "twilio-auth-token",

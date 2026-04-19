@@ -7,6 +7,9 @@
     "userInterfaceStyle": "light",
     "android": {
       "package": "com.takeasip.frontdesk"
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

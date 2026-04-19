@@ -5,6 +5,7 @@ import i18next from '@/i18n';
 import { buildReceiptText } from '@/printer/receiptFormatter';
 import { buildReceiptArabicLookup, emptyReceiptArabicLookup } from '@/printer/receiptLocalization';
 import { sunmiPrinter } from '@/printer/sunmiPrinter';
+import { resolveApiBaseUrl } from '@/services/http';
 import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
 import { formatOrderReference } from '@/utils/localeFormat';
@@ -12,7 +13,7 @@ import { isFrontdeskActionableOrder } from '@/utils/orderPresentation';
 import { FrontdeskSocketMessage, OrderRead, UserSummary } from '@/types/api';
 import { FrontdeskSocket } from '@/websocket/frontdeskSocket';
 
-const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+const baseUrl = resolveApiBaseUrl();
 const ALERT_INTERVAL_MS = 8000;
 
 type FailedPrintJob = {
@@ -377,4 +378,3 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
 
   return value;
 };
-

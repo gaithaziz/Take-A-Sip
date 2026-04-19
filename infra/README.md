@@ -55,7 +55,11 @@ Create a GitHub environment named `mobile-release` and add these secrets:
 The Terraform scaffold creates Secret Manager entries from `secret_ids`. A good starting set is:
 
 - `database-url`
+- `migration-database-url`
 - `jwt-secret-key`
+- `mersal-api-key`
+- `s3-access-key-id`
+- `s3-secret-access-key`
 - `twilio-account-sid`
 - `twilio-auth-token`
 - `twilio-from-number`
@@ -68,5 +72,5 @@ The Terraform scaffold creates Secret Manager entries from `secret_ids`. A good 
 In GitHub Actions, `BACKEND_SECRET_ENV_VARS` should map app env names to Secret Manager names, for example:
 
 ```text
-DATABASE_URL=database-url:latest,JWT_SECRET_KEY=jwt-secret-key:latest
+DATABASE_URL=database-url:latest,MIGRATION_DATABASE_URL=migration-database-url:latest,JWT_SECRET_KEY=jwt-secret-key:latest,MERSAL_API_KEY=mersal-api-key:latest,S3_ACCESS_KEY_ID=s3-access-key-id:latest,S3_SECRET_ACCESS_KEY=s3-secret-access-key:latest
 ```

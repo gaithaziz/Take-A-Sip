@@ -189,9 +189,9 @@ resource "google_monitoring_uptime_check_config" "backend_health" {
 }
 
 resource "google_monitoring_alert_policy" "backend_uptime" {
-  display_name = "${local.name_prefix}-backend-health-failure"
-  combiner     = "OR"
-  enabled      = true
+  display_name          = "${local.name_prefix}-backend-health-failure"
+  combiner              = "OR"
+  enabled               = true
   notification_channels = var.notification_channel_ids
 
   conditions {

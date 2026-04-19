@@ -1,4 +1,20 @@
 const originalConsoleError = console.error;
+const readableStreamPrototype = globalThis.ReadableStream?.prototype as
+  | { cancel?: (reason?: unknown) => Promise<unknown> }
+  | undefined;
+
+jest.mock('expo-secure-store', () => ({
+  isAvailableAsync: jest.fn(async () => true),
+  getItemAsync: jest.fn(async () => null),
+  setItemAsync: jest.fn(async () => undefined),
+  deleteItemAsync: jest.fn(async () => undefined),
+}));
+
+if (typeof readableStreamPrototype?.cancel === 'function') {
+  readableStreamPrototype.cancel = function patchedCancel() {
+    return Promise.resolve(undefined);
+  };
+}
 
 jest.mock('react-native-maps', () => {
   const React = require('react');

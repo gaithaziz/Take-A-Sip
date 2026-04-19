@@ -106,7 +106,7 @@ This starts:
 - `POST /admin/users/{id}/ban`
 - `POST /admin/users/{id}/unban`
 - `GET /admin/analytics/revenue-summary`
-- `WS /ws/frontdesk?token=<JWT>`
+- `WS /ws/frontdesk` with `Authorization: Bearer <JWT>` (query token still accepted as a compatibility fallback)
 
 ## Notes
 
@@ -115,6 +115,7 @@ This starts:
   - `POST /orders` (scheduled-off entities are rejected)
 - OTP delivery uses a provider abstraction:
   - `otp_provider=mock` (default, no external SMS call)
+  - `otp_provider=mersal` with `mersal_api_url` and `mersal_api_key`
   - `otp_provider=twilio` with Twilio credentials in `.env`
 - Admin revenue summary endpoint returns gross revenue and order counts for:
   - today

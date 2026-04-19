@@ -78,7 +78,7 @@ variable "max_instance_count" {
 variable "health_path" {
   description = "Health endpoint path used for uptime checks."
   type        = string
-  default     = "/health"
+  default     = "/ready"
 }
 
 variable "notification_channel_ids" {

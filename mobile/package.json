@@ -28,6 +28,7 @@
     "expo-image-picker": "~17.0.10",
     "expo-location": "~19.0.8",
     "expo-notifications": "~0.32.16",
+    "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
     "i18next": "^24.2.3",
     "react": "19.1.0",
@@ -53,6 +54,7 @@
     "tar": "7.5.13",
     "undici": "6.24.1",
     "yaml": "2.8.3",
+    "@tootallnate/once": "3.0.1",
     "@expo/cli": {
       "picomatch": "3.0.2"
     },

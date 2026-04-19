@@ -5,6 +5,7 @@ import { authService } from '@/services/authService';
 import { addressBook } from '@/services/addressBook';
 import { setAuthToken } from '@/services/http';
 import { notificationService } from '@/services/notificationService';
+import { sessionTokenStore } from '@/services/sessionTokenStore';
 import { useLanguage } from '@/state/LanguageContext';
 import { AuthUser, SendOtpPayload, UpdateProfilePayload, VerifyOtpPayload } from '@/types/api';
 
@@ -32,22 +33,32 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
   useEffect(() => {
     const run = async () => {
-      const [savedToken, savedUser] = await Promise.all([
+      const [savedToken, legacyToken, savedUser] = await Promise.all([
+        sessionTokenStore.get(),
         AsyncStorage.getItem(TOKEN_KEY),
         AsyncStorage.getItem(USER_KEY),
       ]);
-      if (savedToken) {
-        setAuthToken(savedToken);
+      const restoredToken = savedToken ?? legacyToken;
+
+      if (legacyToken) {
+        await AsyncStorage.removeItem(TOKEN_KEY);
+      }
+
+      if (restoredToken) {
+        if (!savedToken && legacyToken) {
+          await sessionTokenStore.set(legacyToken);
+        }
+        setAuthToken(restoredToken);
         try {
           const profile = await authService.me();
-          setToken(savedToken);
+          setToken(restoredToken);
           setUser(profile);
           await AsyncStorage.setItem(USER_KEY, JSON.stringify(profile));
         } catch {
           setToken(null);
           setUser(null);
           setAuthToken(null);
-          await Promise.all([AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
+          await Promise.all([sessionTokenStore.remove(), AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
         }
       } else if (savedUser) {
         await AsyncStorage.removeItem(USER_KEY);
@@ -83,7 +94,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setUser(response.user);
     setAuthToken(response.access_token);
     await Promise.all([
-      AsyncStorage.setItem(TOKEN_KEY, response.access_token),
+      sessionTokenStore.set(response.access_token),
+      AsyncStorage.removeItem(TOKEN_KEY),
       AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user)),
     ]);
   };
@@ -108,7 +120,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setToken(null);
     setUser(null);
     setAuthToken(null);
-    await Promise.all([AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
+    await Promise.all([sessionTokenStore.remove(), AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
   };
 
   const deleteAccount = async () => {

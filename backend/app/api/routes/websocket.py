@@ -15,7 +15,14 @@ settings = get_settings()
 
 @router.websocket('/ws/frontdesk')
 async def frontdesk_ws(websocket: WebSocket) -> None:
-    token = websocket.query_params.get('token')
+    auth_header = websocket.headers.get('authorization')
+    token = None
+    if auth_header:
+        scheme, _, credentials = auth_header.partition(' ')
+        if scheme.lower() == 'bearer' and credentials:
+            token = credentials.strip()
+    if not token:
+        token = websocket.query_params.get('token')
     if not token:
         await websocket.close(code=1008)
         return

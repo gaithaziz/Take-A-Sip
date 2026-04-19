@@ -3,6 +3,7 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 
 import { authService } from '@/services/authService';
 import { setAuthToken } from '@/services/http';
+import { sessionTokenStore } from '@/services/sessionTokenStore';
 import { AuthUser, SendOtpPayload, VerifyOtpPayload } from '@/types/api';
 
 type AuthContextValue = {
@@ -27,13 +28,21 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     const run = async () => {
       try {
-        const [savedToken, savedUser] = await Promise.all([
+        const [savedToken, legacyToken, savedUser] = await Promise.all([
+          sessionTokenStore.get(),
           AsyncStorage.getItem(TOKEN_KEY),
           AsyncStorage.getItem(USER_KEY),
         ]);
-        if (savedToken) {
-          setToken(savedToken);
-          setAuthToken(savedToken);
+        const restoredToken = savedToken ?? legacyToken;
+        if (legacyToken) {
+          await AsyncStorage.removeItem(TOKEN_KEY);
+        }
+        if (restoredToken) {
+          if (!savedToken && legacyToken) {
+            await sessionTokenStore.set(legacyToken);
+          }
+          setToken(restoredToken);
+          setAuthToken(restoredToken);
         }
         if (savedUser) {
           setUser(JSON.parse(savedUser) as AuthUser);
@@ -63,7 +72,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setAuthToken(response.access_token);
     try {
       await Promise.all([
-        AsyncStorage.setItem(TOKEN_KEY, response.access_token),
+        sessionTokenStore.set(response.access_token),
+        AsyncStorage.removeItem(TOKEN_KEY),
         AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user)),
       ]);
     } catch {
@@ -76,7 +86,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setUser(null);
     setAuthToken(null);
     try {
-      await Promise.all([AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
+      await Promise.all([sessionTokenStore.remove(), AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
     } catch {
       // Ignore storage cleanup failures to avoid logout crashes.
     }

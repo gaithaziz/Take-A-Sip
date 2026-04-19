@@ -4,7 +4,7 @@ Sunmi V2 Pro frontdesk app for incoming order handling and local thermal printin
 
 ## Features implemented
 
-- WebSocket connection to `ws://<backend>/ws/frontdesk?token=<jwt>`
+- WebSocket connection to `ws://<backend>/ws/frontdesk` using `Authorization: Bearer <jwt>`
 - Incoming `NEW` orders list
 - New order alert (vibration + native beep when module exists)
 - Accept order flow (`POST /orders/{id}/accept`)

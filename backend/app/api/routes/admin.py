@@ -1,7 +1,5 @@
 from datetime import datetime
-from pathlib import Path
 from uuid import UUID
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -82,6 +80,7 @@ from app.services.delivery_service import (
     list_distance_bands,
     update_distance_band,
 )
+from app.services.storage import get_storage_service
 from app.services.promotion_service import (
     _load_target_lookup,
     create_promotion_record,
@@ -221,11 +220,6 @@ async def upload_menu_image(
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail='Only image files are allowed')
 
     settings = get_settings()
-    uploads_dir = Path(settings.upload_dir)
-    if not uploads_dir.is_absolute():
-        uploads_dir = Path.cwd() / uploads_dir
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-
     content = await file.read()
     max_bytes = settings.max_upload_size_mb * 1024 * 1024
     if len(content) > max_bytes:
@@ -234,16 +228,14 @@ async def upload_menu_image(
             detail=f'Image must be <= {settings.max_upload_size_mb}MB',
         )
 
-    extension = Path(file.filename or '').suffix.lower()
-    if extension not in {'.jpg', '.jpeg', '.png', '.webp'}:
-        extension = '.jpg'
-
-    filename = f'{uuid4().hex}{extension}'
-    file_path = uploads_dir / filename
-    file_path.write_bytes(content)
-
-    base_url = str(request.base_url).rstrip('/')
-    return {'url': f'{base_url}/uploads/{filename}'}
+    storage_service = get_storage_service()
+    stored_object = await storage_service.store_menu_image(
+        content=content,
+        filename=file.filename,
+        content_type=file.content_type,
+        request_base_url=str(request.base_url).rstrip('/'),
+    )
+    return {'url': stored_object.url}
 
 
 @router.get('/menu/tree', response_model=MenuResponse)

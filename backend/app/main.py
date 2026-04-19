@@ -4,18 +4,25 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import api_router
 from app.core.config import get_settings
+from app.core.database import get_db
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, log_structured, request_log_context
 from app.core.metrics import metrics
+from app.services.storage import LocalStorageService, get_storage_service
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    get_storage_service()
     yield
 
 
@@ -26,6 +33,19 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
     app.include_router(api_router, prefix=settings.api_prefix)
     register_exception_handlers(app)
+
+    if settings.cors_allow_origins or settings.cors_allow_origin_regex:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_allow_origins,
+            allow_origin_regex=settings.cors_allow_origin_regex,
+            allow_credentials=True,
+            allow_methods=['*'],
+            allow_headers=['*'],
+        )
+
+    if settings.trusted_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 
     @app.middleware('http')
     async def request_context_middleware(request, call_next):
@@ -63,14 +83,28 @@ def create_app() -> FastAPI:
         )
         return response
 
-    uploads_dir = Path(settings.upload_dir)
-    if not uploads_dir.is_absolute():
-        uploads_dir = Path.cwd() / uploads_dir
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-    app.mount('/uploads', StaticFiles(directory=str(uploads_dir)), name='uploads')
+    storage_service = get_storage_service()
+    if isinstance(storage_service, LocalStorageService):
+        uploads_dir = Path(settings.upload_dir)
+        if not uploads_dir.is_absolute():
+            uploads_dir = Path.cwd() / uploads_dir
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        app.mount('/uploads', StaticFiles(directory=str(uploads_dir)), name='uploads')
 
     @app.get('/health', tags=['health'])
     async def health() -> dict[str, str]:
+        return {'status': 'ok'}
+
+    @app.get('/ready', tags=['health'])
+    async def ready(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
+        if settings.ready_check_db:
+            try:
+                await db.execute(text('SELECT 1'))
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail='Database not ready',
+                ) from exc
         return {'status': 'ok'}
 
     @app.get('/metrics', tags=['health'])

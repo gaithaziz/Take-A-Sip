@@ -61,7 +61,7 @@ async def send_otp(payload: SendOTPRequest) -> str:
     try:
         await sms_provider.send_sms(
             payload.phone_number,
-            f'Your verification code is {code}. It expires in 5 minutes.',
+            f'Your verification code is {code}. It expires in {settings.otp_ttl_minutes} minutes.',
         )
     except SMSProviderError as exc:
         log_structured(
