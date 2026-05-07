@@ -450,6 +450,13 @@ async def test_client_can_rate_accepted_pickup_order_once(client, db_session):
     )
     assert duplicate_response.status_code == 409
 
+    admin_complete_response = await client.post(
+        f"/orders/{created['id']}/status",
+        headers=admin_headers,
+        json={'status': 'COMPLETED'},
+    )
+    assert admin_complete_response.status_code == 200
+
     new_order_response = await client.post(
         '/orders',
         headers=headers,

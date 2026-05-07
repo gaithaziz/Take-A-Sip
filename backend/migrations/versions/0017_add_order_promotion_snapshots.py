@@ -1,6 +1,6 @@
 """Add order promotion and total snapshots
 
-Revision ID: 0017_add_order_promotion_snapshots
+Revision ID: 0017_order_promo_snapshots
 Revises: 0016_add_otp_challenges
 Create Date: 2026-05-07 00:00:00
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision: str = '0017_add_order_promotion_snapshots'
+revision: str = '0017_order_promo_snapshots'
 down_revision: str | None = '0016_add_otp_challenges'
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
