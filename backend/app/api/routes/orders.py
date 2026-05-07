@@ -192,6 +192,10 @@ async def update_order_status_endpoint(
     current_user: User = Depends(get_current_user),
 ) -> UpdateOrderStatusResponse:
     order = await update_order_status(db, order_id, payload.status, current_user)
+    await manager.broadcast(
+        frontdesk_channel(),
+        order_event_payload('order.status_changed', order.id, order.order_number, order.status.value),
+    )
     return UpdateOrderStatusResponse(id=order.id, status=order.status.value)
 
 

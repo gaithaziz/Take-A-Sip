@@ -36,10 +36,15 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'common.retry': 'Retry',
         'common.goBack': 'Go back',
         'common.appName': 'Take A Sip',
+        'common.cancel': 'Cancel',
         'errors.generic': 'Something went wrong.',
         'orders.detailsTitle': 'Order details',
         'orders.rateOrder': 'Rate order',
         'orders.submitRating': 'Submit rating',
+        'orders.cancelOrder': 'Cancel order',
+        'orders.cancelOrderConfirm': 'Cancel this order?',
+        'orders.cancelOrderAvailable': 'You can cancel while the order is still new.',
+        'orders.cancelled': 'Order cancelled',
         'orders.ratingNotePlaceholder': 'Optional review note',
         'orders.ratingStarsRequired': 'Please select a star rating',
         'orders.ratingSubmitted': 'Thanks for your feedback',
@@ -47,6 +52,8 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'orders.ratingAvailableAfterDelivery': 'Rating will be available as soon as this delivery is marked delivered.',
         'status.ACCEPTED': 'Accepted',
         'status.COMPLETED': 'Completed',
+        'status.NEW': 'New',
+        'status.CANCELLED': 'Cancelled',
       };
       return map[key] ?? key;
     },
@@ -69,10 +76,22 @@ jest.mock('@/components/AppShell', () => ({
   AppShell: ({ children }: { children: any }) => children,
 }));
 
+jest.mock('@/components/AppButton', () => {
+  const { Pressable, Text } = require('react-native');
+  return {
+    AppButton: ({ title, onPress, testID, disabled }: { title: string; onPress: () => void; testID?: string; disabled?: boolean }) => (
+      <Pressable onPress={onPress} testID={testID} disabled={disabled}>
+        <Text>{title}</Text>
+      </Pressable>
+    ),
+  };
+});
+
 jest.mock('@/services/orderService', () => ({
   orderService: {
     getById: jest.fn(),
     submitRating: jest.fn(),
+    updateStatus: jest.fn(),
   },
 }));
 
@@ -121,5 +140,20 @@ describe('ClientOrderDetailsScreen', () => {
       expect(getByText('Nice service')).toBeTruthy();
     });
     expect(queryByText('Submit rating')).toBeNull();
+  });
+
+  it('shows a cancel action for new orders', async () => {
+    (orderService.getById as jest.Mock).mockResolvedValue({ ...mockOrder, status: 'NEW' });
+
+    const { getByText } = render(
+      <ClientOrderDetailsScreen
+        navigation={{ goBack: jest.fn() } as never}
+        route={{ key: 'ClientOrderDetails', name: 'ClientOrderDetails', params: { orderId: 'order-1' } } as never}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText('You can cancel while the order is still new.')).toBeTruthy();
+    });
   });
 });

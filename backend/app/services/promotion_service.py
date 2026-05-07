@@ -517,6 +517,11 @@ async def _completed_orders_count(db: AsyncSession, user_id: UUID) -> int:
     return int(result.scalar_one() or 0)
 
 
+async def _first_time_order_count(db: AsyncSession, user_id: UUID) -> int:
+    result = await db.execute(select(func.count(Order.id)).where(Order.user_id == user_id))
+    return int(result.scalar_one() or 0)
+
+
 async def _load_sizes_for_evaluation(
     db: AsyncSession,
     size_ids: list[UUID],
@@ -635,6 +640,7 @@ async def evaluate_promotions_for_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
 
     completed_orders = await _completed_orders_count(db, user.id)
+    first_time_order_count = await _first_time_order_count(db, user.id)
     now = datetime.now(timezone.utc)
     cart_total = Decimal('0.00')
     line_rows: list[tuple[Size, list[UUID], int, Decimal]] = []
@@ -657,7 +663,7 @@ async def evaluate_promotions_for_user(
             reason_code = 'INACTIVE'
         elif promotion.starts_at > now or promotion.ends_at < now:
             reason_code = 'OUTSIDE_WINDOW'
-        elif promotion.type == PromotionType.FIRST_TIME and not eligible_for_first_time_offer(completed_orders):
+        elif promotion.type == PromotionType.FIRST_TIME and not eligible_for_first_time_offer(first_time_order_count):
             reason_code = 'FIRST_TIME_ONLY'
         else:
             required_orders = _resolved_required_orders(promotion)

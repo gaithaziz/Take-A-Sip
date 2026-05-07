@@ -44,6 +44,14 @@ class Order(UUIDPrimaryKeyMixin, TimestampCreatedMixin, Base):
     delivery_distance_band_id: Mapped[UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey('delivery_distance_bands.id', ondelete='SET NULL'), nullable=True
     )
+    subtotal_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    discount_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    total_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    applied_promotion_id: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey('promotions.id', ondelete='SET NULL'), nullable=True
+    )
+    applied_promotion_title_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    applied_promotion_title_ar: Mapped[str | None] = mapped_column(String(200), nullable=True)
     assigned_driver_id: Mapped[UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True
     )

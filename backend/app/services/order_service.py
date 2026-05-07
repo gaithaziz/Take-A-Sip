@@ -19,8 +19,10 @@ from app.models.order import Order, OrderEvent, OrderItem, OrderItemAddon, Order
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 from app.schemas.order import AssignDriverRequest, OrderCreateRequest
+from app.schemas.promotion import PromotionEvaluationItem
 from app.services.menu_service import get_schedules_index, is_entity_available
 from app.services.notification_service import emit_post_commit_order_notifications
+from app.services.promotion_service import evaluate_promotions_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,12 @@ def order_to_read_dict(order: Order) -> dict:
         'delivery_distance_km': order.delivery_distance_km,
         'delivery_fee': order.delivery_fee,
         'delivery_distance_band_id': order.delivery_distance_band_id,
+        'subtotal_amount': order.subtotal_amount,
+        'discount_amount': order.discount_amount,
+        'total_amount': order.total_amount,
+        'applied_promotion_id': order.applied_promotion_id,
+        'applied_promotion_title_en': order.applied_promotion_title_en,
+        'applied_promotion_title_ar': order.applied_promotion_title_ar,
         'assigned_driver_id': order.assigned_driver_id,
         'assigned_driver_name': (
             f'{order.assigned_driver.first_name} {order.assigned_driver.last_name}'.strip()
@@ -119,6 +127,46 @@ async def get_delivery_quote(db: AsyncSession, customer_lat: float | None, custo
         'delivery_fee': delivery_fee,
         'delivery_distance_band_id': band_id,
     }
+
+
+async def _lock_user_for_order_creation(db: AsyncSession, user_id: UUID) -> None:
+    await db.execute(select(User.id).where(User.id == user_id).with_for_update())
+
+
+_ACTIVE_CUSTOMER_ORDER_STATUSES = {
+    OrderStatus.NEW,
+    OrderStatus.ACCEPTED,
+    OrderStatus.ASSIGNED,
+    OrderStatus.OUT_FOR_DELIVERY,
+}
+
+
+async def _ensure_no_active_customer_order(db: AsyncSession, user_id: UUID) -> None:
+    result = await db.execute(
+        select(Order.id)
+        .where(
+            Order.user_id == user_id,
+            Order.status.in_(_ACTIVE_CUSTOMER_ORDER_STATUSES),
+        )
+        .limit(1)
+    )
+    if result.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='You already have an order in progress',
+        )
+
+
+def _line_snapshot_total(size: Size, addon_ids: list[UUID], quantity: int) -> Decimal:
+    addon_total = sum((Decimal(addon.price) for addon in size.addons if addon.id in addon_ids), Decimal('0.00'))
+    return (Decimal(size.price) + addon_total) * quantity
+
+
+def _calculate_order_subtotal(payload: OrderCreateRequest, sizes_by_id: dict[UUID, Size]) -> Decimal:
+    subtotal = Decimal('0.00')
+    for line in payload.items:
+        subtotal += _line_snapshot_total(sizes_by_id[line.size_id], line.addon_ids, line.quantity)
+    return _quantize(subtotal, '0.01')
 
 
 async def _next_order_number(db: AsyncSession) -> int:
@@ -240,6 +288,40 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
             if missing_size_ids:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
 
+            for line in payload.items:
+                size = sizes_by_id[line.size_id]
+                item_type = size.item_type
+                item = item_type.item
+
+                if not (
+                    size.is_active
+                    and item_type.is_active
+                    and item.is_active
+                    and item.section.is_active
+                    and is_entity_available(schedules_index, 'section', item.section.id, now)
+                    and is_entity_available(schedules_index, 'item', item.id, now)
+                    and is_entity_available(schedules_index, 'type', item_type.id, now)
+                    and is_entity_available(schedules_index, 'size', size.id, now)
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail='One of the menu elements is inactive',
+                    )
+
+                available_addons = {addon.id: addon for addon in size.addons if addon.is_active}
+                for addon_id in line.addon_ids:
+                    addon = available_addons.get(addon_id)
+                    if addon is None:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Addon not available for selected size',
+                        )
+                    if not is_entity_available(schedules_index, 'addon', addon.id, now):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Addon not available for selected size',
+                        )
+
             delivery_distance_km = None
             delivery_fee = None
             delivery_distance_band_id = None
@@ -247,6 +329,32 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                 delivery_distance_km, delivery_fee, delivery_distance_band_id = await _resolve_delivery_pricing(
                     db, delivery_lat, delivery_lng
                 )
+
+            await _lock_user_for_order_creation(db, user_id)
+            await _ensure_no_active_customer_order(db, user_id)
+            promotion_evaluation = await evaluate_promotions_for_user(
+                db,
+                user,
+                [
+                    PromotionEvaluationItem(
+                        size_id=line.size_id,
+                        quantity=line.quantity,
+                        addon_ids=line.addon_ids,
+                    )
+                    for line in payload.items
+                ],
+            )
+            subtotal_amount = _calculate_order_subtotal(payload, sizes_by_id)
+            discount_amount = _quantize(
+                min(subtotal_amount, max(Decimal('0.00'), Decimal(promotion_evaluation.discount))),
+                '0.01',
+            )
+            payable_items_total = max(Decimal('0.00'), subtotal_amount - discount_amount)
+            total_amount = _quantize(
+                payable_items_total + (Decimal(delivery_fee) if delivery_fee is not None else Decimal('0.00')),
+                '0.01',
+            )
+            applied_promotion = promotion_evaluation.applied_promotion if discount_amount > 0 else None
 
             order = Order(
                 order_number=await _next_order_number(db),
@@ -259,6 +367,12 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                 delivery_distance_km=delivery_distance_km,
                 delivery_fee=delivery_fee,
                 delivery_distance_band_id=delivery_distance_band_id,
+                subtotal_amount=subtotal_amount,
+                discount_amount=discount_amount,
+                total_amount=total_amount,
+                applied_promotion_id=applied_promotion.id if applied_promotion else None,
+                applied_promotion_title_en=applied_promotion.title_en if applied_promotion else None,
+                applied_promotion_title_ar=applied_promotion.title_ar if applied_promotion else None,
                 notes=payload.notes,
             )
             db.add(order)
@@ -356,6 +470,9 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
 async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> Order:
     if user.is_banned:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is banned')
+
+    await _lock_user_for_order_creation(db, user.id)
+    await _ensure_no_active_customer_order(db, user.id)
 
     source_order = await get_order_by_id(db, source_order_id)
     if not source_order:
@@ -588,6 +705,8 @@ _ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
 
 
 def _role_can_set_status(role: UserRole, target: OrderStatus) -> bool:
+    if role == UserRole.CLIENT:
+        return target == OrderStatus.CANCELLED
     if role in {UserRole.ADMIN, UserRole.FRONTDESK}:
         return target in {
             OrderStatus.NEW,
@@ -619,6 +738,12 @@ async def update_order_status(db: AsyncSession, order_id: UUID, target_status: s
     order = await get_order_by_id_or_404(db, order_id)
     if not _role_can_set_status(actor.role, next_status):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Insufficient role')
+
+    if actor.role == UserRole.CLIENT:
+        if order.user_id != actor.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Forbidden')
+        if next_status != OrderStatus.CANCELLED or order.status != OrderStatus.NEW:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Order cannot be cancelled in current status')
 
     if actor.role == UserRole.DRIVER:
         if order.assigned_driver_id != actor.id:
@@ -718,8 +843,11 @@ async def get_revenue_summary(db: AsyncSession) -> dict[str, Decimal | int]:
             Order.id.label('order_id'),
             Order.created_at.label('created_at'),
             (
-                func.coalesce(cast(order_totals.c.items_total, Numeric(12, 2)), 0)
-                + func.coalesce(cast(Order.delivery_fee, Numeric(12, 2)), 0)
+                func.coalesce(
+                    cast(Order.total_amount, Numeric(12, 2)),
+                    func.coalesce(cast(order_totals.c.items_total, Numeric(12, 2)), 0)
+                    + func.coalesce(cast(Order.delivery_fee, Numeric(12, 2)), 0),
+                )
             ).label('order_total'),
         )
         .outerjoin(order_totals, order_totals.c.order_id == Order.id)
@@ -783,8 +911,11 @@ async def get_order_analytics(db: AsyncSession) -> dict:
         select(
             func.coalesce(
                 func.avg(
-                    func.coalesce(cast(order_totals.c.items_total, Numeric(12, 2)), 0)
-                    + func.coalesce(cast(Order.delivery_fee, Numeric(12, 2)), 0)
+                    func.coalesce(
+                        cast(Order.total_amount, Numeric(12, 2)),
+                        func.coalesce(cast(order_totals.c.items_total, Numeric(12, 2)), 0)
+                        + func.coalesce(cast(Order.delivery_fee, Numeric(12, 2)), 0),
+                    )
                 ),
                 0,
             ).label('average_order_value')

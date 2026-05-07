@@ -64,11 +64,16 @@ export const PastOrdersScreenView = ({
   t,
 }: PastOrdersScreenViewProps) => {
   const data = orders;
-  const getOrderTotal = (order: OrderRead) =>
-    order.items.reduce((sum, item) => {
+  const getOrderTotal = (order: OrderRead) => {
+    if (order.total_amount != null) {
+      return toNumber(order.total_amount);
+    }
+    const itemsTotal = order.items.reduce((sum, item) => {
       const addons = item.addons.reduce((addonSum, addon) => addonSum + toNumber(addon.price_snapshot), 0);
       return sum + (toNumber(item.price_snapshot) + addons) * item.quantity;
-    }, 0) + toNumber(order.delivery_fee ?? 0);
+    }, 0);
+    return itemsTotal - toNumber(order.discount_amount ?? 0) + toNumber(order.delivery_fee ?? 0);
+  };
 
   return (
     <FlatList

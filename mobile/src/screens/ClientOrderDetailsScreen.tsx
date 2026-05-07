@@ -51,6 +51,7 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
   const [ratingStars, setRatingStars] = useState(0);
   const [ratingNote, setRatingNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const loadOrder = useCallback(async () => {
     try {
@@ -93,6 +94,33 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
     }
   };
 
+  const cancelOrder = async () => {
+    if (!order || order.status !== 'NEW') {
+      return;
+    }
+    try {
+      setCancelling(true);
+      const result = await orderService.updateStatus(order.id, 'CANCELLED');
+      setOrder({ ...order, status: result.status as OrderRead['status'] });
+      Alert.alert(t('common.appName'), t('orders.cancelled'));
+    } catch (e) {
+      Alert.alert(t('common.appName'), getApiErrorMessage(e, t));
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const confirmCancelOrder = () => {
+    Alert.alert(t('orders.cancelOrder'), t('orders.cancelOrderConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('orders.cancelOrder'),
+        style: 'destructive',
+        onPress: () => void cancelOrder(),
+      },
+    ]);
+  };
+
   if (loading) {
     return <DetailPageSkeleton isRTL={isRTL} />;
   }
@@ -108,9 +136,10 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
     );
   }
 
-  const itemsSubtotal = getItemsSubtotal(order);
+  const itemsSubtotal = toNumber(order.subtotal_amount ?? getItemsSubtotal(order));
+  const discountAmount = toNumber(order.discount_amount ?? 0);
   const deliveryFee = toNumber(order.delivery_fee ?? 0);
-  const totalAmount = itemsSubtotal + deliveryFee;
+  const totalAmount = toNumber(order.total_amount ?? itemsSubtotal - discountAmount + deliveryFee);
   const canRateOrder = isOrderRateable(order);
 
   return (
@@ -128,6 +157,23 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
             {formatDateTime(order.created_at, language)}
           </AppText>
         </View>
+
+        {order.status === 'NEW' ? (
+          <AppCard style={styles.card}>
+            <AppText variant="h3">{t('orders.cancelOrder')}</AppText>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t('orders.cancelOrderAvailable')}
+            </AppText>
+            <AppButton
+              title={t('orders.cancelOrder')}
+              testID="order-details-cancel-order"
+              variant="destructive"
+              loading={cancelling}
+              disabled={cancelling}
+              onPress={confirmCancelOrder}
+            />
+          </AppCard>
+        ) : null}
 
         <AppCard style={styles.card}>
           <AppText variant="h3">{t('orders.rateOrder')}</AppText>
@@ -233,6 +279,16 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
               </AppText>
               <AppText variant="bodySmall">{formatCurrency(itemsSubtotal, language)}</AppText>
             </View>
+            {discountAmount > 0 ? (
+              <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                  {t('common.discount')}
+                </AppText>
+                <AppText variant="bodySmall" color={theme.colors.success}>
+                  -{formatCurrency(discountAmount, language)}
+                </AppText>
+              </View>
+            ) : null}
             {order.order_type === 'delivery' ? (
               <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>

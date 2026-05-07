@@ -117,6 +117,12 @@ export type OrderRead = {
   delivery_distance_km?: string | null;
   delivery_fee?: string | null;
   delivery_distance_band_id?: string | null;
+  subtotal_amount?: string | null;
+  discount_amount?: string | null;
+  total_amount?: string | null;
+  applied_promotion_id?: string | null;
+  applied_promotion_title_en?: string | null;
+  applied_promotion_title_ar?: string | null;
   assigned_driver_id?: string | null;
   assigned_driver_name?: string | null;
   assigned_driver_phone?: string | null;
@@ -145,7 +151,7 @@ export type AcceptOrderResponse = {
 };
 
 export type FrontdeskSocketMessage = {
-  event: 'order.created' | 'order.accepted' | 'order.assigned';
+  event: 'order.created' | 'order.accepted' | 'order.assigned' | 'order.status_changed';
   order_id: string;
   order_number: number;
   status: string;

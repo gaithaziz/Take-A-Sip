@@ -20,12 +20,23 @@ type Props = {
 const canCancel = (status: OrderRead['status']) =>
   status === 'ACCEPTED' || status === 'ASSIGNED' || status === 'ASSIGNED_TO_DRIVER';
 
+const money = (value: string | number | null | undefined) => `${Number(value ?? 0).toFixed(2)} JOD`;
+
+const getItemsSubtotal = (order: OrderRead) =>
+  order.items.reduce((sum, item) => {
+    const addons = item.addons.reduce((addonSum, addon) => addonSum + Number(addon.price_snapshot), 0);
+    return sum + (Number(item.price_snapshot) + addons) * item.quantity;
+  }, 0);
+
 export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, drivers, onAssignDriver }: Props) => {
   const { t, i18n } = useTranslation();
   const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
   const localizedOrderNumber = Number.isFinite(Number(order.order_number))
     ? formatLocalizedNumber(Number(order.order_number), i18n.language)
     : order.order_number;
+  const subtotal = Number(order.subtotal_amount ?? getItemsSubtotal(order));
+  const discount = Number(order.discount_amount ?? 0);
+  const total = Number(order.total_amount ?? subtotal - discount + Number(order.delivery_fee ?? 0));
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -59,6 +70,17 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, driver
           numberOfLines={2}
         />
         <FrontdeskLabelValueText label={t('details.notes')} value={order.notes || '-'} isRTL={isRTL} style={styles.line} numberOfLines={3} />
+      </FrontdeskCard>
+
+      <FrontdeskCard style={[styles.infoBlock, isRTL ? styles.infoBlockRtl : null]}>
+        <FrontdeskLabelValueText label={isRTL ? 'المجموع الفرعي' : 'Subtotal'} value={money(subtotal)} isRTL={isRTL} style={styles.line} numberOfLines={1} />
+        {discount > 0 ? (
+          <FrontdeskLabelValueText label={isRTL ? 'الخصم' : 'Discount'} value={`-${money(discount)}`} isRTL={isRTL} style={styles.line} numberOfLines={1} />
+        ) : null}
+        {order.order_type === 'delivery' ? (
+          <FrontdeskLabelValueText label={isRTL ? 'رسوم التوصيل' : 'Delivery Fee'} value={money(order.delivery_fee)} isRTL={isRTL} style={styles.line} numberOfLines={1} />
+        ) : null}
+        <FrontdeskLabelValueText label={isRTL ? 'الإجمالي' : 'Total'} value={money(total)} isRTL={isRTL} style={styles.line} numberOfLines={1} />
       </FrontdeskCard>
 
       <SectionHeader title={t('details.items')} isRTL={isRTL} />

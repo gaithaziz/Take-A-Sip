@@ -23,7 +23,9 @@ export const buildReceiptText = (order: OrderRead, options?: ReceiptTextOptions)
     return sum + lineBase + addonsTotal;
   }, 0);
   const deliveryFee = order.order_type === 'delivery' ? Number(order.delivery_fee ?? 0) : 0;
-  const totalPrice = itemsTotal + deliveryFee;
+  const subtotal = Number(order.subtotal_amount ?? itemsTotal);
+  const discount = Number(order.discount_amount ?? 0);
+  const totalPrice = Number(order.total_amount ?? subtotal - discount + deliveryFee);
   const createdAt = new Date(order.created_at);
   const dateText = Number.isNaN(createdAt.getTime())
     ? new Date().toLocaleString(isArabic ? 'ar-JO' : 'en-US')
@@ -89,7 +91,16 @@ export const buildReceiptText = (order: OrderRead, options?: ReceiptTextOptions)
   lines.push(divider);
   lines.push('');
   lines.push(isArabic ? `إجمالي العناصر: ${totalItems}` : `Total Items: ${totalItems}`);
-  lines.push(isArabic ? `مجموع العناصر: ${money(itemsTotal)}` : `Items Total: ${money(itemsTotal)}`);
+  lines.push(isArabic ? `مجموع العناصر: ${money(subtotal)}` : `Items Total: ${money(subtotal)}`);
+  if (discount > 0) {
+    lines.push(isArabic ? `الخصم: -${money(discount)}` : `Discount: -${money(discount)}`);
+    if (order.applied_promotion_title_en || order.applied_promotion_title_ar) {
+      const promotionTitle = isArabic
+        ? order.applied_promotion_title_ar || order.applied_promotion_title_en
+        : order.applied_promotion_title_en || order.applied_promotion_title_ar;
+      lines.push(isArabic ? `العرض: ${promotionTitle}` : `Offer: ${promotionTitle}`);
+    }
+  }
   if (order.order_type === 'delivery') {
     lines.push(isArabic ? `رسوم التوصيل: ${money(deliveryFee)}` : `Delivery Fee: ${money(deliveryFee)}`);
   }

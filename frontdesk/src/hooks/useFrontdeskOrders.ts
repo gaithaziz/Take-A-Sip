@@ -130,7 +130,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       return;
     }
 
-    if (message.event === 'order.accepted' || message.event === 'order.assigned') {
+    if (message.event === 'order.accepted' || message.event === 'order.assigned' || message.event === 'order.status_changed') {
       if (!isMountedRef.current) {
         return;
       }

@@ -90,6 +90,12 @@ class OrderRead(AppBaseModel):
     delivery_distance_km: Decimal | None = None
     delivery_fee: Decimal | None = None
     delivery_distance_band_id: UUID | None = None
+    subtotal_amount: Decimal | None = None
+    discount_amount: Decimal | None = None
+    total_amount: Decimal | None = None
+    applied_promotion_id: UUID | None = None
+    applied_promotion_title_en: str | None = None
+    applied_promotion_title_ar: str | None = None
     assigned_driver_id: UUID | None = None
     assigned_driver_name: str | None = None
     assigned_driver_phone: str | None = None
