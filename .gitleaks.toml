@@ -1,0 +1,10 @@
+title = "Take A Sip Gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Historical local backend runtime logs"
+paths = [
+  '''^logs/backend_.*\.log$''',
+]
