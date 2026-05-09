@@ -16,7 +16,7 @@ export type CartItem = {
 
 type CartContextValue = {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, 'id'>) => void;
+  addItem: (item: Omit<CartItem, 'id'>) => boolean;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -30,6 +30,20 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 const computeLineTotal = (item: CartItem): number => {
   const addons = item.addons.reduce((sum, addon) => sum + toNumber(addon.price), 0);
   return (toNumber(item.size.price) + addons) * item.quantity;
+};
+
+const getOrderLimit = (item: Pick<CartItem, 'size'>) => item.size.order_limit ?? null;
+
+const clampToOrderLimit = (items: CartItem[], targetId: string, nextQuantity: number) => {
+  const target = items.find((item) => item.id === targetId);
+  const orderLimit = target ? getOrderLimit(target) : null;
+  if (!target || orderLimit == null) {
+    return nextQuantity;
+  }
+  const otherQuantityForSize = items
+    .filter((item) => item.id !== targetId && item.size.id === target.size.id)
+    .reduce((sum, item) => sum + item.quantity, 0);
+  return Math.max(0, Math.min(nextQuantity, orderLimit - otherQuantityForSize));
 };
 
 export const CartProvider = ({ children }: PropsWithChildren) => {
@@ -47,15 +61,21 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
 
   const addItem = (newItem: Omit<CartItem, 'id'>) => {
     const id = `${newItem.size.id}:${newItem.addons.map((a) => a.id).sort().join(',')}`;
+    let added = false;
     setItems((prev) => {
       const existing = prev.find((item) => item.id === id);
+      const draft = existing ? prev : [...prev, { ...newItem, id, quantity: 0 }];
+      const currentQuantity = existing?.quantity ?? 0;
+      const nextQuantity = clampToOrderLimit(draft, id, currentQuantity + newItem.quantity);
+      added = nextQuantity > currentQuantity;
       if (existing) {
         return prev.map((item) =>
-          item.id === id ? { ...item, quantity: item.quantity + newItem.quantity } : item,
+          item.id === id ? { ...item, quantity: nextQuantity } : item,
         );
       }
-      return [...prev, { ...newItem, id }];
+      return nextQuantity > 0 ? [...prev, { ...newItem, id, quantity: nextQuantity }] : prev;
     });
+    return added;
   };
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((item) => item.id !== id));
@@ -65,7 +85,11 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
       removeItem(id);
       return;
     }
-    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)));
+    setItems((prev) =>
+      prev
+        .map((item) => (item.id === id ? { ...item, quantity: clampToOrderLimit(prev, id, quantity) } : item))
+        .filter((item) => item.quantity > 0),
+    );
   };
 
   const clearCart = () => setItems([]);

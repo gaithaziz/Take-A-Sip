@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.logging import log_structured
 from app.models.order import Order, OrderStatus, OrderType
+from app.models.promotion import Promotion
 from app.models.user import User, UserRole
 from app.models.user_push_token import UserPushToken
 from app.schemas.notification import PushTokenRegisterRequest
@@ -198,6 +199,13 @@ async def _resolve_admin_user_ids(db: AsyncSession) -> list[UUID]:
     return [row[0] for row in result.all()]
 
 
+async def _resolve_client_user_ids(db: AsyncSession) -> list[UUID]:
+    result = await db.execute(
+        select(User.id).where(User.role == UserRole.CLIENT, User.is_active.is_(True), User.is_banned.is_(False))
+    )
+    return [row[0] for row in result.all()]
+
+
 async def send_order_notification_to_users(
     db: AsyncSession,
     *,
@@ -231,6 +239,34 @@ async def send_order_notification_to_admins(
     )
 
 
+def _promotion_notification_payload(promotion: Promotion, language: str) -> dict[str, str]:
+    is_arabic = language == 'ar'
+    title = '\u0639\u0631\u0636 \u062c\u062f\u064a\u062f' if is_arabic else 'New offer'
+    promotion_title = promotion.title_ar if is_arabic else promotion.title_en
+    body = (
+        f'{promotion_title} \u0645\u062a\u0627\u062d \u0627\u0644\u0622\u0646. \u0627\u0641\u062a\u062d \u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u0644\u0644\u062a\u0641\u0627\u0635\u064a\u0644.'
+        if is_arabic
+        else f'{promotion_title} is available now. Open the app for details.'
+    )
+    return {
+        'type': 'promotion_created',
+        'promotion_id': str(promotion.id),
+        'role_target': UserRole.CLIENT.value,
+        'screen': 'Home',
+        'title': title,
+        'body': body,
+    }
+
+
+async def send_promotion_created_notification_to_clients(
+    db: AsyncSession,
+    *,
+    promotion: Promotion,
+) -> list[NotificationSendAttempt]:
+    client_ids = await _resolve_client_user_ids(db)
+    return await _dispatch_promotion_payload_to_users(db, user_ids=client_ids, promotion=promotion)
+
+
 async def _dispatch_payload_to_users(
     db: AsyncSession,
     *,
@@ -257,6 +293,73 @@ async def _dispatch_payload_to_users(
     attempts: list[NotificationSendAttempt] = []
     for token in tokens:
         payload = _notification_payload(notification_type, order, token.language)
+        try:
+            attempt = await _deliver_push_token(token, payload)
+        except Exception as exc:
+            log_structured(
+                logger,
+                logging.WARNING,
+                'notifications.send_failed',
+                {
+                    'push_token_id': str(token.id),
+                    'user_id': str(token.user_id),
+                    'provider': token.push_provider,
+                    'type': notification_type,
+                    'error': str(exc),
+                },
+            )
+            attempts.append(
+                NotificationSendAttempt(
+                    push_token_id=token.id,
+                    push_token=token.push_token,
+                    success=False,
+                    deactivate=False,
+                    provider=token.push_provider,
+                    error_code='send_failed',
+                )
+            )
+            continue
+
+        attempts.append(attempt)
+        if attempt.deactivate:
+            token.is_active = False
+            token.last_seen_at = datetime.now(timezone.utc)
+
+    if any(attempt.deactivate for attempt in attempts):
+        await db.commit()
+
+    return attempts
+
+
+async def _dispatch_promotion_payload_to_users(
+    db: AsyncSession,
+    *,
+    user_ids: list[UUID],
+    promotion: Promotion,
+) -> list[NotificationSendAttempt]:
+    notification_type = 'promotion_created'
+    if not user_ids:
+        return []
+
+    if not settings.push_enabled:
+        log_structured(
+            logger,
+            logging.INFO,
+            'notifications.push_disabled',
+            {'type': notification_type, 'recipient_count': len(user_ids)},
+        )
+        return []
+
+    result = await db.execute(
+        select(UserPushToken).where(UserPushToken.user_id.in_(user_ids), UserPushToken.is_active.is_(True))
+    )
+    tokens = list(result.scalars().all())
+    if not tokens:
+        return []
+
+    attempts: list[NotificationSendAttempt] = []
+    for token in tokens:
+        payload = _promotion_notification_payload(promotion, token.language)
         try:
             attempt = await _deliver_push_token(token, payload)
         except Exception as exc:
@@ -409,10 +512,7 @@ async def _send_via_apns(token: UserPushToken, payload: dict[str, str]) -> Notif
             },
             'sound': 'default',
         },
-        'type': payload['type'],
-        'order_id': payload['order_id'],
-        'role_target': payload['role_target'],
-        'screen': payload['screen'],
+        **{key: value for key, value in payload.items() if key not in {'title', 'body'}},
     }
     async with httpx.AsyncClient(http2=True, timeout=10) as client:
         response = await client.post(
@@ -513,4 +613,16 @@ async def emit_post_commit_order_notifications(
             logging.WARNING,
             'notifications.order_dispatch_failed',
             {'order_id': str(order.id), 'event': event, 'error': str(exc)},
+        )
+
+
+async def emit_post_commit_promotion_created_notification(db: AsyncSession, promotion: Promotion) -> None:
+    try:
+        await send_promotion_created_notification_to_clients(db, promotion=promotion)
+    except Exception as exc:
+        log_structured(
+            logger,
+            logging.WARNING,
+            'notifications.promotion_dispatch_failed',
+            {'promotion_id': str(promotion.id), 'error': str(exc)},
         )

@@ -23,7 +23,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const { isRTL } = useLanguage();
   const { token, user } = useAuth();
   const { items, subtotal, clearCart } = useCart();
-  const { discount, total } = useCartPricing(items, subtotal);
+  const { discount, total, freeDelivery } = useCartPricing(items, subtotal);
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -45,7 +45,8 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const isDeliveryValid = orderType === 'pickup' || (hasDeliveryAddress && hasDeliveryCoords && hasDeliveryQuote);
   const isAuthenticatedClient = Boolean(token) && user?.role === 'CLIENT';
   const canPlaceOrder = isAuthenticatedClient && items.length > 0 && isDeliveryValid && !loading;
-  const payableTotal = total + (orderType === 'delivery' ? deliveryFee ?? 0 : 0);
+  const effectiveDeliveryFee = orderType === 'delivery' && freeDelivery ? 0 : deliveryFee;
+  const payableTotal = total + (orderType === 'delivery' ? effectiveDeliveryFee ?? 0 : 0);
 
   useEffect(() => {
     if (!user?.id) {
@@ -245,6 +246,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       deliveryLocationError={deliveryLocationError}
       deliveryQuoteError={deliveryQuoteError}
       deliveryFee={deliveryFee}
+      freeDelivery={freeDelivery}
       deliveryDistanceKm={deliveryDistanceKm}
       deliveryQuoteLoading={deliveryQuoteLoading}
       useCurrentLocationLabel={t('checkout.useCurrentLocation')}

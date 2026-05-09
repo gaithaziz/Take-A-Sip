@@ -63,6 +63,7 @@ jest.mock('@/hooks/useAppTranslation', () => ({
 jest.mock('@/state/CartContext', () => ({
   useCart: () => ({
     addItem: mockAddItem,
+    items: [],
   }),
 }));
 
@@ -81,6 +82,7 @@ jest.mock('react-native-safe-area-context', () => ({
 describe('ProductDetailsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAddItem.mockReturnValue(true);
     jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
   });
 

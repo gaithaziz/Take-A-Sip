@@ -68,6 +68,7 @@ export const adminApi = {
     name_ar: string;
     image_url?: string;
     price: number;
+    order_limit?: number | null;
     sort_order: number;
   }) => {
     const { data } = await api.post('/admin/menu/size', payload);
@@ -218,4 +219,3 @@ export const adminApi = {
     return data;
   },
 };
-

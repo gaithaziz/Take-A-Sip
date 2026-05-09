@@ -45,17 +45,11 @@ Then login from the mobile app using that phone number and the configured OTP te
 
 ## Seed Full Demo Data (entire app)
 
-Run this to seed users, full menu hierarchy, schedules, promotions, loyalty rules, and sample orders:
+Run this to wipe all app tables and seed users, staff roles, product-neutral menu data, schedules, delivery bands, promotions, loyalty rules, push tokens, ratings, and sample orders:
 
 ```bash
 cd backend
-python -m scripts.seed_full --reset
-```
-
-Use without `--reset` to append/update without clearing existing seeded entities:
-
-```bash
-python -m scripts.seed_full
+python -m scripts.seed_full --wipe
 ```
 
 ## Run tests

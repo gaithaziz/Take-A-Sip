@@ -43,6 +43,19 @@ function badgeClasses(tone: 'visible' | 'warning' | 'muted') {
   return 'border-zinc-200 bg-zinc-100 text-zinc-700';
 }
 
+function parseOptionalLimit(value: string) {
+  const trimmed = value.trim();
+  return trimmed ? Number(trimmed) : null;
+}
+
+function menuKindLabel(kind: MenuKind) {
+  if (kind === 'section') return 'category';
+  if (kind === 'item') return 'product';
+  if (kind === 'type') return 'option';
+  if (kind === 'size') return 'variant';
+  return 'add-on';
+}
+
 function activeTypeCount(item: MenuItem) {
   return item.item_types.filter((itemType) => itemType.is_active && itemType.sizes.some((size) => size.is_active)).length;
 }
@@ -62,12 +75,12 @@ function getVisibilityLabel(kind: MenuKind, entity: MenuEntity, ancestorsActive:
   if (kind === 'item') {
     return activeTypeCount(entity as MenuItem) > 0
       ? { label: 'Visible', tone: 'visible' as const }
-      : { label: 'Hidden: needs active type and size', tone: 'warning' as const };
+      : { label: 'Hidden: needs active option and variant', tone: 'warning' as const };
   }
   if (kind === 'type') {
     return activeSizeCount(entity as MenuType) > 0
       ? { label: 'Visible', tone: 'visible' as const }
-      : { label: 'Hidden: needs active size', tone: 'warning' as const };
+      : { label: 'Hidden: needs active variant', tone: 'warning' as const };
   }
   return { label: 'Visible', tone: 'visible' as const };
 }
@@ -184,7 +197,7 @@ export default function MenuEditorPage() {
     sort_order: '0',
   });
   const [typeForm, setTypeForm] = useState({ name_en: '', name_ar: '', image_url: '', sort_order: '0' });
-  const [sizeForm, setSizeForm] = useState({ name_en: '', name_ar: '', image_url: '', price: '', sort_order: '0' });
+  const [sizeForm, setSizeForm] = useState({ name_en: '', name_ar: '', image_url: '', price: '', order_limit: '', sort_order: '0' });
   const [addonForm, setAddonForm] = useState({ name_en: '', name_ar: '', image_url: '', price: '', sort_order: '0' });
   const [editForm, setEditForm] = useState({
     parent_id: '',
@@ -194,6 +207,7 @@ export default function MenuEditorPage() {
     description_en: '',
     description_ar: '',
     price: '',
+    order_limit: '',
     sort_order: '0',
   });
 
@@ -225,6 +239,7 @@ export default function MenuEditorPage() {
       description_en?: string | null;
       description_ar?: string | null;
       price?: string | number;
+      order_limit?: number | null;
       sort_order: number;
     },
   ) => {
@@ -237,6 +252,7 @@ export default function MenuEditorPage() {
       description_en: values.description_en ?? '',
       description_ar: values.description_ar ?? '',
       price: values.price === undefined ? '' : String(values.price),
+      order_limit: values.order_limit == null ? '' : String(values.order_limit),
       sort_order: String(values.sort_order),
     });
   };
@@ -251,6 +267,7 @@ export default function MenuEditorPage() {
       description_en: '',
       description_ar: '',
       price: '',
+      order_limit: '',
       sort_order: String(sortOrder),
     });
   };
@@ -309,7 +326,7 @@ export default function MenuEditorPage() {
     }
 
     counts.schedules = keys.filter((key) => scheduleKeys.has(key)).length;
-    return `This removes ${counts.sections} sections, ${counts.items} items, ${counts.types} types, ${counts.sizes} sizes, ${counts.addons} add-ons, and ${counts.schedules} schedules. Historical orders keep their snapshots.`;
+    return `This removes ${counts.sections} categories, ${counts.items} products, ${counts.types} options, ${counts.sizes} variants, ${counts.addons} add-ons, and ${counts.schedules} schedules. Historical orders keep their snapshots.`;
   };
 
   const saveEdit = async () => {
@@ -330,6 +347,9 @@ export default function MenuEditorPage() {
         }
         if (editingEntity.kind === 'size' || editingEntity.kind === 'addon') {
           payload.price = Number(editForm.price || 0);
+        }
+        if (editingEntity.kind === 'size') {
+          payload.order_limit = parseOptionalLimit(editForm.order_limit);
         }
       }
       if (editingEntity.mode === 'move') {
@@ -389,17 +409,17 @@ export default function MenuEditorPage() {
         image_url: sectionForm.image_url || undefined,
         sort_order: Number(sectionForm.sort_order || 0),
       });
-      toast.success('Section created');
+      toast.success('Category created');
       setSectionForm({ name_en: '', name_ar: '', image_url: '', sort_order: '0' });
       await refreshMenu();
     } catch {
-      toast.error('Failed to create section');
+      toast.error('Failed to create category');
     }
   };
 
   const createItem = async () => {
     if (!selectedSection) {
-      toast.error('Select a section first');
+      toast.error('Select a category first');
       return;
     }
     try {
@@ -415,17 +435,17 @@ export default function MenuEditorPage() {
       setSelectedItem(createdItem.id);
       setSelectedType(null);
       setSelectedSize(null);
-      toast.success('Item created. Add a type and a size to make it visible to customers.');
+      toast.success('Product created. Add an option and a variant to make it visible to customers.');
       setItemForm({ name_en: '', name_ar: '', image_url: '', description_en: '', description_ar: '', sort_order: '0' });
       await refreshMenu();
     } catch {
-      toast.error('Failed to create item');
+      toast.error('Failed to create product');
     }
   };
 
   const createType = async () => {
     if (!selectedItem) {
-      toast.error('Select an item first');
+      toast.error('Select a product first');
       return;
     }
     try {
@@ -438,17 +458,17 @@ export default function MenuEditorPage() {
       });
       setSelectedType(createdType.id);
       setSelectedSize(null);
-      toast.success('Item type created. Add a size to make the item visible to customers.');
+      toast.success('Option created. Add a variant to make the product visible to customers.');
       setTypeForm({ name_en: '', name_ar: '', image_url: '', sort_order: '0' });
       await refreshMenu();
     } catch {
-      toast.error('Failed to create type');
+      toast.error('Failed to create option');
     }
   };
 
   const createSize = async () => {
     if (!selectedType) {
-      toast.error('Select an item type first');
+      toast.error('Select an option first');
       return;
     }
     try {
@@ -458,19 +478,20 @@ export default function MenuEditorPage() {
         name_ar: sizeForm.name_ar,
         image_url: sizeForm.image_url || undefined,
         price: Number(sizeForm.price),
+        order_limit: parseOptionalLimit(sizeForm.order_limit),
         sort_order: Number(sizeForm.sort_order || 0),
       });
-      toast.success('Size created');
-      setSizeForm({ name_en: '', name_ar: '', image_url: '', price: '', sort_order: '0' });
+      toast.success('Variant created');
+      setSizeForm({ name_en: '', name_ar: '', image_url: '', price: '', order_limit: '', sort_order: '0' });
       await refreshMenu();
     } catch {
-      toast.error('Failed to create size');
+      toast.error('Failed to create variant');
     }
   };
 
   const createAddon = async () => {
     if (!selectedSize) {
-      toast.error('Select a size first');
+      toast.error('Select a variant first');
       return;
     }
     try {
@@ -575,13 +596,13 @@ export default function MenuEditorPage() {
                 Current context: {selectedContextLabel}
               </div>
             ) : null}
-            {visibleSections.length === 0 ? <EmptyState title="No matching entries" description="Create a section or change the current search/filter." /> : null}
+            {visibleSections.length === 0 ? <EmptyState title="No matching entries" description="Create a category or change the current search/filter." /> : null}
             {visibleSections.map((section) => (
               <details key={section.id} className="rounded-md border border-zinc-200 bg-[#fcfbf9] p-3" open>
                 <summary className="list-none">
                   <Row
                     title={`${section.name_en} / ${section.name_ar}`}
-                    subtitle={`Section - sort ${section.sort_order}`}
+                    subtitle={`Category - sort ${section.sort_order}`}
                     image={section.image_url}
                     active={section.is_active}
                     visibility={getVisibilityLabel('section', section, true)}
@@ -609,7 +630,7 @@ export default function MenuEditorPage() {
                       <summary className="list-none">
                         <Row
                             title={`${item.name_en} / ${item.name_ar}`}
-                            subtitle={`Item - sort ${item.sort_order}`}
+                            subtitle={`Product - sort ${item.sort_order}`}
                             image={item.image_url}
                             active={item.is_active}
                             visibility={getVisibilityLabel('item', item, section.is_active)}
@@ -640,7 +661,7 @@ export default function MenuEditorPage() {
                             <summary className="list-none">
                               <Row
                                 title={`${type.name_en} / ${type.name_ar}`}
-                                subtitle={`Type - sort ${type.sort_order}`}
+                                subtitle={`Option - sort ${type.sort_order}`}
                                 image={type.image_url}
                                 active={type.is_active}
                                 visibility={getVisibilityLabel('type', type, section.is_active && item.is_active)}
@@ -671,7 +692,7 @@ export default function MenuEditorPage() {
                                   <summary className="list-none">
                                     <Row
                                       title={`${size.name_en} / ${size.name_ar}`}
-                                      subtitle={`Size - ${size.price} - sort ${size.sort_order}`}
+                                      subtitle={`Variant - ${size.price} - ${size.order_limit ? `limit ${size.order_limit}` : 'unlimited'} - sort ${size.sort_order}`}
                                       image={size.image_url}
                                       active={size.is_active}
                                       visibility={getVisibilityLabel('size', size, section.is_active && item.is_active && type.is_active)}
@@ -740,19 +761,19 @@ export default function MenuEditorPage() {
         <div className="space-y-4">
           <SectionCard title="Create Entries" description="Use selected parent context from row actions to add new child entities quickly.">
             <div className="space-y-4">
-              <FormSection title="Section">
+              <FormSection title="Category">
                 <div className="grid grid-cols-2 gap-2">
                   <Input placeholder="name_en" value={sectionForm.name_en} onChange={(e) => setSectionForm((p) => ({ ...p, name_en: e.target.value }))} />
                   <Input placeholder="name_ar" value={sectionForm.name_ar} onChange={(e) => setSectionForm((p) => ({ ...p, name_ar: e.target.value }))} />
                 </div>
                 <Input placeholder="image_url" value={sectionForm.image_url} onChange={(e) => setSectionForm((p) => ({ ...p, image_url: e.target.value }))} />
                 <Input placeholder="sort_order" type="number" value={sectionForm.sort_order} onChange={(e) => setSectionForm((p) => ({ ...p, sort_order: e.target.value }))} />
-                <Button onClick={createSection} className="w-full"><Save className="mr-1 h-4 w-4" />Create Section</Button>
+                <Button onClick={createSection} className="w-full"><Save className="mr-1 h-4 w-4" />Create Category</Button>
               </FormSection>
 
               <FormSection
-                title="Item"
-                description={`Parent section: ${selectedSection ?? 'Not selected'}. Items appear in the customer menu after they have at least one active type and size.`}>
+                title="Product"
+                description={`Parent category: ${selectedSection ?? 'Not selected'}. Products appear in the customer menu after they have at least one active option and variant.`}>
                 <div className="grid grid-cols-2 gap-2">
                   <Input placeholder="name_en" value={itemForm.name_en} onChange={(e) => setItemForm((p) => ({ ...p, name_en: e.target.value }))} />
                   <Input placeholder="name_ar" value={itemForm.name_ar} onChange={(e) => setItemForm((p) => ({ ...p, name_ar: e.target.value }))} />
@@ -761,33 +782,34 @@ export default function MenuEditorPage() {
                 <Textarea placeholder="description_en" value={itemForm.description_en} onChange={(e) => setItemForm((p) => ({ ...p, description_en: e.target.value }))} />
                 <Textarea placeholder="description_ar" value={itemForm.description_ar} onChange={(e) => setItemForm((p) => ({ ...p, description_ar: e.target.value }))} />
                 <Input placeholder="sort_order" type="number" value={itemForm.sort_order} onChange={(e) => setItemForm((p) => ({ ...p, sort_order: e.target.value }))} />
-                <Button onClick={createItem} className="w-full"><Save className="mr-1 h-4 w-4" />Create Item</Button>
+                <Button onClick={createItem} className="w-full"><Save className="mr-1 h-4 w-4" />Create Product</Button>
               </FormSection>
 
               <FormSection
-                title="Item Type"
-                description={`Parent item: ${selectedItem ?? 'Not selected'}. Add a size next so customers can order it.`}>
+                title="Option"
+                description={`Parent product: ${selectedItem ?? 'Not selected'}. Add a variant next so customers can order it.`}>
                 <div className="grid grid-cols-2 gap-2">
                   <Input placeholder="name_en" value={typeForm.name_en} onChange={(e) => setTypeForm((p) => ({ ...p, name_en: e.target.value }))} />
                   <Input placeholder="name_ar" value={typeForm.name_ar} onChange={(e) => setTypeForm((p) => ({ ...p, name_ar: e.target.value }))} />
                 </div>
                 <Input placeholder="image_url" value={typeForm.image_url} onChange={(e) => setTypeForm((p) => ({ ...p, image_url: e.target.value }))} />
                 <Input placeholder="sort_order" type="number" value={typeForm.sort_order} onChange={(e) => setTypeForm((p) => ({ ...p, sort_order: e.target.value }))} />
-                <Button onClick={createType} className="w-full"><Save className="mr-1 h-4 w-4" />Create Type</Button>
+                <Button onClick={createType} className="w-full"><Save className="mr-1 h-4 w-4" />Create Option</Button>
               </FormSection>
 
-              <FormSection title="Size" description={`Parent type: ${selectedType ?? 'Not selected'}`}>
+              <FormSection title="Variant" description={`Parent option: ${selectedType ?? 'Not selected'}`}>
                 <div className="grid grid-cols-2 gap-2">
                   <Input placeholder="name_en" value={sizeForm.name_en} onChange={(e) => setSizeForm((p) => ({ ...p, name_en: e.target.value }))} />
                   <Input placeholder="name_ar" value={sizeForm.name_ar} onChange={(e) => setSizeForm((p) => ({ ...p, name_ar: e.target.value }))} />
                 </div>
                 <Input placeholder="image_url" value={sizeForm.image_url} onChange={(e) => setSizeForm((p) => ({ ...p, image_url: e.target.value }))} />
                 <Input placeholder="price" type="number" value={sizeForm.price} onChange={(e) => setSizeForm((p) => ({ ...p, price: e.target.value }))} />
+                <Input placeholder="order_limit (blank = unlimited)" type="number" min="1" value={sizeForm.order_limit} onChange={(e) => setSizeForm((p) => ({ ...p, order_limit: e.target.value }))} />
                 <Input placeholder="sort_order" type="number" value={sizeForm.sort_order} onChange={(e) => setSizeForm((p) => ({ ...p, sort_order: e.target.value }))} />
-                <Button onClick={createSize} className="w-full"><Save className="mr-1 h-4 w-4" />Create Size</Button>
+                <Button onClick={createSize} className="w-full"><Save className="mr-1 h-4 w-4" />Create Variant</Button>
               </FormSection>
 
-              <FormSection title="Add-on" description={`Parent size: ${selectedSize ?? 'Not selected'}`}>
+              <FormSection title="Add-on" description={`Parent variant: ${selectedSize ?? 'Not selected'}`}>
                 <div className="grid grid-cols-2 gap-2">
                   <Input placeholder="name_en" value={addonForm.name_en} onChange={(e) => setAddonForm((p) => ({ ...p, name_en: e.target.value }))} />
                   <Input placeholder="name_ar" value={addonForm.name_ar} onChange={(e) => setAddonForm((p) => ({ ...p, name_ar: e.target.value }))} />
@@ -801,18 +823,18 @@ export default function MenuEditorPage() {
           </SectionCard>
 
           {editingEntity ? (
-            <SectionCard title={`${editingEntity.mode === 'move' ? 'Move' : 'Edit'} ${editingEntity.kind}`}>
+            <SectionCard title={`${editingEntity.mode === 'move' ? 'Move' : 'Edit'} ${menuKindLabel(editingEntity.kind)}`}>
               <div className="space-y-3">
                 {editingEntity.mode === 'move' && editingEntity.kind !== 'section' ? (
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-zinc-700">
                       {editingEntity.kind === 'item'
-                        ? 'Parent section'
+                        ? 'Parent category'
                         : editingEntity.kind === 'type'
-                          ? 'Parent item'
+                          ? 'Parent product'
                           : editingEntity.kind === 'size'
-                            ? 'Parent type'
-                            : 'Parent size'}
+                            ? 'Parent option'
+                            : 'Parent variant'}
                     </p>
                     <select
                       className="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-400"
@@ -862,9 +884,12 @@ export default function MenuEditorPage() {
                     {editingEntity.kind === 'size' || editingEntity.kind === 'addon' ? (
                       <Input placeholder="price" type="number" value={editForm.price} onChange={(e) => setEditForm((p) => ({ ...p, price: e.target.value }))} />
                     ) : null}
+                    {editingEntity.kind === 'size' ? (
+                      <Input placeholder="order_limit (blank = unlimited)" type="number" min="1" value={editForm.order_limit} onChange={(e) => setEditForm((p) => ({ ...p, order_limit: e.target.value }))} />
+                    ) : null}
                   </>
                 ) : (
-                  <p className="text-sm text-zinc-600">Update the parent and sort order for this branch. Section moves only change sort order.</p>
+                  <p className="text-sm text-zinc-600">Update the parent and sort order for this branch. Category moves only change sort order.</p>
                 )}
                 <Input placeholder="sort_order" type="number" value={editForm.sort_order} onChange={(e) => setEditForm((p) => ({ ...p, sort_order: e.target.value }))} />
                 <div className="flex gap-2">

@@ -1,11 +1,12 @@
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 from fastapi import HTTPException
 
 from app.models.user import UserRole
 from app.schemas.order import OrderCreateRequest
-from app.services.order_service import create_order
+from app.services.order_service import _ensure_order_limits, create_order
 
 
 @pytest.mark.asyncio
@@ -34,3 +35,21 @@ async def test_create_order_rejects_delivery_without_address() -> None:
 
     assert exc.value.status_code == 400
     assert exc.value.detail == 'delivery_address is required for delivery orders'
+
+
+def test_order_limit_counts_all_lines_for_same_size() -> None:
+    size_id = UUID('00000000-0000-0000-0000-000000000001')
+    payload = OrderCreateRequest(
+        order_type='pickup',
+        items=[
+            {'size_id': size_id, 'quantity': 1, 'addon_ids': []},
+            {'size_id': size_id, 'quantity': 2, 'addon_ids': []},
+        ],
+    )
+    sizes_by_id = {size_id: SimpleNamespace(order_limit=2)}
+
+    with pytest.raises(HTTPException) as exc:
+        _ensure_order_limits(payload, sizes_by_id)  # type: ignore[arg-type]
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == 'Order quantity exceeds product limit'

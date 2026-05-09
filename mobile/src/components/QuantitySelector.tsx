@@ -9,11 +9,13 @@ type QuantitySelectorProps = {
   value: number;
   onChange: (next: number) => void;
   min?: number;
+  max?: number | null;
 };
 
-export const QuantitySelector = ({ value, onChange, min = 1 }: QuantitySelectorProps) => {
+export const QuantitySelector = ({ value, onChange, min = 1, max = null }: QuantitySelectorProps) => {
   const { t } = useAppTranslation();
   const canDecrease = value > min;
+  const canIncrease = max == null || value < max;
 
   return (
     <View style={styles.wrapper}>
@@ -32,12 +34,13 @@ export const QuantitySelector = ({ value, onChange, min = 1 }: QuantitySelectorP
         {value}
       </AppText>
       <Pressable
-        style={styles.control}
-        onPress={() => onChange(value + 1)}
+        style={[styles.control, !canIncrease ? styles.controlDisabled : null]}
+        onPress={() => onChange(max == null ? value + 1 : Math.min(max, value + 1))}
         hitSlop={8}
         accessibilityRole="button"
+        accessibilityState={{ disabled: !canIncrease }}
         accessibilityLabel={t('common.increaseQuantity')}>
-        <AppText variant="button" color={theme.colors.primary700}>
+        <AppText variant="button" color={canIncrease ? theme.colors.primary700 : theme.colors.textMuted}>
           +
         </AppText>
       </Pressable>

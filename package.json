@@ -1,0 +1,16 @@
+{
+  "name": "take-a-sip",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "backend": "docker compose up -d --build",
+    "admin": "npm --prefix admin run dev",
+    "frontdesk": "npm --prefix frontdesk run start -- --host lan --port 8082 --clear",
+    "phone": "npm --prefix mobile run start -- --host lan --port 8081 --clear",
+    "mobile": "npm run phone",
+    "all": "concurrently -n backend,admin,frontdesk,phone -c blue,green,magenta,cyan \"npm run backend\" \"npm run admin\" \"npm run frontdesk\" \"npm run phone\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

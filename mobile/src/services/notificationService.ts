@@ -42,11 +42,12 @@ const getPushProvider = (): PushProvider => (Platform.OS === 'ios' ? 'apns' : 'f
 
 const parsePayload = (data: Record<string, unknown>): PushNotificationPayload | null => {
   const type = typeof data.type === 'string' ? data.type : null;
-  const orderId = typeof data.order_id === 'string' ? data.order_id : null;
+  const orderId = typeof data.order_id === 'string' ? data.order_id : undefined;
+  const promotionId = typeof data.promotion_id === 'string' ? data.promotion_id : undefined;
   const roleTarget = typeof data.role_target === 'string' ? data.role_target : null;
   const screen = typeof data.screen === 'string' ? data.screen : undefined;
 
-  if (!type || !orderId || !roleTarget) {
+  if (!type || !roleTarget) {
     return null;
   }
 
@@ -57,6 +58,7 @@ const parsePayload = (data: Record<string, unknown>): PushNotificationPayload | 
   return {
     type,
     order_id: orderId,
+    promotion_id: promotionId,
     role_target: roleTarget as PushNotificationPayload['role_target'],
     screen: screen as PushNotificationPayload['screen'],
   };

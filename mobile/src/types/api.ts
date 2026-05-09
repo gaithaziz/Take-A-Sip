@@ -37,9 +37,10 @@ export type PushPlatform = 'android' | 'ios';
 
 export type PushNotificationPayload = {
   type: string;
-  order_id: string;
+  order_id?: string;
+  promotion_id?: string;
   role_target: 'CLIENT' | 'ADMIN' | 'DRIVER';
-  screen?: 'ClientOrderDetails' | 'DriverOrderDetails' | 'AdminTabs';
+  screen?: 'ClientOrderDetails' | 'DriverOrderDetails' | 'AdminTabs' | 'Home';
 };
 
 export type RegisterPushTokenPayload = {
@@ -72,6 +73,7 @@ export type Size = {
   name_ar: string;
   image_url: string | null;
   price: string;
+  order_limit?: number | null;
   sort_order: number;
   is_active: boolean;
   addons: Addon[];
@@ -347,7 +349,9 @@ export type PromotionEvaluationEntry = {
 
 export type PromotionEvaluationResponse = {
   applied_promotion?: Promotion | null;
+  free_delivery_promotion?: Promotion | null;
   discount: string;
+  free_delivery?: boolean;
   eligible_promotions: PromotionEvaluationEntry[];
   ineligible_promotions: PromotionEvaluationEntry[];
 };

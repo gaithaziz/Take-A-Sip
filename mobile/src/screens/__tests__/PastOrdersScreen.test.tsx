@@ -3,21 +3,23 @@ import { render, waitFor } from '@testing-library/react-native';
 import { PastOrdersScreen } from '@/screens/PastOrdersScreen';
 import { orderService } from '@/services/orderService';
 
+const t = (key: string) => {
+  const map: Record<string, string> = {
+    'orders.title': 'Past Orders',
+    'orders.emptyTitle': 'No past orders',
+    'orders.emptySubtitle': 'Your previous orders will appear here.',
+    'orders.rateOrder': 'Rate order',
+    'orders.ratingReady': 'You can rate this order now.',
+    'common.loading': 'Loading...',
+  };
+  return map[key] ?? key;
+};
+
 jest.mock('@/hooks/useAppTranslation', () => ({
   useAppTranslation: () => ({
     language: 'en',
     isRTL: false,
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        'orders.title': 'Past Orders',
-        'orders.emptyTitle': 'No past orders',
-        'orders.emptySubtitle': 'Your previous orders will appear here.',
-        'orders.rateOrder': 'Rate order',
-        'orders.ratingReady': 'You can rate this order now.',
-        'common.loading': 'Loading...',
-      };
-      return map[key] ?? key;
-    },
+    t,
   }),
 }));
 
@@ -47,6 +49,10 @@ jest.mock('@/services/orderService', () => ({
 }));
 
 describe('PastOrdersScreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('renders empty state when there are no orders', async () => {
     (orderService.getMyLatest as jest.Mock).mockResolvedValue({ orders: [] });
 

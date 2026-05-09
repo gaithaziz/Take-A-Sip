@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
@@ -87,6 +88,100 @@ async def test_push_token_registration_deactivation_and_reassignment(client, db_
     )
     assert deactivate_response.status_code == 200
     assert deactivate_response.json()['token']['is_active'] is False
+
+
+async def test_promotion_creation_sends_push_to_clients(client, db_session, monkeypatch):
+    admin = User(
+        first_name='Dana',
+        last_name='Admin',
+        phone_number='+962790001113',
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_banned=False,
+    )
+    customer = User(
+        first_name='Rama',
+        last_name='Client',
+        phone_number='+962790001114',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    banned_customer = User(
+        first_name='Banned',
+        last_name='Client',
+        phone_number='+962790001115',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=True,
+    )
+    db_session.add_all([admin, customer, banned_customer])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            UserPushToken(
+                user_id=customer.id,
+                platform='android',
+                push_provider='fcm',
+                push_token='client-promo-token',
+                device_id='client-promo-device',
+                language='en',
+                is_active=True,
+            ),
+            UserPushToken(
+                user_id=banned_customer.id,
+                platform='android',
+                push_provider='fcm',
+                push_token='banned-client-promo-token',
+                device_id='banned-client-promo-device',
+                language='en',
+                is_active=True,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    monkeypatch.setattr(notification_service.settings, 'push_enabled', True)
+    deliveries: list[tuple[str, dict[str, str]]] = []
+
+    async def fake_sender(token, payload):
+        deliveries.append((token.push_token, payload))
+        return notification_service.NotificationSendAttempt(
+            push_token_id=token.id,
+            push_token=token.push_token,
+            success=True,
+            provider=token.push_provider,
+        )
+
+    notification_service.set_notification_sender_override(fake_sender)
+    try:
+        now = datetime.now(timezone.utc)
+        response = await client.post(
+            '/admin/promotions',
+            headers=_auth_headers(admin),
+            json={
+                'title_en': 'Weekend deal',
+                'title_ar': 'عرض نهاية الأسبوع',
+                'type': 'TEMPORARY',
+                'value': '2.00',
+                'starts_at': now.isoformat(),
+                'ends_at': (now + timedelta(days=2)).isoformat(),
+                'is_active': True,
+                'targets': [],
+            },
+        )
+    finally:
+        notification_service.set_notification_sender_override(None)
+        monkeypatch.setattr(notification_service.settings, 'push_enabled', False)
+
+    assert response.status_code == 200
+    assert len(deliveries) == 1
+    assert deliveries[0][0] == 'client-promo-token'
+    assert deliveries[0][1]['type'] == 'promotion_created'
+    assert deliveries[0][1]['role_target'] == 'CLIENT'
+    assert deliveries[0][1]['screen'] == 'Home'
+    assert deliveries[0][1]['promotion_id'] == response.json()['id']
+    assert 'Weekend deal' in deliveries[0][1]['body']
 
 
 async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(client, db_session, monkeypatch):

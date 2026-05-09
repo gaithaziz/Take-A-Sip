@@ -98,6 +98,7 @@ from app.services.order_service import (
     get_revenue_summary,
     list_admin_ratings,
 )
+from app.services.notification_service import emit_post_commit_promotion_created_notification
 from app.services.user_service import (
     archive_staff_user,
     ban_user,
@@ -160,6 +161,7 @@ def _size_to_read(size: Size) -> SizeRead:
         name_ar=size.name_ar,
         image_url=size.image_url,
         price=size.price,
+        order_limit=size.order_limit,
         sort_order=size.sort_order,
         is_active=size.is_active,
         addons=[],
@@ -374,6 +376,7 @@ async def create_size(
         name_ar=payload.name_ar,
         image_url=payload.image_url,
         price=payload.price,
+        order_limit=payload.order_limit,
         sort_order=payload.sort_order,
     )
     db.add(size)
@@ -618,6 +621,7 @@ async def create_promotion(
 ) -> PromotionRead:
     ensure_promotion_type(payload.type)
     promotion = await create_promotion_record(db, payload)
+    await emit_post_commit_promotion_created_notification(db, promotion)
     target_lookup = await _load_target_lookup(db, [promotion])
     return PromotionRead.model_validate(serialize_promotion(promotion, target_lookup))
 

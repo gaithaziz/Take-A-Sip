@@ -19,7 +19,7 @@ from app.schemas.promotion import (
     PromotionEvaluationResponse,
     PromotionTargetCreate,
 )
-from app.services.promotion_rules_service import eligible_for_first_time_offer
+from app.services.promotion_rules_service import eligible_for_first_time_offer, eligible_for_free_delivery
 
 MENU_MODEL_BY_TYPE = {
     'section': Section,
@@ -129,6 +129,9 @@ def _target_collection_summary(
 
 def _scope_summary(promotion: Promotion, target_lookup: dict[tuple[str, UUID], object]) -> tuple[str, str]:
     scope_targets = _targets_by_group(promotion, TARGET_GROUP_SCOPE)
+    if promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        return 'Applies to delivery orders', 'ينطبق على طلبات التوصيل'
+
     if promotion.type == PromotionType.BUY_N_GET_M_FREE:
         buy_summary_en, buy_summary_ar = _target_collection_summary(
             _effective_buy_targets(promotion),
@@ -175,6 +178,12 @@ def _resolved_required_orders(promotion: Promotion) -> int | None:
 
 
 def _eligibility_summary(promotion: Promotion) -> tuple[str, str]:
+    if promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        return (
+            f'Available when the order reaches {promotion.value}',
+            f'متاح عندما يصل الطلب إلى {promotion.value}',
+        )
+
     if promotion.type == PromotionType.FIRST_TIME:
         return (
             'Available only before the first completed order',
@@ -368,6 +377,13 @@ async def _normalize_target_groups(
     normalized_buy = await _validate_targets(db, _coerce_target_inputs(buy_targets, TARGET_GROUP_BUY))
     normalized_free = await _validate_targets(db, _coerce_target_inputs(free_targets, TARGET_GROUP_FREE))
 
+    if promotion_type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        return {
+            TARGET_GROUP_SCOPE: [],
+            TARGET_GROUP_BUY: [],
+            TARGET_GROUP_FREE: [],
+        }
+
     if promotion_type != PromotionType.BUY_N_GET_M_FREE:
         return {
             TARGET_GROUP_SCOPE: normalized_scope,
@@ -410,6 +426,11 @@ async def _replace_target_groups(
 def _normalize_value(promotion_type: PromotionType, value: Decimal) -> Decimal:
     if promotion_type == PromotionType.BUY_N_GET_M_FREE:
         return Decimal('0.00')
+    if promotion_type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT and value <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='FREE_DELIVERY_ABOVE_AMOUNT promotions require a value greater than zero',
+        )
     if value < 0:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='value must be 0 or greater')
     return value
@@ -449,7 +470,7 @@ async def update_promotion_record(db: AsyncSession, promotion: Promotion, payloa
     next_type = next_type_raw if isinstance(next_type_raw, PromotionType) else ensure_promotion_type(str(next_type_raw))
 
     normalized_groups: dict[str, list[PromotionTargetCreate]] | None = None
-    if any(key in payload_values for key in {'targets', 'buy_targets', 'free_targets'}):
+    if next_type != promotion.type or any(key in payload_values for key in {'targets', 'buy_targets', 'free_targets'}):
         normalized_groups = await _normalize_target_groups(
             db,
             next_type,
@@ -545,6 +566,7 @@ def _reason_payload(reason_code: str) -> tuple[str, str]:
         'ORDER_COUNT_NOT_MET': ('User has not reached the required completed order count', 'المستخدم لم يصل بعد إلى عدد الطلبات المكتملة المطلوب'),
         'TARGET_MISMATCH': ('Cart does not include eligible menu items', 'السلة لا تحتوي على عناصر مؤهلة'),
         'BUY_GET_QUANTITY_NOT_MET': ('Cart does not include enough qualifying items for this buy-and-get offer', 'السلة لا تحتوي على عدد كاف من العناصر المؤهلة لهذا العرض'),
+        'ORDER_AMOUNT_NOT_MET': ('Cart total has not reached the free delivery threshold', 'إجمالي السلة لم يصل إلى حد التوصيل المجاني'),
         'ELIGIBILITY_RULE_MISSING': ('Offer is missing its eligibility rule setup', 'العرض يفتقد إعداد شرط الأهلية'),
     }
     return reasons.get(reason_code, ('Offer is not eligible', 'العرض غير مؤهل'))
@@ -672,7 +694,12 @@ async def evaluate_promotions_for_user(
             elif required_orders is not None and completed_orders < required_orders:
                 reason_code = 'ORDER_COUNT_NOT_MET'
 
-        if promotion.type == PromotionType.BUY_N_GET_M_FREE:
+        if promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+            matched_subtotal = cart_total
+            if reason_code is None and not eligible_for_free_delivery(cart_total, Decimal(promotion.value)):
+                reason_code = 'ORDER_AMOUNT_NOT_MET'
+            discount = Decimal('0.00')
+        elif promotion.type == PromotionType.BUY_N_GET_M_FREE:
             buy_targets = _effective_buy_targets(promotion)
             free_targets = _effective_free_targets(promotion)
             buy_rows = _matching_rows(line_rows, buy_targets)
@@ -727,10 +754,17 @@ async def evaluate_promotions_for_user(
             ineligible_entries.append(entry)
 
     eligible_entries.sort(key=lambda entry: entry.discount, reverse=True)
-    applied = eligible_entries[0] if eligible_entries else None
+    free_delivery_entry = next(
+        (entry for entry in eligible_entries if entry.promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT.value),
+        None,
+    )
+    discount_entries = [entry for entry in eligible_entries if entry.promotion.type != PromotionType.FREE_DELIVERY_ABOVE_AMOUNT.value]
+    applied = discount_entries[0] if discount_entries else free_delivery_entry
     return PromotionEvaluationResponse(
         applied_promotion=applied.promotion if applied else None,
+        free_delivery_promotion=free_delivery_entry.promotion if free_delivery_entry else None,
         discount=applied.discount if applied else Decimal('0.00'),
+        free_delivery=free_delivery_entry is not None,
         eligible_promotions=eligible_entries,
         ineligible_promotions=ineligible_entries,
     )

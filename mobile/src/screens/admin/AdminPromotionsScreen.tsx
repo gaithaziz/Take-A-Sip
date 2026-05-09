@@ -26,7 +26,7 @@ import { formatDateTimeWithZone, getCurrentTimeZone } from '@/utils/format';
 import { getLocalizedValue } from '@/utils/i18n';
 import { mirroredRow } from '@/utils/layout';
 
-type OfferBehavior = 'FIXED_DISCOUNT' | 'BUY_N_GET_M_FREE';
+type OfferBehavior = 'FIXED_DISCOUNT' | 'BUY_N_GET_M_FREE' | 'FREE_DELIVERY_ABOVE_AMOUNT';
 type EligibilityMode = 'EVERYONE' | 'NEW_CUSTOMERS' | 'AFTER_ORDER_COUNT';
 type TargetSelectionMode = 'WHOLE_MENU' | 'SPECIFIC_TARGETS';
 type TargetListKey = 'scope_targets' | 'buy_targets' | 'free_targets';
@@ -104,7 +104,11 @@ const buildTargetOptions = (sections: Section[], language: 'en' | 'ar'): TargetO
   return options;
 };
 
-const inferBehavior = (promotion: Promotion): OfferBehavior => (promotion.type === 'BUY_N_GET_M_FREE' ? 'BUY_N_GET_M_FREE' : 'FIXED_DISCOUNT');
+const inferBehavior = (promotion: Promotion): OfferBehavior => {
+  if (promotion.type === 'BUY_N_GET_M_FREE') return 'BUY_N_GET_M_FREE';
+  if (promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT') return 'FREE_DELIVERY_ABOVE_AMOUNT';
+  return 'FIXED_DISCOUNT';
+};
 
 const inferEligibilityMode = (promotion: Promotion): EligibilityMode => {
   if (promotion.type === 'FIRST_TIME') return 'NEW_CUSTOMERS';
@@ -117,13 +121,18 @@ const serializeTargets = (targets: Array<{ entity_type: MenuEntityType; entity_i
 
 const derivePromotionType = (form: PromotionForm): Promotion['type'] => {
   if (form.behavior === 'BUY_N_GET_M_FREE') return 'BUY_N_GET_M_FREE';
+  if (form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT') return 'FREE_DELIVERY_ABOVE_AMOUNT';
   if (form.eligibility_mode === 'NEW_CUSTOMERS') return 'FIRST_TIME';
   if (form.eligibility_mode === 'AFTER_ORDER_COUNT') return 'LOYALTY';
   return 'TEMPORARY';
 };
 
 const behaviorLabel = (behavior: OfferBehavior, t: (key: string) => string) =>
-  behavior === 'BUY_N_GET_M_FREE' ? t('admin.offerBehaviorBuyGet') : t('admin.offerBehaviorDiscount');
+  behavior === 'BUY_N_GET_M_FREE'
+    ? t('admin.offerBehaviorBuyGet')
+    : behavior === 'FREE_DELIVERY_ABOVE_AMOUNT'
+      ? t('admin.offerBehaviorFreeDelivery')
+      : t('admin.offerBehaviorDiscount');
 
 const targetSummary = (
   targets: PromotionTargetInput[],
@@ -274,7 +283,7 @@ export const AdminPromotionsScreen = () => {
   const validateForm = () => {
     const nextErrors: Record<string, string | undefined> = {};
     if (!form.title_en.trim() || !form.title_ar.trim()) nextErrors.translation = t('admin.missingTranslation');
-    if (form.behavior === 'FIXED_DISCOUNT' && (!form.value || Number.isNaN(Number(form.value)))) nextErrors.value = t('validation.requiredFields');
+    if (form.behavior !== 'BUY_N_GET_M_FREE' && (!form.value || Number.isNaN(Number(form.value)) || Number(form.value) <= 0)) nextErrors.value = t('validation.requiredFields');
     if (form.behavior === 'BUY_N_GET_M_FREE') {
       if (!form.buy_quantity || Number(form.buy_quantity) <= 0 || Number.isNaN(Number(form.buy_quantity))) nextErrors.buy_quantity = t('validation.requiredFields');
       if (!form.free_quantity || Number(form.free_quantity) <= 0 || Number.isNaN(Number(form.free_quantity))) nextErrors.free_quantity = t('validation.requiredFields');
@@ -303,7 +312,7 @@ export const AdminPromotionsScreen = () => {
         buy_quantity: form.behavior === 'BUY_N_GET_M_FREE' ? Number(form.buy_quantity) : null,
         free_quantity: form.behavior === 'BUY_N_GET_M_FREE' ? Number(form.free_quantity) : null,
         loyalty_rule_id: null,
-        targets: form.behavior === 'BUY_N_GET_M_FREE' ? [] : form.scope_targets,
+        targets: form.behavior === 'FIXED_DISCOUNT' ? form.scope_targets : [],
         buy_targets: form.behavior === 'BUY_N_GET_M_FREE' ? form.buy_targets : [],
         free_targets: form.behavior === 'BUY_N_GET_M_FREE' ? form.free_targets : [],
       };
@@ -381,7 +390,9 @@ export const AdminPromotionsScreen = () => {
   const rulePreview =
     form.behavior === 'BUY_N_GET_M_FREE'
       ? `${t('admin.buyQuantity')} ${form.buy_quantity || 0}, ${t('admin.freeQuantity')} ${form.free_quantity || 0}`
-      : `${t('admin.discountAmount')} ${form.value || 0}`;
+      : form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT'
+        ? `${t('admin.minimumOrderAmount')} ${form.value || 0}`
+        : `${t('admin.discountAmount')} ${form.value || 0}`;
 
   const scopePreview = targetSummary(form.scope_targets, targetOptionMap, t);
   const buyPreview = targetSummary(form.buy_targets, targetOptionMap, t);
@@ -390,17 +401,18 @@ export const AdminPromotionsScreen = () => {
     behaviorLabel(form.behavior, t),
     rulePreview,
     eligibilityPreview,
-    form.behavior === 'BUY_N_GET_M_FREE' ? `${t('admin.buyFrom')}: ${buyPreview}` : scopePreview,
+    form.behavior === 'BUY_N_GET_M_FREE' ? `${t('admin.buyFrom')}: ${buyPreview}` : form.behavior === 'FIXED_DISCOUNT' ? scopePreview : null,
     form.behavior === 'BUY_N_GET_M_FREE' ? `${t('admin.freeFrom')}: ${freePreview}` : null,
   ]);
 
   const behaviorCards = [
     { value: 'FIXED_DISCOUNT' as const, title: t('admin.offerBehaviorDiscount'), description: t('admin.offerBehaviorDiscountHelp') },
     { value: 'BUY_N_GET_M_FREE' as const, title: t('admin.offerBehaviorBuyGet'), description: t('admin.offerBehaviorBuyGetHelp') },
+    { value: 'FREE_DELIVERY_ABOVE_AMOUNT' as const, title: t('admin.offerBehaviorFreeDelivery'), description: t('admin.offerBehaviorFreeDeliveryHelp') },
   ];
 
   const eligibilityCards =
-    form.behavior === 'BUY_N_GET_M_FREE'
+    form.behavior !== 'FIXED_DISCOUNT'
       ? [
           { value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') },
           { value: 'AFTER_ORDER_COUNT' as const, title: t('admin.eligibilityAfterOrders'), description: t('admin.eligibilityAfterOrdersHelp') },
@@ -591,7 +603,7 @@ export const AdminPromotionsScreen = () => {
                 setForm((prev) => ({
                   ...prev,
                   behavior: value,
-                  eligibility_mode: value === 'BUY_N_GET_M_FREE' && prev.eligibility_mode === 'NEW_CUSTOMERS' ? 'EVERYONE' : prev.eligibility_mode,
+                  eligibility_mode: value !== 'FIXED_DISCOUNT' && prev.eligibility_mode === 'NEW_CUSTOMERS' ? 'EVERYONE' : prev.eligibility_mode,
                   value: value === 'BUY_N_GET_M_FREE' ? '' : prev.value,
                   buy_quantity: value === 'BUY_N_GET_M_FREE' ? prev.buy_quantity : '',
                   free_quantity: value === 'BUY_N_GET_M_FREE' ? prev.free_quantity : '',
@@ -602,6 +614,8 @@ export const AdminPromotionsScreen = () => {
                 <AppInput label={t('admin.buyQuantity')} value={form.buy_quantity} keyboardType="number-pad" error={formErrors.buy_quantity} onChangeText={(value) => setForm((prev) => ({ ...prev, buy_quantity: value }))} />
                 <AppInput label={t('admin.freeQuantity')} value={form.free_quantity} keyboardType="number-pad" error={formErrors.free_quantity} onChangeText={(value) => setForm((prev) => ({ ...prev, free_quantity: value }))} />
               </View>
+            ) : form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT' ? (
+              <AppInput label={t('admin.minimumOrderAmount')} value={form.value} keyboardType="decimal-pad" error={formErrors.value} onChangeText={(value) => setForm((prev) => ({ ...prev, value }))} />
             ) : (
               <AppInput label={t('admin.discountAmount')} value={form.value} keyboardType="decimal-pad" error={formErrors.value} onChangeText={(value) => setForm((prev) => ({ ...prev, value }))} />
             )}
@@ -689,9 +703,9 @@ export const AdminPromotionsScreen = () => {
               {renderTargetPicker({ listKey: 'buy_targets', title: t('admin.buyFrom'), description: t('admin.buyFromHelp'), mode: buyMode })}
               {renderTargetPicker({ listKey: 'free_targets', title: t('admin.freeFrom'), description: t('admin.freeFromHelp'), mode: freeMode })}
             </View>
-          ) : (
+          ) : form.behavior === 'FIXED_DISCOUNT' ? (
             renderTargetPicker({ listKey: 'scope_targets', title: t('admin.eligibleMenuItems'), description: t('admin.scopeChooserHelp'), mode: scopeMode })
-          )}
+          ) : null}
 
           <AdminPageSection title={t('admin.offerStatusSection')} style={styles.innerSection}>
             <View style={[styles.actionPair, mirroredRow(isRTL), isCompact ? styles.stackCol : null]}>
@@ -704,9 +718,9 @@ export const AdminPromotionsScreen = () => {
                 <InfoLine label={t('admin.buyFrom')} value={buyPreview} numberOfLines={2} />
                 <InfoLine label={t('admin.freeFrom')} value={freePreview} numberOfLines={2} />
               </>
-            ) : (
+            ) : form.behavior === 'FIXED_DISCOUNT' ? (
               <InfoLine label={t('admin.scopeSummary')} value={scopePreview} numberOfLines={2} />
-            )}
+            ) : null}
             <InfoLine label={t('admin.eligibilitySummary')} value={eligibilityPreview} numberOfLines={2} />
           </AdminPageSection>
 
@@ -728,9 +742,15 @@ export const AdminPromotionsScreen = () => {
             const ruleValue =
               promotion.type === 'BUY_N_GET_M_FREE'
                 ? `${t('admin.buyQuantity')} ${promotion.buy_quantity ?? 0}, ${t('admin.freeQuantity')} ${promotion.free_quantity ?? 0}`
-                : `${t('admin.discountAmount')} ${promotion.value}`;
+                : promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT'
+                  ? `${t('admin.minimumOrderAmount')} ${promotion.value}`
+                  : `${t('admin.discountAmount')} ${promotion.value}`;
             const cardSummary = buildOfferSummary([
-              promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.offerBehaviorBuyGet') : t('admin.offerBehaviorDiscount'),
+              promotion.type === 'BUY_N_GET_M_FREE'
+                ? t('admin.offerBehaviorBuyGet')
+                : promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT'
+                  ? t('admin.offerBehaviorFreeDelivery')
+                  : t('admin.offerBehaviorDiscount'),
               ruleValue,
               eligibilitySummary,
               scopeSummary,
@@ -750,8 +770,17 @@ export const AdminPromotionsScreen = () => {
                 <View style={styles.infoBox}>
                   <InfoLine label={t('admin.offerSummary')} value={cardSummary} numberOfLines={3} />
                   <InfoLine label={`${t('admin.dateRange')} (${timezone})`} value={`${formatDateTimeWithZone(promotion.starts_at, language)} - ${formatDateTimeWithZone(promotion.ends_at, language)}`} numberOfLines={2} />
-                  <InfoLine label={t('admin.offerBehavior')} value={promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.offerBehaviorBuyGet') : t('admin.offerBehaviorDiscount')} />
-                  <InfoLine label={promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.buyGetRule') : t('admin.discountAmount')} value={ruleValue} />
+                  <InfoLine
+                    label={t('admin.offerBehavior')}
+                    value={
+                      promotion.type === 'BUY_N_GET_M_FREE'
+                        ? t('admin.offerBehaviorBuyGet')
+                        : promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT'
+                          ? t('admin.offerBehaviorFreeDelivery')
+                          : t('admin.offerBehaviorDiscount')
+                    }
+                  />
+                  <InfoLine label={promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.buyGetRule') : promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT' ? t('admin.minimumOrderAmount') : t('admin.discountAmount')} value={ruleValue} />
                   <InfoLine label={t('admin.scopeSummary')} value={scopeSummary} numberOfLines={2} />
                   <InfoLine label={t('admin.eligibilitySummary')} value={eligibilitySummary} numberOfLines={2} />
                 </View>

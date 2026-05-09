@@ -28,6 +28,8 @@ const translationMap: Record<string, string> = {
   'admin.offerBehaviorDiscountHelp': 'Fixed discount help',
   'admin.offerBehaviorBuyGet': 'Buy some, get some free',
   'admin.offerBehaviorBuyGetHelp': 'Buy/get help',
+  'admin.offerBehaviorFreeDelivery': 'Free delivery above an amount',
+  'admin.offerBehaviorFreeDeliveryHelp': 'Free delivery help',
   'admin.offerWindow': 'Active window',
   'admin.eligibleMenuItems': 'Eligible menu items',
   'admin.eligibilityTrigger': 'Eligibility trigger',
@@ -44,6 +46,7 @@ const translationMap: Record<string, string> = {
   'admin.freeQuantity': 'Free quantity',
   'admin.buyGetRule': 'Buy/Get rule',
   'admin.discountAmount': 'Discount amount',
+  'admin.minimumOrderAmount': 'Minimum order amount',
   'admin.startDate': 'Start date',
   'admin.startTime': 'Start time',
   'admin.endDate': 'End date',
@@ -303,6 +306,34 @@ describe('AdminPromotionsScreen', () => {
         expect.objectContaining({
           type: 'FIRST_TIME',
           value: 2,
+          targets: [],
+          buy_targets: [],
+          free_targets: [],
+        }),
+      );
+    });
+  });
+
+  it('creates a free delivery threshold offer', async () => {
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionsScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Promotions')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Free delivery over 20');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'توصيل مجاني فوق 20');
+    fireEvent.press(getByLabelText('What should this offer do?: Free delivery above an amount'));
+    fireEvent.changeText(getByLabelText('Minimum order amount'), '20');
+    fireEvent.press(getAllByText('Create promotion').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockCreatePromotion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title_en: 'Free delivery over 20',
+          title_ar: 'توصيل مجاني فوق 20',
+          type: 'FREE_DELIVERY_ABOVE_AMOUNT',
+          value: 20,
           targets: [],
           buy_targets: [],
           free_targets: [],

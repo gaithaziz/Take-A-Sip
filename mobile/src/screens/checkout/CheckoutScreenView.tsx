@@ -47,6 +47,7 @@ type CheckoutScreenViewProps = {
   deliveryLocationError?: string;
   deliveryQuoteError?: string;
   deliveryFee: number | null;
+  freeDelivery: boolean;
   deliveryDistanceKm: number | null;
   deliveryQuoteLoading: boolean;
   useCurrentLocationLabel: string;
@@ -103,6 +104,7 @@ export const CheckoutScreenView = ({
   deliveryLocationError,
   deliveryQuoteError,
   deliveryFee,
+  freeDelivery,
   deliveryDistanceKm,
   deliveryQuoteLoading,
   useCurrentLocationLabel,
@@ -316,7 +318,7 @@ export const CheckoutScreenView = ({
                     <AppText variant="caption" color={theme.colors.textSecondary}>
                       {estimatedDistanceLabel}: {deliveryDistanceKm?.toFixed(2)} km
                     </AppText>
-                    <AppText variant="caption">{formatCurrency(deliveryFee, language)}</AppText>
+                    <AppText variant="caption">{formatCurrency(freeDelivery ? 0 : deliveryFee, language)}</AppText>
                   </View>
                 ) : null}
               </View>
@@ -348,7 +350,7 @@ export const CheckoutScreenView = ({
             <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
               <AppText>{deliveryFeeLabel}</AppText>
               <AppText color={deliveryFee !== null ? theme.colors.textPrimary : theme.colors.textSecondary}>
-                {deliveryFee !== null ? formatCurrency(deliveryFee, language) : calculatingDeliveryFeeLabel}
+                {deliveryFee !== null ? formatCurrency(freeDelivery ? 0 : deliveryFee, language) : calculatingDeliveryFeeLabel}
               </AppText>
             </View>
           ) : null}

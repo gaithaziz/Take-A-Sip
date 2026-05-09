@@ -169,6 +169,20 @@ def _calculate_order_subtotal(payload: OrderCreateRequest, sizes_by_id: dict[UUI
     return _quantize(subtotal, '0.01')
 
 
+def _ensure_order_limits(payload: OrderCreateRequest, sizes_by_id: dict[UUID, Size]) -> None:
+    quantities_by_size: dict[UUID, int] = {}
+    for line in payload.items:
+        quantities_by_size[line.size_id] = quantities_by_size.get(line.size_id, 0) + line.quantity
+
+    for size_id, quantity in quantities_by_size.items():
+        order_limit = sizes_by_id[size_id].order_limit
+        if order_limit is not None and quantity > order_limit:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Order quantity exceeds product limit',
+            )
+
+
 async def _next_order_number(db: AsyncSession) -> int:
     # Serialize order-number allocation to avoid race collisions under concurrent creates.
     await db.execute(text('SELECT pg_advisory_xact_lock(91234567)'))
@@ -287,6 +301,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
             missing_size_ids = [sid for sid in size_ids if sid not in sizes_by_id]
             if missing_size_ids:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
+            _ensure_order_limits(payload, sizes_by_id)
 
             for line in payload.items:
                 size = sizes_by_id[line.size_id]
@@ -350,11 +365,18 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                 '0.01',
             )
             payable_items_total = max(Decimal('0.00'), subtotal_amount - discount_amount)
-            total_amount = _quantize(
-                payable_items_total + (Decimal(delivery_fee) if delivery_fee is not None else Decimal('0.00')),
-                '0.01',
+            charged_delivery_fee = (
+                Decimal('0.00')
+                if order_type == OrderType.DELIVERY and promotion_evaluation.free_delivery
+                else (Decimal(delivery_fee) if delivery_fee is not None else Decimal('0.00'))
             )
-            applied_promotion = promotion_evaluation.applied_promotion if discount_amount > 0 else None
+            total_amount = _quantize(payable_items_total + charged_delivery_fee, '0.01')
+            delivery_fee = _quantize(charged_delivery_fee, '0.01') if delivery_fee is not None else None
+            applied_promotion = (
+                promotion_evaluation.applied_promotion
+                if discount_amount > 0
+                else promotion_evaluation.free_delivery_promotion
+            )
 
             order = Order(
                 order_number=await _next_order_number(db),

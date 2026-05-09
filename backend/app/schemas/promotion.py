@@ -108,7 +108,9 @@ class PromotionEvaluationEntry(AppBaseModel):
 
 class PromotionEvaluationResponse(AppBaseModel):
     applied_promotion: PromotionRead | None = None
+    free_delivery_promotion: PromotionRead | None = None
     discount: Decimal
+    free_delivery: bool = False
     eligible_promotions: list[PromotionEvaluationEntry] = Field(default_factory=list)
     ineligible_promotions: list[PromotionEvaluationEntry] = Field(default_factory=list)
 

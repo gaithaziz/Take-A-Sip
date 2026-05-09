@@ -46,6 +46,11 @@ const matchesQuery = (entity: Section | Item | ItemType | Size | Addon, query: s
   return values.some((value) => value.toLowerCase().includes(normalized));
 };
 
+const parseOptionalLimit = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed ? Number(trimmed) : null;
+};
+
 const ImageThumbnail = ({ uri }: { uri?: string | null }) => {
   return uri ? (
     <Image source={{ uri }} style={styles.thumb} resizeMode="cover" />
@@ -86,10 +91,10 @@ export const AdminMenuEditorScreen = () => {
   const [sectionForm, setSectionForm] = useState({ name_en: '', name_ar: '', image_url: '', sort_order: '0' });
   const [itemForm, setItemForm] = useState({ name_en: '', name_ar: '', image_url: '', description_en: '', description_ar: '', sort_order: '0' });
   const [typeForm, setTypeForm] = useState({ name_en: '', name_ar: '', image_url: '', sort_order: '0' });
-  const [sizeForm, setSizeForm] = useState({ name_en: '', name_ar: '', image_url: '', price: '', sort_order: '0' });
+  const [sizeForm, setSizeForm] = useState({ name_en: '', name_ar: '', image_url: '', price: '', order_limit: '', sort_order: '0' });
   const [addonForm, setAddonForm] = useState({ name_en: '', name_ar: '', image_url: '', price: '', sort_order: '0' });
 
-  const [editForm, setEditForm] = useState({ parent_id: '', name_en: '', name_ar: '', image_url: '', description_en: '', description_ar: '', price: '', sort_order: '0' });
+  const [editForm, setEditForm] = useState({ parent_id: '', name_en: '', name_ar: '', image_url: '', description_en: '', description_ar: '', price: '', order_limit: '', sort_order: '0' });
   const missingName = (nameEn: string, nameAr: string) => (!nameEn.trim() || !nameAr.trim() ? t('admin.missingTranslation') : undefined);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [mutatingEntityId, setMutatingEntityId] = useState<string | null>(null);
@@ -312,6 +317,7 @@ export const AdminMenuEditorScreen = () => {
       description_en: String(data.description_en ?? ''),
       description_ar: String(data.description_ar ?? ''),
       price: String(data.price ?? ''),
+      order_limit: data.order_limit == null ? '' : String(data.order_limit),
       sort_order: String(data.sort_order ?? 0),
     });
   };
@@ -338,6 +344,9 @@ export const AdminMenuEditorScreen = () => {
         }
         if (editTarget.kind === 'size' || editTarget.kind === 'addon') {
           payload.price = Number(editForm.price || 0);
+        }
+        if (editTarget.kind === 'size') {
+          payload.order_limit = parseOptionalLimit(editForm.order_limit);
         }
       }
       if (editTarget.mode === 'move') {
@@ -460,10 +469,11 @@ export const AdminMenuEditorScreen = () => {
         type_id: selectedTypeId,
         ...sizeForm,
         price: Number(sizeForm.price || 0),
+        order_limit: parseOptionalLimit(sizeForm.order_limit),
         sort_order: Number(sizeForm.sort_order || 0),
         image_url: sizeForm.image_url || undefined,
       });
-      setSizeForm({ name_en: '', name_ar: '', image_url: '', price: '', sort_order: '0' });
+      setSizeForm({ name_en: '', name_ar: '', image_url: '', price: '', order_limit: '', sort_order: '0' });
       await load();
     } catch (e) {
       Alert.alert(t('common.error'), getApiErrorMessage(e, t));
@@ -782,7 +792,10 @@ export const AdminMenuEditorScreen = () => {
                                                     onPress={() => {
                                                       setSelection({ sectionId: section.id, itemId: item.id, typeId: itemType.id, sizeId: size.id });
                                                     }}>
-                                                    <ExpandableText value={`${t('admin.size')}: ${getLocalizedValue(size, language, 'name')} (${size.sort_order})`} numberOfLines={1} />
+                                                    <ExpandableText
+                                                      value={`${t('admin.size')}: ${getLocalizedValue(size, language, 'name')} (${size.order_limit ? `${t('admin.orderLimit')}: ${size.order_limit}` : t('admin.unlimited')})`}
+                                                      numberOfLines={1}
+                                                    />
                                                   </Pressable>
                                                 </View>
                                                 {renderHierarchyActions(
@@ -997,6 +1010,13 @@ export const AdminMenuEditorScreen = () => {
           {renderImageField('sizeForm', sizeForm.image_url, (v) => setSizeForm((p) => ({ ...p, image_url: v })))}
           <View style={styles.formGroup}>
             <AppInput label={t('admin.price')} value={sizeForm.price} onChangeText={(v) => setSizeForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
+            <AppInput
+              label={t('admin.orderLimit')}
+              value={sizeForm.order_limit}
+              onChangeText={(v) => setSizeForm((p) => ({ ...p, order_limit: v }))}
+              placeholder={t('admin.unlimited')}
+              keyboardType="number-pad"
+            />
             <AppInput label={t('admin.sortOrder')} value={sizeForm.sort_order} onChangeText={(v) => setSizeForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
           </View>
         <AppButton
@@ -1110,6 +1130,15 @@ export const AdminMenuEditorScreen = () => {
             <View style={styles.formGroup}>
               {editTarget.mode !== 'move' && (editTarget.kind === 'size' || editTarget.kind === 'addon') ? (
                 <AppInput label={t('admin.price')} value={editForm.price} onChangeText={(v) => setEditForm((p) => ({ ...p, price: v }))} keyboardType="decimal-pad" />
+              ) : null}
+              {editTarget.mode !== 'move' && editTarget.kind === 'size' ? (
+                <AppInput
+                  label={t('admin.orderLimit')}
+                  value={editForm.order_limit}
+                  onChangeText={(v) => setEditForm((p) => ({ ...p, order_limit: v }))}
+                  placeholder={t('admin.unlimited')}
+                  keyboardType="number-pad"
+                />
               ) : null}
               <AppInput label={t('admin.sortOrder')} value={editForm.sort_order} onChangeText={(v) => setEditForm((p) => ({ ...p, sort_order: v }))} keyboardType="number-pad" />
             </View>

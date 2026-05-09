@@ -18,6 +18,7 @@ export type MenuSize = {
   name_ar: string;
   image_url: string | null;
   price: string;
+  order_limit?: number | null;
   sort_order: number;
   is_active: boolean;
   addons: MenuAddon[];
@@ -107,4 +108,3 @@ export type MenuSchedule = {
 export type ScheduleListResponse = {
   schedules: MenuSchedule[];
 };
-

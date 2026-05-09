@@ -41,6 +41,16 @@ type CartScreenViewProps = {
 const computeLineTotal = (item: CartItem) =>
   (toNumber(item.size.price) + item.addons.reduce((sum, addon) => sum + toNumber(addon.price), 0)) * item.quantity;
 
+const getLineMax = (items: CartItem[], item: CartItem) => {
+  if (item.size.order_limit == null) {
+    return null;
+  }
+  const otherQuantityForSize = items
+    .filter((entry) => entry.id !== item.id && entry.size.id === item.size.id)
+    .reduce((sum, entry) => sum + entry.quantity, 0);
+  return Math.max(0, item.size.order_limit - otherQuantityForSize);
+};
+
 export const CartScreenView = ({
   items,
   subtotal,
@@ -112,7 +122,7 @@ export const CartScreenView = ({
 
               <View style={[styles.itemActions, mirroredRow(isRTL)]}>
                 <AppButton title={removeItemLabel} variant="ghost" fullWidth={false} onPress={() => onRemoveItem(item.id)} />
-                <QuantitySelector value={item.quantity} onChange={(value) => onUpdateQuantity(item.id, value)} />
+                <QuantitySelector value={item.quantity} max={getLineMax(items, item)} onChange={(value) => onUpdateQuantity(item.id, value)} />
               </View>
             </AppCard>
           ))

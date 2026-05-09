@@ -25,7 +25,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
   const { item } = route.params;
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
-  const { addItem } = useCart();
+  const { addItem, items: cartItems = [] } = useCart();
   const insets = useSafeAreaInsets();
 
   const activeTypes = useMemo(() => item.item_types.filter((itemType) => itemType.is_active), [item.item_types]);
@@ -42,6 +42,12 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
   );
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
+  const selectedSizeOrderLimit = selectedSize?.order_limit ?? null;
+  const quantityAlreadyInCart = useMemo(
+    () => (selectedSize ? cartItems.filter((cartItem) => cartItem.size.id === selectedSize.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0) : 0),
+    [cartItems, selectedSize],
+  );
+  const quantityMax = selectedSizeOrderLimit == null ? null : Math.max(0, selectedSizeOrderLimit - quantityAlreadyInCart);
 
   useEffect(() => {
     if (activeTypes.length === 0) {
@@ -90,19 +96,24 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
   const handleSizeSelect = (sizeId: string) => {
     setSelectedSizeId(sizeId);
     setSelectedAddonIds([]);
+    setQuantity(1);
   };
 
   const addToCart = () => {
     if (!selectedType || !selectedSize) {
       return;
     }
-    addItem({
+    const added = addItem({
       item,
       itemType: selectedType,
       size: selectedSize,
       addons: selectedAddons,
       quantity,
     });
+    if (!added && selectedSize.order_limit != null) {
+      Alert.alert(t('common.appName'), t('product.orderLimitReached', { limit: selectedSize.order_limit }));
+      return;
+    }
     Alert.alert(t('common.appName'), t('product.addedToCart'));
     navigation.goBack();
   };
@@ -205,12 +216,17 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
 
         <AppCard style={[styles.stickyCard, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
           <View style={[styles.footer, mirroredRow(isRTL)]}>
-            <QuantitySelector value={quantity} onChange={setQuantity} />
+            <QuantitySelector value={quantity} onChange={setQuantity} max={quantityMax} />
             <AppText variant="price" color={theme.colors.primary700}>
               {formatCurrency(totalPrice, language)}
             </AppText>
           </View>
-          <AppButton title={t('product.addToCart')} onPress={addToCart} style={styles.addButton} />
+          {selectedSizeOrderLimit != null ? (
+            <AppText variant="caption" color={theme.colors.textSecondary}>
+              {t('product.orderLimitReached', { limit: selectedSizeOrderLimit })}
+            </AppText>
+          ) : null}
+          <AppButton title={t('product.addToCart')} onPress={addToCart} style={styles.addButton} disabled={quantityMax === 0} />
         </AppCard>
       </View>
     </View>

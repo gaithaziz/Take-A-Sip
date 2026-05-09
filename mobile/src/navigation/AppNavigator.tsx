@@ -170,11 +170,21 @@ export const AppNavigator = () => {
       }
 
       if (user.role === 'CLIENT') {
+        if (payload.type === 'promotion_created') {
+          navigationRef.navigate('MainTabs', { screen: 'Home' });
+          return;
+        }
+        if (!payload.order_id) {
+          return;
+        }
         navigationRef.navigate('ClientOrderDetails', { orderId: payload.order_id });
         return;
       }
 
       if (user.role === 'DRIVER') {
+        if (!payload.order_id) {
+          return;
+        }
         navigationRef.navigate('DriverOrderDetails', { orderId: payload.order_id });
         return;
       }
@@ -241,4 +251,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
   },
 });
-

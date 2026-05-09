@@ -66,6 +66,7 @@ export const adminService = {
     name_ar: string;
     image_url?: string;
     price: number;
+    order_limit?: number | null;
     sort_order: number;
   }) {
     const { data } = await http.post('/admin/menu/size', payload);

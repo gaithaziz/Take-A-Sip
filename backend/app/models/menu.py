@@ -65,6 +65,7 @@ class Size(UUIDPrimaryKeyMixin, Base):
     name_ar: Mapped[str] = mapped_column(String(120), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    order_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
