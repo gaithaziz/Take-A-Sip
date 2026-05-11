@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { OrderRead } from '@/types/api';
 import { formatLocalizedNumber, formatLocalizedTime } from '@/utils/localeFormat';
-import { getOrderStatusLabel, getOrderTypeLabel, needsDriverAssignment } from '@/utils/orderPresentation';
+import { getOrderStatusLabel, getOrderTypeLabel, isPickupInProgressOrder, needsDriverAssignment } from '@/utils/orderPresentation';
 import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskLabelValueText, StatusChip } from '@/ui/frontdeskPrimitives';
 import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
@@ -12,9 +12,11 @@ type Props = {
   onAccept: () => void;
   onReject: () => void;
   onCancel: () => void;
+  onComplete: () => void;
   isAccepting: boolean;
   isRejecting: boolean;
   isCancelling: boolean;
+  isCompleting: boolean;
   isRTL: boolean;
   density: 'compact' | 'comfortable';
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -28,6 +30,7 @@ type Props = {
     accept: string;
     reject: string;
     cancel: string;
+    complete: string;
     needsAssignment: string;
     assignedTo: string;
   };
@@ -55,9 +58,11 @@ export const OrderCard = ({
   onAccept,
   onReject,
   onCancel,
+  onComplete,
   isAccepting,
   isRejecting,
   isCancelling,
+  isCompleting,
   isRTL,
   density,
   t,
@@ -67,7 +72,7 @@ export const OrderCard = ({
   const itemsSummary = order.items
     .map((item) => `${formatLocalizedNumber(item.quantity, language)}x ${item.item_name_snapshot}`)
     .join(', ');
-  const isBusy = isAccepting || isRejecting || isCancelling;
+  const isBusy = isAccepting || isRejecting || isCancelling || isCompleting;
   const localizedOrderNumber = Number.isFinite(Number(order.order_number))
     ? formatLocalizedNumber(Number(order.order_number), language)
     : order.order_number;
@@ -138,7 +143,7 @@ export const OrderCard = ({
         ) : null}
       </Pressable>
 
-      {(order.status === 'NEW' || canCancel(order.status)) && (
+      {(order.status === 'NEW' || canCancel(order.status) || isPickupInProgressOrder(order)) && (
         <View style={[styles.actionsRow, isCompact ? styles.actionsRowCompact : styles.actionsRowComfortable, isRTL ? styles.actionsRowRtl : null]}>
           {order.status === 'NEW' ? (
             <>
@@ -158,6 +163,27 @@ export const OrderCard = ({
                 variant="danger"
                 isRTL={isRTL}
                 minHeight={isCompact ? frontdeskTheme.touch.medium : frontdeskTheme.touch.large}
+                style={styles.flexButton}
+              />
+            </>
+          ) : isPickupInProgressOrder(order) ? (
+            <>
+              <FrontdeskButton
+                label={isCompleting ? t('orders.completing') : labels.complete}
+                onPress={onComplete}
+                disabled={isBusy}
+                variant="primary"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
+                style={styles.flexButton}
+              />
+              <FrontdeskButton
+                label={isCancelling ? t('orders.cancelling') : labels.cancel}
+                onPress={onCancel}
+                disabled={isBusy}
+                variant="danger"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
                 style={styles.flexButton}
               />
             </>

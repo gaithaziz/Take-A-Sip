@@ -605,6 +605,13 @@ def _rows_subtotal(rows: list[tuple[Size, list[UUID], int, Decimal]]) -> Decimal
     return sum((subtotal for _size, _addon_ids, _quantity, subtotal in rows), Decimal('0.00'))
 
 
+def _percentage_discount(percent: Decimal, subtotal: Decimal) -> Decimal:
+    if percent <= 0 or subtotal <= 0:
+        return Decimal('0.00')
+    capped_percent = min(percent, Decimal('100.00'))
+    return (subtotal * capped_percent / Decimal('100.00')).quantize(Decimal('0.01'))
+
+
 def _row_unit_prices(rows: list[tuple[Size, list[UUID], int, Decimal]]) -> list[Decimal]:
     unit_prices: list[Decimal] = []
     for size, addon_ids, quantity, _subtotal in rows:
@@ -662,7 +669,6 @@ async def evaluate_promotions_for_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
 
     completed_orders = await _completed_orders_count(db, user.id)
-    first_time_order_count = await _first_time_order_count(db, user.id)
     now = datetime.now(timezone.utc)
     cart_total = Decimal('0.00')
     line_rows: list[tuple[Size, list[UUID], int, Decimal]] = []
@@ -685,7 +691,7 @@ async def evaluate_promotions_for_user(
             reason_code = 'INACTIVE'
         elif promotion.starts_at > now or promotion.ends_at < now:
             reason_code = 'OUTSIDE_WINDOW'
-        elif promotion.type == PromotionType.FIRST_TIME and not eligible_for_first_time_offer(first_time_order_count):
+        elif promotion.type == PromotionType.FIRST_TIME and not eligible_for_first_time_offer(completed_orders):
             reason_code = 'FIRST_TIME_ONLY'
         else:
             required_orders = _resolved_required_orders(promotion)
@@ -736,7 +742,8 @@ async def evaluate_promotions_for_user(
                 reason_code = 'TARGET_MISMATCH'
 
             if reason_code is None:
-                discount = min(Decimal(promotion.value), matched_subtotal if matched_subtotal > 0 else cart_total)
+                discount_base = matched_subtotal if matched_subtotal > 0 else cart_total
+                discount = min(_percentage_discount(Decimal(promotion.value), discount_base), discount_base)
             else:
                 discount = Decimal('0.00')
 

@@ -122,7 +122,6 @@ export const ProfileScreen = ({ navigation }: Props) => {
       }
       savedAddresses={savedAddresses}
       removeAddressLabel={t('common.remove')}
-      accountStatusLabel={t('profile.accountStatus')}
       accountStatusValue={t('profile.accountStatusActive')}
       accountSupportHint={t('profile.accountSupportHint')}
       settingsLabel={t('profile.settings')}

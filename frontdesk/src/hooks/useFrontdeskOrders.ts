@@ -315,6 +315,19 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     }
   }, []);
 
+  const completeOrder = useCallback(async (order: OrderRead) => {
+    if (order.order_type !== 'pickup' || order.status !== 'ACCEPTED') {
+      return;
+    }
+    try {
+      await orderService.updateStatus(order.id, 'COMPLETED');
+      setOrders((prev) => prev.filter((item) => item.id !== order.id));
+      setBanner(i18next.t('banner.orderCompleted', { number: formatOrderReference(order.order_number, i18next.language) }));
+    } catch {
+      setBanner(i18next.t('banner.completeFailed'));
+    }
+  }, []);
+
   const printTestReceipt = useCallback(async () => {
     if (!sunmiPrinter.isAvailable()) {
       setBanner(i18next.t('banner.printerModuleUnavailable'));
@@ -351,6 +364,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       acceptOrder,
       rejectOrder,
       cancelOrder,
+      completeOrder,
       printTestReceipt,
       reprintFailedOrder,
       dismissFailedOrder,
@@ -362,6 +376,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       acceptOrder,
       rejectOrder,
       cancelOrder,
+      completeOrder,
       banner,
       connectionState,
       dismissFailedOrder,

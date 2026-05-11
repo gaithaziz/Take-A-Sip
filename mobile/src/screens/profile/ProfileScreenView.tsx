@@ -37,7 +37,6 @@ type ProfileScreenViewProps = {
   addressesShortcutValue: string;
   savedAddresses: SavedAddress[];
   removeAddressLabel: string;
-  accountStatusLabel: string;
   accountStatusValue: string;
   accountSupportHint: string;
   settingsLabel: string;
@@ -96,7 +95,6 @@ export const ProfileScreenView = ({
   addressesShortcutValue,
   savedAddresses,
   removeAddressLabel,
-  accountStatusLabel,
   accountStatusValue,
   accountSupportHint,
   settingsLabel,
@@ -145,10 +143,6 @@ export const ProfileScreenView = ({
           <AppText variant="caption" color={theme.colors.success}>
             {accountStatusValue}
           </AppText>
-        </View>
-        <View style={styles.heroActions}>
-          <AppButton title={ordersShortcutLabel} onPress={onOpenOrders} />
-          <AppButton title={cartShortcutLabel} variant="secondary" onPress={onOpenCart} />
         </View>
       </AppCard>
 
@@ -225,15 +219,8 @@ export const ProfileScreenView = ({
         ) : null}
       </AppCard>
 
-      <AppCard style={styles.sectionCard}>
-        <AppText variant="h3">{accountSafetyLabel}</AppText>
-        <ProfileRow label={accountStatusLabel} value={accountStatusValue} />
-        <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-          {accountSupportHint}
-        </AppText>
-      </AppCard>
-
       <AppCard style={styles.safetyCard}>
+        <AppText variant="h3">{accountSafetyLabel}</AppText>
         <AppButton
           title={deleteAccountLabel}
           variant="destructive"
@@ -284,9 +271,6 @@ const styles = StyleSheet.create({
   userInfo: {
     flex: 1,
     gap: theme.spacing.xs,
-  },
-  heroActions: {
-    gap: theme.spacing.sm,
   },
   sectionCard: {
     gap: theme.spacing.md,

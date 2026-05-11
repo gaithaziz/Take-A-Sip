@@ -47,6 +47,7 @@ export const AppNavigator = () => {
               acceptOrder={realtime.acceptOrder}
               rejectOrder={realtime.rejectOrder}
               cancelOrder={realtime.cancelOrder}
+              completeOrder={realtime.completeOrder}
               onPrinterTest={realtime.printTestReceipt}
               onReprint={realtime.reprintFailedOrder}
               onDismissFailed={realtime.dismissFailedOrder}
@@ -91,6 +92,12 @@ export const AppNavigator = () => {
                 const current =
                   realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
                 await realtime.cancelOrder(current);
+                navigation.goBack();
+              }}
+              onComplete={async () => {
+                const current =
+                  realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
+                await realtime.completeOrder(current);
                 navigation.goBack();
               }}
             />

@@ -202,7 +202,7 @@ async def test_client_promotion_evaluation_applies_best_targeted_offer(client, d
         title_en='Latte Loyalty',
         title_ar='ولاء اللاتيه',
         type=PromotionType.LOYALTY,
-        value=Decimal('3.00'),
+        value=Decimal('60.00'),
         starts_at=datetime.now(timezone.utc) - timedelta(days=1),
         ends_at=datetime.now(timezone.utc) + timedelta(days=1),
         is_active=True,

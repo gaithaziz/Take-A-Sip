@@ -28,6 +28,7 @@ type Props = {
   acceptOrder: (order: OrderRead) => Promise<void>;
   rejectOrder: (order: OrderRead) => Promise<void>;
   cancelOrder: (order: OrderRead) => Promise<void>;
+  completeOrder: (order: OrderRead) => Promise<void>;
 };
 
 export const OrdersScreen = ({
@@ -46,6 +47,7 @@ export const OrdersScreen = ({
   acceptOrder,
   rejectOrder,
   cancelOrder,
+  completeOrder,
 }: Props) => {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -56,6 +58,7 @@ export const OrdersScreen = ({
   const [activeAcceptOrderId, setActiveAcceptOrderId] = useState<string | null>(null);
   const [activeRejectOrderId, setActiveRejectOrderId] = useState<string | null>(null);
   const [activeCancelOrderId, setActiveCancelOrderId] = useState<string | null>(null);
+  const [activeCompleteOrderId, setActiveCompleteOrderId] = useState<string | null>(null);
   const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
   const dockBottom = Math.max(10, insets.bottom + 6);
   const listBottomPadding = 132 + dockBottom;
@@ -125,6 +128,15 @@ export const OrdersScreen = ({
       await cancelOrder(order);
     } finally {
       setActiveCancelOrderId((current) => (current === order.id ? null : current));
+    }
+  };
+
+  const handleComplete = async (order: OrderRead) => {
+    setActiveCompleteOrderId(order.id);
+    try {
+      await completeOrder(order);
+    } finally {
+      setActiveCompleteOrderId((current) => (current === order.id ? null : current));
     }
   };
 
@@ -241,9 +253,11 @@ export const OrdersScreen = ({
             onAccept={() => void handleAccept(item)}
             onReject={() => void handleReject(item)}
             onCancel={() => void handleCancel(item)}
+            onComplete={() => void handleComplete(item)}
             isAccepting={activeAcceptOrderId === item.id}
             isRejecting={activeRejectOrderId === item.id}
             isCancelling={activeCancelOrderId === item.id}
+            isCompleting={activeCompleteOrderId === item.id}
             isRTL={isRTL}
             density={density}
             t={t}
@@ -257,6 +271,7 @@ export const OrdersScreen = ({
               accept: t('orders.accept'),
               reject: t('orders.reject'),
               cancel: t('orders.cancel'),
+              complete: t('orders.complete'),
               needsAssignment: t('orders.needsAssignment'),
               assignedTo: t('details.assignedTo'),
             }}

@@ -11,7 +11,11 @@ export const isDriverAssignmentStatus = (status: OrderRead['status']) =>
 export const needsDriverAssignment = (order: OrderRead) =>
   order.order_type === 'delivery' && isDriverAssignmentStatus(order.status) && !order.assigned_driver_id;
 
-export const isFrontdeskActionableOrder = (order: OrderRead) => order.status === 'NEW' || needsDriverAssignment(order);
+export const isPickupInProgressOrder = (order: OrderRead) =>
+  order.order_type === 'pickup' && order.status === 'ACCEPTED';
+
+export const isFrontdeskActionableOrder = (order: OrderRead) =>
+  order.status === 'NEW' || needsDriverAssignment(order) || isPickupInProgressOrder(order);
 
 export const getOrderTypeLabel = (orderType: OrderRead['order_type'], t: Translate) =>
   orderType === 'pickup' ? t('orderType.pickup') : t('orderType.delivery');

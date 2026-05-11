@@ -84,7 +84,7 @@ async def test_create_order_snapshots_first_time_discount_once(client, db_sessio
         title_en='Welcome offer',
         title_ar='عرض الترحيب',
         type=PromotionType.FIRST_TIME,
-        value=Decimal('2.00'),
+        value=Decimal('20.00'),
         starts_at=datetime.now(timezone.utc) - timedelta(hours=1),
         ends_at=datetime.now(timezone.utc) + timedelta(hours=1),
         is_active=True,
@@ -109,8 +109,8 @@ async def test_create_order_snapshots_first_time_discount_once(client, db_sessio
     assert first_response.status_code == 201
     first = first_response.json()
     assert first['subtotal_amount'] == '7.00'
-    assert first['discount_amount'] == '2.00'
-    assert first['total_amount'] == '5.00'
+    assert first['discount_amount'] == '1.40'
+    assert first['total_amount'] == '5.60'
     assert first['applied_promotion_id'] == str(promotion.id)
     assert first['applied_promotion_title_en'] == 'Welcome offer'
 

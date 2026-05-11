@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { isRtlLanguage } from '@/i18n';
 import { OrderRead, UserSummary } from '@/types/api';
 import { formatLocalizedNumber } from '@/utils/localeFormat';
-import { getDeliveryAddress, getOrderStatusLabel, getOrderTypeLabel, isDriverAssignmentStatus } from '@/utils/orderPresentation';
+import { getDeliveryAddress, getOrderStatusLabel, getOrderTypeLabel, isDriverAssignmentStatus, isPickupInProgressOrder } from '@/utils/orderPresentation';
 import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskLabelValueText, SectionHeader } from '@/ui/frontdeskPrimitives';
 import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
@@ -13,6 +13,7 @@ type Props = {
   onAccept: () => void;
   onReject: () => void;
   onCancel: () => void;
+  onComplete: () => void;
   drivers: UserSummary[];
   onAssignDriver: (driverUserId: string) => Promise<void>;
 };
@@ -28,7 +29,7 @@ const getItemsSubtotal = (order: OrderRead) =>
     return sum + (Number(item.price_snapshot) + addons) * item.quantity;
   }, 0);
 
-export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, drivers, onAssignDriver }: Props) => {
+export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComplete, drivers, onAssignDriver }: Props) => {
   const { t, i18n } = useTranslation();
   const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
   const localizedOrderNumber = Number.isFinite(Number(order.order_number))
@@ -127,14 +128,35 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, driver
       ) : null}
 
       {canCancel(order.status) ? (
-        <FrontdeskButton
-          label={t('details.cancel')}
-          onPress={onCancel}
-          variant="danger"
-          isRTL={isRTL}
-          minHeight={frontdeskTheme.touch.medium}
-          style={styles.singleAction}
-        />
+        isPickupInProgressOrder(order) ? (
+          <View style={[styles.actionsRow, isRTL ? styles.actionsRowRtl : null]}>
+            <FrontdeskButton
+              label={t('details.complete')}
+              onPress={onComplete}
+              variant="primary"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+            <FrontdeskButton
+              label={t('details.cancel')}
+              onPress={onCancel}
+              variant="danger"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+          </View>
+        ) : (
+          <FrontdeskButton
+            label={t('details.cancel')}
+            onPress={onCancel}
+            variant="danger"
+            isRTL={isRTL}
+            minHeight={frontdeskTheme.touch.medium}
+            style={styles.singleAction}
+          />
+        )
       ) : null}
 
       {order.order_type === 'delivery' && isDriverAssignmentStatus(order.status) ? (
