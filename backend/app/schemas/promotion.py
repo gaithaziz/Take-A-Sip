@@ -35,6 +35,8 @@ class PromotionRead(AppBaseModel):
     required_completed_orders: int | None = None
     buy_quantity: int | None = None
     free_quantity: int | None = None
+    free_delivery_mode: str | None = None
+    free_delivery_discount_percent: Decimal | None = None
     loyalty_rule_id: UUID | None = None
     targets: list[PromotionTargetRead] = Field(default_factory=list)
     buy_targets: list[PromotionTargetRead] = Field(default_factory=list)
@@ -64,6 +66,8 @@ class PromotionCreate(AppBaseModel):
     required_completed_orders: int | None = Field(default=None, ge=0)
     buy_quantity: int | None = Field(default=None, ge=1)
     free_quantity: int | None = Field(default=None, ge=1)
+    free_delivery_mode: str | None = Field(default=None, pattern='^(FREE_DELIVERY|PERCENTAGE_DISCOUNT)$')
+    free_delivery_discount_percent: Decimal | None = Field(default=None, gt=0, le=100)
     loyalty_rule_id: UUID | None = None
     targets: list[PromotionTargetCreate] = Field(default_factory=list)
     buy_targets: list[PromotionTargetCreate] = Field(default_factory=list)
@@ -81,6 +85,8 @@ class PromotionUpdate(AppBaseModel):
     required_completed_orders: int | None = Field(default=None, ge=0)
     buy_quantity: int | None = Field(default=None, ge=1)
     free_quantity: int | None = Field(default=None, ge=1)
+    free_delivery_mode: str | None = Field(default=None, pattern='^(FREE_DELIVERY|PERCENTAGE_DISCOUNT)$')
+    free_delivery_discount_percent: Decimal | None = Field(default=None, gt=0, le=100)
     loyalty_rule_id: UUID | None = None
     targets: list[PromotionTargetCreate] | None = None
     buy_targets: list[PromotionTargetCreate] | None = None

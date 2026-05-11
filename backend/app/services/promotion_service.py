@@ -32,6 +32,9 @@ MENU_MODEL_BY_TYPE = {
 TARGET_GROUP_SCOPE = 'scope'
 TARGET_GROUP_BUY = 'buy'
 TARGET_GROUP_FREE = 'free'
+FREE_DELIVERY_MODE_FREE = 'FREE_DELIVERY'
+FREE_DELIVERY_MODE_PERCENTAGE_DISCOUNT = 'PERCENTAGE_DISCOUNT'
+FREE_DELIVERY_MODES = {FREE_DELIVERY_MODE_FREE, FREE_DELIVERY_MODE_PERCENTAGE_DISCOUNT}
 
 
 def _promotion_query():
@@ -170,6 +173,8 @@ def _scope_summary(promotion: Promotion, target_lookup: dict[tuple[str, UUID], o
 
 
 def _resolved_required_orders(promotion: Promotion) -> int | None:
+    if promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        return None
     if promotion.required_completed_orders is not None:
         return promotion.required_completed_orders
     if promotion.loyalty_rule is not None:
@@ -177,11 +182,38 @@ def _resolved_required_orders(promotion: Promotion) -> int | None:
     return None
 
 
+def _resolved_free_delivery_mode(promotion: Promotion) -> str | None:
+    if promotion.type != PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        return None
+    if promotion.free_delivery_mode:
+        return promotion.free_delivery_mode
+    if promotion.free_delivery_discount_percent is not None:
+        return FREE_DELIVERY_MODE_PERCENTAGE_DISCOUNT
+    return FREE_DELIVERY_MODE_FREE
+
+
+def _resolved_free_delivery_discount_percent(promotion: Promotion) -> Decimal | None:
+    if promotion.type != PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        return None
+    if _resolved_free_delivery_mode(promotion) != FREE_DELIVERY_MODE_PERCENTAGE_DISCOUNT:
+        return None
+    return promotion.free_delivery_discount_percent
+
+
 def _eligibility_summary(promotion: Promotion) -> tuple[str, str]:
     if promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        threshold = promotion.value
+        mode = _resolved_free_delivery_mode(promotion)
+        if mode == FREE_DELIVERY_MODE_PERCENTAGE_DISCOUNT:
+            discount_percent = _resolved_free_delivery_discount_percent(promotion)
+            if discount_percent is not None:
+                return (
+                    f'Available for {discount_percent}% discount above {threshold}',
+                    f'متاح بخصم {discount_percent}% فوق {threshold}',
+                )
         return (
-            f'Available when the order reaches {promotion.value}',
-            f'متاح عندما يصل الطلب إلى {promotion.value}',
+            f'Available for free delivery above {threshold}',
+            f'متاح للتوصيل المجاني فوق {threshold}',
         )
 
     if promotion.type == PromotionType.FIRST_TIME:
@@ -224,6 +256,8 @@ def serialize_promotion(
         'required_completed_orders': promotion.required_completed_orders,
         'buy_quantity': promotion.buy_quantity,
         'free_quantity': promotion.free_quantity,
+        'free_delivery_mode': promotion.free_delivery_mode,
+        'free_delivery_discount_percent': promotion.free_delivery_discount_percent,
         'loyalty_rule_id': promotion.loyalty_rule_id,
         'targets': _serialize_targets(promotion, scope_targets, target_lookup),
         'buy_targets': _serialize_targets(promotion, buy_targets, target_lookup),
@@ -261,7 +295,7 @@ def ensure_promotion_type(value: str):
     try:
         return PromotionType(value)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Invalid promotion type') from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='Invalid promotion type') from exc
 
 
 async def _ensure_loyalty_rule_valid(
@@ -276,17 +310,59 @@ async def _ensure_loyalty_rule_valid(
     return rule.id
 
 
+def _normalize_free_delivery_rule(
+    promotion_type: PromotionType,
+    free_delivery_mode: str | None,
+    free_delivery_discount_percent: Decimal | None,
+) -> tuple[str | None, Decimal | None]:
+    if promotion_type != PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        return None, None
+
+    mode = free_delivery_mode
+    if mode is None:
+        mode = FREE_DELIVERY_MODE_PERCENTAGE_DISCOUNT if free_delivery_discount_percent is not None else FREE_DELIVERY_MODE_FREE
+
+    if mode not in FREE_DELIVERY_MODES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='Invalid free delivery mode')
+
+    if mode == FREE_DELIVERY_MODE_FREE:
+        return mode, None
+
+    if free_delivery_discount_percent is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail='PERCENTAGE_DISCOUNT free delivery promotions require a discount percent',
+        )
+    if free_delivery_discount_percent <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail='free_delivery_discount_percent must be greater than zero',
+        )
+    if free_delivery_discount_percent > Decimal('100.00'):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail='free_delivery_discount_percent must be 100 or less',
+        )
+    return mode, free_delivery_discount_percent.quantize(Decimal('0.01'))
+
+
 def _normalize_order_rule(
     promotion_type: PromotionType,
     required_completed_orders: int | None,
 ) -> int | None:
+    if promotion_type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
+        return None
     if promotion_type == PromotionType.FIRST_TIME:
         return None
     if required_completed_orders is None:
         return None
     if required_completed_orders < 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='required_completed_orders must be 0 or greater')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='required_completed_orders must be 0 or greater')
     return required_completed_orders
+
+
+def _is_free_delivery_offer(promotion: Promotion) -> bool:
+    return promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT and _resolved_free_delivery_mode(promotion) == FREE_DELIVERY_MODE_FREE
 
 
 def _normalize_buy_get_rule(
@@ -298,12 +374,12 @@ def _normalize_buy_get_rule(
         return None, None
     if buy_quantity is None or free_quantity is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail='BUY_N_GET_M_FREE promotions require buy_quantity and free_quantity',
         )
     if buy_quantity <= 0 or free_quantity <= 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail='buy_quantity and free_quantity must both be greater than zero',
         )
     return buy_quantity, free_quantity
@@ -347,7 +423,7 @@ async def _validate_targets(
         seen.add(key)
         model = MENU_MODEL_BY_TYPE.get(target.entity_type)
         if model is None:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Invalid promotion target type')
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='Invalid promotion target type')
         entity = await db.get(model, target.entity_id)
         if entity is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'{target.entity_type} target not found')
@@ -428,11 +504,11 @@ def _normalize_value(promotion_type: PromotionType, value: Decimal) -> Decimal:
         return Decimal('0.00')
     if promotion_type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT and value <= 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail='FREE_DELIVERY_ABOVE_AMOUNT promotions require a value greater than zero',
         )
     if value < 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='value must be 0 or greater')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='value must be 0 or greater')
     return value
 
 
@@ -441,6 +517,11 @@ async def create_promotion_record(db: AsyncSession, payload: PromotionCreate) ->
     normalized_groups = await _normalize_target_groups(db, promotion_type, payload.targets, payload.buy_targets, payload.free_targets)
     loyalty_rule_id = await _ensure_loyalty_rule_valid(db, payload.loyalty_rule_id if promotion_type == PromotionType.LOYALTY else None)
     buy_quantity, free_quantity = _normalize_buy_get_rule(promotion_type, payload.buy_quantity, payload.free_quantity)
+    free_delivery_mode, free_delivery_discount_percent = _normalize_free_delivery_rule(
+        promotion_type,
+        payload.free_delivery_mode,
+        payload.free_delivery_discount_percent,
+    )
     required_completed_orders = _normalize_order_rule(promotion_type, payload.required_completed_orders)
     promotion = Promotion(
         title_en=payload.title_en,
@@ -453,6 +534,8 @@ async def create_promotion_record(db: AsyncSession, payload: PromotionCreate) ->
         required_completed_orders=required_completed_orders,
         buy_quantity=buy_quantity,
         free_quantity=free_quantity,
+        free_delivery_mode=free_delivery_mode,
+        free_delivery_discount_percent=free_delivery_discount_percent,
         loyalty_rule_id=loyalty_rule_id,
     )
     db.add(promotion)
@@ -488,6 +571,11 @@ async def update_promotion_record(db: AsyncSession, promotion: Promotion, payloa
         payload_values.get('buy_quantity', promotion.buy_quantity),
         payload_values.get('free_quantity', promotion.free_quantity),
     )
+    next_free_delivery_mode, next_free_delivery_discount_percent = _normalize_free_delivery_rule(
+        next_type,
+        payload_values.get('free_delivery_mode', promotion.free_delivery_mode),
+        payload_values.get('free_delivery_discount_percent', promotion.free_delivery_discount_percent),
+    )
     next_loyalty_rule_id = await _ensure_loyalty_rule_valid(
         db,
         payload_values.get('loyalty_rule_id', promotion.loyalty_rule_id) if next_type == PromotionType.LOYALTY else None,
@@ -495,7 +583,7 @@ async def update_promotion_record(db: AsyncSession, promotion: Promotion, payloa
     next_value = _normalize_value(next_type, payload_values.get('value', promotion.value))
 
     for field, value in payload_values.items():
-        if field in {'targets', 'buy_targets', 'free_targets', 'required_completed_orders', 'buy_quantity', 'free_quantity', 'loyalty_rule_id', 'value'}:
+        if field in {'targets', 'buy_targets', 'free_targets', 'required_completed_orders', 'buy_quantity', 'free_quantity', 'free_delivery_mode', 'free_delivery_discount_percent', 'loyalty_rule_id', 'value'}:
             continue
         if field == 'type' and value is not None:
             setattr(promotion, field, next_type)
@@ -505,6 +593,8 @@ async def update_promotion_record(db: AsyncSession, promotion: Promotion, payloa
     promotion.required_completed_orders = next_required_orders
     promotion.buy_quantity = next_buy_quantity
     promotion.free_quantity = next_free_quantity
+    promotion.free_delivery_mode = next_free_delivery_mode
+    promotion.free_delivery_discount_percent = next_free_delivery_discount_percent
     promotion.loyalty_rule_id = next_loyalty_rule_id
     promotion.value = next_value
     promotion.type = next_type
@@ -704,7 +794,19 @@ async def evaluate_promotions_for_user(
             matched_subtotal = cart_total
             if reason_code is None and not eligible_for_free_delivery(cart_total, Decimal(promotion.value)):
                 reason_code = 'ORDER_AMOUNT_NOT_MET'
-            discount = Decimal('0.00')
+            if reason_code is None:
+                mode = _resolved_free_delivery_mode(promotion)
+                if mode == FREE_DELIVERY_MODE_PERCENTAGE_DISCOUNT:
+                    discount_percent = _resolved_free_delivery_discount_percent(promotion)
+                    if discount_percent is None:
+                        reason_code = 'ELIGIBILITY_RULE_MISSING'
+                        discount = Decimal('0.00')
+                    else:
+                        discount = min(_percentage_discount(discount_percent, cart_total), cart_total)
+                else:
+                    discount = Decimal('0.00')
+            else:
+                discount = Decimal('0.00')
         elif promotion.type == PromotionType.BUY_N_GET_M_FREE:
             buy_targets = _effective_buy_targets(promotion)
             free_targets = _effective_free_targets(promotion)
@@ -761,11 +863,8 @@ async def evaluate_promotions_for_user(
             ineligible_entries.append(entry)
 
     eligible_entries.sort(key=lambda entry: entry.discount, reverse=True)
-    free_delivery_entry = next(
-        (entry for entry in eligible_entries if entry.promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT.value),
-        None,
-    )
-    discount_entries = [entry for entry in eligible_entries if entry.promotion.type != PromotionType.FREE_DELIVERY_ABOVE_AMOUNT.value]
+    free_delivery_entry = next((entry for entry in eligible_entries if _is_free_delivery_offer(entry.promotion)), None)
+    discount_entries = [entry for entry in eligible_entries if not _is_free_delivery_offer(entry.promotion)]
     applied = discount_entries[0] if discount_entries else free_delivery_entry
     return PromotionEvaluationResponse(
         applied_promotion=applied.promotion if applied else None,

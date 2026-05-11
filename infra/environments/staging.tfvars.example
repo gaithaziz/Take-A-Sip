@@ -10,8 +10,10 @@ min_instance_count             = 0
 max_instance_count             = 2
 
 backend_runtime_env = {
-  ENVIRONMENT = "staging"
-  LOG_LEVEL   = "INFO"
+  ENVIRONMENT    = "staging"
+  LOG_LEVEL      = "INFO"
+  STORE_LATITUDE  = "32.551347"
+  STORE_LONGITUDE = "36.017005"
 }
 
 secret_ids = [

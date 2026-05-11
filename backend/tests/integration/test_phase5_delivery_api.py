@@ -6,6 +6,9 @@ from app.models.menu import Item, ItemType, Section, Size
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 
+NEAR_SHOP_LAT = 32.5589
+NEAR_SHOP_LNG = 36.0265
+
 
 async def _seed_delivery_context(db_session):
     client_user = User(
@@ -46,8 +49,8 @@ async def _seed_delivery_context(db_session):
     size = Size(item_type=item_type, name_en='Medium', name_ar='متوسط', price=Decimal('2.50'), is_active=True)
     settings = StoreSettings(
         store_name='Take A Sip',
-        store_latitude=Decimal('31.9539000'),
-        store_longitude=Decimal('35.9106000'),
+        store_latitude=Decimal('32.5513470'),
+        store_longitude=Decimal('36.0170050'),
     )
     band = DeliveryDistanceBand(
         min_distance_km=Decimal('0.000'),
@@ -83,8 +86,8 @@ async def test_delivery_order_full_lifecycle(client, db_session):
         json={
             'order_type': 'delivery',
             'delivery_address_text': 'Amman - 7th Circle',
-            'delivery_lat': 31.9639,
-            'delivery_lng': 35.9206,
+            'delivery_lat': NEAR_SHOP_LAT,
+            'delivery_lng': NEAR_SHOP_LNG,
             'items': [
                 {
                     'size_id': str(seeded['size'].id),
@@ -158,8 +161,8 @@ async def test_delivery_order_rejected_when_no_distance_band_match(client, db_se
         json={
             'order_type': 'delivery',
             'delivery_address_text': 'Far location',
-            'delivery_lat': 31.9639,
-            'delivery_lng': 35.9206,
+            'delivery_lat': 32.2000,
+            'delivery_lng': 35.7000,
             'items': [
                 {
                     'size_id': str(seeded['size'].id),
@@ -181,8 +184,8 @@ async def test_delivery_quote_returns_distance_and_fee(client, db_session):
         '/orders/delivery-quote',
         headers=client_headers,
         json={
-            'delivery_lat': 31.9639,
-            'delivery_lng': 35.9206,
+            'delivery_lat': NEAR_SHOP_LAT,
+            'delivery_lng': NEAR_SHOP_LNG,
         },
     )
     assert response.status_code == 200

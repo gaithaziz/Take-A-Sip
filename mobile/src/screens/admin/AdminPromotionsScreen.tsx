@@ -27,6 +27,7 @@ import { getLocalizedValue } from '@/utils/i18n';
 import { mirroredRow } from '@/utils/layout';
 
 type OfferBehavior = 'FIXED_DISCOUNT' | 'BUY_N_GET_M_FREE' | 'FREE_DELIVERY_ABOVE_AMOUNT';
+type FreeDeliveryMode = 'FREE_DELIVERY' | 'PERCENTAGE_DISCOUNT';
 type EligibilityMode = 'EVERYONE' | 'NEW_CUSTOMERS' | 'AFTER_ORDER_COUNT';
 type TargetSelectionMode = 'WHOLE_MENU' | 'SPECIFIC_TARGETS';
 type TargetListKey = 'scope_targets' | 'buy_targets' | 'free_targets';
@@ -43,6 +44,8 @@ type PromotionForm = {
   required_completed_orders: string;
   buy_quantity: string;
   free_quantity: string;
+  free_delivery_mode: FreeDeliveryMode;
+  free_delivery_discount_percent: string;
   scope_targets: PromotionTargetInput[];
   buy_targets: PromotionTargetInput[];
   free_targets: PromotionTargetInput[];
@@ -70,6 +73,8 @@ const defaultForm: PromotionForm = {
   required_completed_orders: '',
   buy_quantity: '',
   free_quantity: '',
+  free_delivery_mode: 'FREE_DELIVERY',
+  free_delivery_discount_percent: '',
   scope_targets: [],
   buy_targets: [],
   free_targets: [],
@@ -115,6 +120,9 @@ const inferEligibilityMode = (promotion: Promotion): EligibilityMode => {
   if (promotion.required_completed_orders != null || promotion.type === 'LOYALTY') return 'AFTER_ORDER_COUNT';
   return 'EVERYONE';
 };
+
+const inferFreeDeliveryMode = (promotion: Promotion): FreeDeliveryMode =>
+  promotion.free_delivery_mode === 'PERCENTAGE_DISCOUNT' ? 'PERCENTAGE_DISCOUNT' : 'FREE_DELIVERY';
 
 const serializeTargets = (targets: Array<{ entity_type: MenuEntityType; entity_id: string }>) =>
   targets.map((target) => ({ entity_type: target.entity_type, entity_id: target.entity_id }));
@@ -243,6 +251,8 @@ export const AdminPromotionsScreen = () => {
       required_completed_orders: promotion.required_completed_orders == null ? '' : String(promotion.required_completed_orders),
       buy_quantity: promotion.buy_quantity == null ? '' : String(promotion.buy_quantity),
       free_quantity: promotion.free_quantity == null ? '' : String(promotion.free_quantity),
+      free_delivery_mode: inferFreeDeliveryMode(promotion),
+      free_delivery_discount_percent: promotion.free_delivery_discount_percent == null ? '' : String(promotion.free_delivery_discount_percent),
       scope_targets: nextScopeTargets,
       buy_targets: nextBuyTargets,
       free_targets: nextFreeTargets,
@@ -288,6 +298,12 @@ export const AdminPromotionsScreen = () => {
       if (!form.buy_quantity || Number(form.buy_quantity) <= 0 || Number.isNaN(Number(form.buy_quantity))) nextErrors.buy_quantity = t('validation.requiredFields');
       if (!form.free_quantity || Number(form.free_quantity) <= 0 || Number.isNaN(Number(form.free_quantity))) nextErrors.free_quantity = t('validation.requiredFields');
     }
+    if (form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT' && form.free_delivery_mode === 'PERCENTAGE_DISCOUNT') {
+      const percent = Number(form.free_delivery_discount_percent);
+      if (!form.free_delivery_discount_percent || Number.isNaN(percent) || percent <= 0 || percent > 100) {
+        nextErrors.free_delivery_discount_percent = t('validation.requiredFields');
+      }
+    }
     if (form.eligibility_mode === 'AFTER_ORDER_COUNT' && (!form.required_completed_orders || Number.isNaN(Number(form.required_completed_orders)))) {
       nextErrors.required_completed_orders = t('validation.requiredFields');
     }
@@ -308,9 +324,17 @@ export const AdminPromotionsScreen = () => {
         starts_at: form.starts_at.toISOString(),
         ends_at: form.ends_at.toISOString(),
         is_active: form.is_active,
-        required_completed_orders: form.eligibility_mode === 'AFTER_ORDER_COUNT' ? Number(form.required_completed_orders) : null,
+        required_completed_orders:
+          form.behavior !== 'FREE_DELIVERY_ABOVE_AMOUNT' && form.eligibility_mode === 'AFTER_ORDER_COUNT'
+            ? Number(form.required_completed_orders)
+            : null,
         buy_quantity: form.behavior === 'BUY_N_GET_M_FREE' ? Number(form.buy_quantity) : null,
         free_quantity: form.behavior === 'BUY_N_GET_M_FREE' ? Number(form.free_quantity) : null,
+        free_delivery_mode: form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT' ? form.free_delivery_mode : null,
+        free_delivery_discount_percent:
+          form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT' && form.free_delivery_mode === 'PERCENTAGE_DISCOUNT'
+            ? Number(form.free_delivery_discount_percent)
+            : null,
         loyalty_rule_id: null,
         targets: form.behavior === 'FIXED_DISCOUNT' ? form.scope_targets : [],
         buy_targets: form.behavior === 'BUY_N_GET_M_FREE' ? form.buy_targets : [],
@@ -361,7 +385,15 @@ export const AdminPromotionsScreen = () => {
     form.title_ar.trim().length > 0 &&
     form.ends_at.getTime() > form.starts_at.getTime() &&
     (form.behavior === 'BUY_N_GET_M_FREE' ? Boolean(form.buy_quantity && form.free_quantity) : Boolean(form.value)) &&
-    (form.eligibility_mode !== 'AFTER_ORDER_COUNT' || Boolean(form.required_completed_orders));
+    (form.eligibility_mode !== 'AFTER_ORDER_COUNT' || Boolean(form.required_completed_orders)) &&
+    (form.behavior !== 'FREE_DELIVERY_ABOVE_AMOUNT' ||
+      form.free_delivery_mode === 'FREE_DELIVERY' ||
+      Boolean(
+        form.free_delivery_discount_percent &&
+          !Number.isNaN(Number(form.free_delivery_discount_percent)) &&
+          Number(form.free_delivery_discount_percent) > 0 &&
+          Number(form.free_delivery_discount_percent) <= 100,
+      ));
 
   const scopeMode = targetModes.scope_targets;
   const buyMode = targetModes.buy_targets;
@@ -391,7 +423,9 @@ export const AdminPromotionsScreen = () => {
     form.behavior === 'BUY_N_GET_M_FREE'
       ? `${t('admin.buyQuantity')} ${form.buy_quantity || 0}, ${t('admin.freeQuantity')} ${form.free_quantity || 0}`
       : form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT'
-        ? `${t('admin.minimumOrderAmount')} ${form.value || 0}`
+        ? form.free_delivery_mode === 'PERCENTAGE_DISCOUNT'
+          ? `${t('admin.percentageDiscount')} ${form.free_delivery_discount_percent || 0}%`
+          : `${t('admin.freeDelivery')} | ${t('admin.minimumOrderAmount')} ${form.value || 0}`
         : `${t('admin.discountAmount')} ${form.value || 0}`;
 
   const scopePreview = targetSummary(form.scope_targets, targetOptionMap, t);
@@ -412,16 +446,18 @@ export const AdminPromotionsScreen = () => {
   ];
 
   const eligibilityCards =
-    form.behavior !== 'FIXED_DISCOUNT'
+    form.behavior === 'FIXED_DISCOUNT'
       ? [
-          { value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') },
-          { value: 'AFTER_ORDER_COUNT' as const, title: t('admin.eligibilityAfterOrders'), description: t('admin.eligibilityAfterOrdersHelp') },
-        ]
-      : [
           { value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') },
           { value: 'NEW_CUSTOMERS' as const, title: t('admin.eligibilityFirstTime'), description: t('admin.eligibilityFirstTimeHelp') },
           { value: 'AFTER_ORDER_COUNT' as const, title: t('admin.eligibilityAfterOrders'), description: t('admin.eligibilityAfterOrdersHelp') },
-        ];
+        ]
+      : form.behavior === 'BUY_N_GET_M_FREE'
+        ? [
+            { value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') },
+            { value: 'AFTER_ORDER_COUNT' as const, title: t('admin.eligibilityAfterOrders'), description: t('admin.eligibilityAfterOrdersHelp') },
+          ]
+        : [{ value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') }];
 
   const targetTypeSelectOptions = targetTypeOptions.map((option) => ({ value: option, label: t(`admin.${option}`) }));
 
@@ -603,10 +639,19 @@ export const AdminPromotionsScreen = () => {
                 setForm((prev) => ({
                   ...prev,
                   behavior: value,
-                  eligibility_mode: value !== 'FIXED_DISCOUNT' && prev.eligibility_mode === 'NEW_CUSTOMERS' ? 'EVERYONE' : prev.eligibility_mode,
+                  eligibility_mode:
+                    value === 'FIXED_DISCOUNT'
+                      ? prev.eligibility_mode
+                      : value === 'BUY_N_GET_M_FREE'
+                        ? prev.eligibility_mode === 'NEW_CUSTOMERS'
+                          ? 'EVERYONE'
+                        : prev.eligibility_mode
+                        : 'EVERYONE',
                   value: value === 'BUY_N_GET_M_FREE' ? '' : prev.value,
                   buy_quantity: value === 'BUY_N_GET_M_FREE' ? prev.buy_quantity : '',
                   free_quantity: value === 'BUY_N_GET_M_FREE' ? prev.free_quantity : '',
+                  free_delivery_mode: value === 'FREE_DELIVERY_ABOVE_AMOUNT' ? prev.free_delivery_mode : 'FREE_DELIVERY',
+                  free_delivery_discount_percent: value === 'FREE_DELIVERY_ABOVE_AMOUNT' ? prev.free_delivery_discount_percent : '',
                 })),
             })}
             {form.behavior === 'BUY_N_GET_M_FREE' ? (
@@ -615,7 +660,37 @@ export const AdminPromotionsScreen = () => {
                 <AppInput label={t('admin.freeQuantity')} value={form.free_quantity} keyboardType="number-pad" error={formErrors.free_quantity} onChangeText={(value) => setForm((prev) => ({ ...prev, free_quantity: value }))} />
               </View>
             ) : form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT' ? (
-              <AppInput label={t('admin.minimumOrderAmount')} value={form.value} keyboardType="decimal-pad" error={formErrors.value} onChangeText={(value) => setForm((prev) => ({ ...prev, value }))} />
+              <View style={styles.stack}>
+                <AppInput label={t('admin.minimumOrderAmount')} value={form.value} keyboardType="decimal-pad" error={formErrors.value} onChangeText={(value) => setForm((prev) => ({ ...prev, value }))} />
+                <View style={styles.formGroup}>
+                  <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                    {t('admin.freeDeliveryBenefit')}
+                  </AppText>
+                  {renderSelectorCards({
+                    accessibilityPrefix: t('admin.freeDeliveryBenefit'),
+                    options: [
+                      { value: 'FREE_DELIVERY' as const, title: t('admin.freeDeliveryModeFree'), description: t('admin.freeDeliveryModeFreeHelp') },
+                      { value: 'PERCENTAGE_DISCOUNT' as const, title: t('admin.freeDeliveryModePercent'), description: t('admin.freeDeliveryModePercentHelp') },
+                    ],
+                    selectedValue: form.free_delivery_mode,
+                    onSelect: (value) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        free_delivery_mode: value,
+                        free_delivery_discount_percent: value === 'PERCENTAGE_DISCOUNT' ? prev.free_delivery_discount_percent : '',
+                      })),
+                  })}
+                </View>
+                {form.free_delivery_mode === 'PERCENTAGE_DISCOUNT' ? (
+                  <AppInput
+                    label={t('admin.percentageDiscount')}
+                    value={form.free_delivery_discount_percent}
+                    keyboardType="decimal-pad"
+                    error={formErrors.free_delivery_discount_percent}
+                    onChangeText={(value) => setForm((prev) => ({ ...prev, free_delivery_discount_percent: value }))}
+                  />
+                ) : null}
+              </View>
             ) : (
               <AppInput label={t('admin.discountAmount')} value={form.value} keyboardType="decimal-pad" error={formErrors.value} onChangeText={(value) => setForm((prev) => ({ ...prev, value }))} />
             )}
@@ -743,7 +818,9 @@ export const AdminPromotionsScreen = () => {
               promotion.type === 'BUY_N_GET_M_FREE'
                 ? `${t('admin.buyQuantity')} ${promotion.buy_quantity ?? 0}, ${t('admin.freeQuantity')} ${promotion.free_quantity ?? 0}`
                 : promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT'
-                  ? `${t('admin.minimumOrderAmount')} ${promotion.value}`
+                  ? promotion.free_delivery_mode === 'PERCENTAGE_DISCOUNT'
+                    ? `${t('admin.percentageDiscount')} ${promotion.free_delivery_discount_percent ?? '0'}% | ${t('admin.minimumOrderAmount')} ${promotion.value}`
+                    : `${t('admin.freeDelivery')} | ${t('admin.minimumOrderAmount')} ${promotion.value}`
                   : `${t('admin.discountAmount')} ${promotion.value}`;
             const cardSummary = buildOfferSummary([
               promotion.type === 'BUY_N_GET_M_FREE'
@@ -780,7 +857,16 @@ export const AdminPromotionsScreen = () => {
                           : t('admin.offerBehaviorDiscount')
                     }
                   />
-                  <InfoLine label={promotion.type === 'BUY_N_GET_M_FREE' ? t('admin.buyGetRule') : promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT' ? t('admin.minimumOrderAmount') : t('admin.discountAmount')} value={ruleValue} />
+                  <InfoLine
+                    label={
+                      promotion.type === 'BUY_N_GET_M_FREE'
+                        ? t('admin.buyGetRule')
+                        : promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT'
+                          ? t('admin.freeDeliveryBenefit')
+                          : t('admin.discountAmount')
+                    }
+                    value={ruleValue}
+                  />
                   <InfoLine label={t('admin.scopeSummary')} value={scopeSummary} numberOfLines={2} />
                   <InfoLine label={t('admin.eligibilitySummary')} value={eligibilitySummary} numberOfLines={2} />
                 </View>
@@ -800,6 +886,7 @@ export const AdminPromotionsScreen = () => {
 const styles = StyleSheet.create({
   heading: { gap: theme.spacing.xs },
   stack: { gap: theme.spacing.lg },
+  formGroup: { gap: theme.spacing.sm },
   innerSection: { padding: theme.spacing.md, backgroundColor: theme.colors.sectionBackground, gap: theme.spacing.md },
   selectorStack: { gap: theme.spacing.sm },
   twoCol: { flexDirection: 'row', gap: theme.spacing.sm },

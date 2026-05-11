@@ -52,6 +52,10 @@ class VerifyOTPRequest(AppBaseModel):
         return normalized
 
 
+class KioskLoginRequest(AppBaseModel):
+    secret: str = Field(min_length=1)
+
+
 class OTPMessageResponse(AppBaseModel):
     message: str
 

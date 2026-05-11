@@ -15,6 +15,7 @@ from app.models.user_push_token import UserPushToken
 from app.schemas.auth import (
     AccountDeletionResponse,
     AuthUserResponse,
+    KioskLoginRequest,
     SendOTPRequest,
     TokenResponse,
     UpdateProfileRequest,
@@ -169,11 +170,15 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User inactive')
 
+    return _build_token_response(user, event='auth.login_success')
+
+
+def _build_token_response(user: User, *, event: str) -> TokenResponse:
     token = create_access_token(str(user.id), user.role.value)
     log_structured(
         logger,
         logging.INFO,
-        'auth.login_success',
+        event,
         {'user_id': str(user.id), 'role': user.role.value},
     )
     return TokenResponse(
@@ -186,6 +191,33 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
             'role': user.role.value,
         },
     )
+
+
+async def kiosk_login(payload: KioskLoginRequest, db: AsyncSession) -> TokenResponse:
+    settings = get_settings()
+    secret = (settings.kiosk_login_secret or '').strip()
+    kiosk_phone_number = (settings.kiosk_frontdesk_phone_number or '').strip()
+
+    if not secret or not kiosk_phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Kiosk login is not configured',
+        )
+    if payload.secret != secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Invalid kiosk secret')
+
+    result = await db.execute(select(User).where(User.phone_number == kiosk_phone_number))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Kiosk user not found')
+    if user.role not in {UserRole.FRONTDESK, UserRole.ADMIN}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Kiosk user is not allowed')
+    if user.is_banned:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is banned')
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User inactive')
+
+    return _build_token_response(user, event='auth.kiosk_login_success')
 
 
 async def update_profile(current_user: User, payload: UpdateProfileRequest, db: AsyncSession) -> AuthUserResponse:

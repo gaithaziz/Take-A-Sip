@@ -7,13 +7,14 @@ from app.models.user import User
 from app.schemas.auth import (
     AccountDeletionResponse,
     AuthUserResponse,
+    KioskLoginRequest,
     OTPMessageResponse,
     SendOTPRequest,
     TokenResponse,
     UpdateProfileRequest,
     VerifyOTPRequest,
 )
-from app.services.auth_service import delete_account, send_otp, update_profile, verify_otp
+from app.services.auth_service import delete_account, kiosk_login, send_otp, update_profile, verify_otp
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -33,6 +34,14 @@ async def verify_otp_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     return await verify_otp(payload, db)
+
+
+@router.post('/kiosk-login', response_model=TokenResponse)
+async def kiosk_login_endpoint(
+    payload: KioskLoginRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    return await kiosk_login(payload, db)
 
 
 @router.get('/me', response_model=AuthUserResponse)

@@ -10,10 +10,10 @@ from app.models.delivery import DeliveryDistanceBand
 
 def _validate_bounds(min_distance_km: Decimal, max_distance_km: Decimal) -> None:
     if min_distance_km < 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='min_distance_km must be >= 0')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='min_distance_km must be >= 0')
     if max_distance_km <= min_distance_km:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='max_distance_km must be > min_distance_km'
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='max_distance_km must be > min_distance_km'
         )
 
 
@@ -37,7 +37,7 @@ async def _ensure_no_overlap(
     result = await db.execute(query.limit(1))
     if result.scalar_one_or_none() is not None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail='Active distance bands must not overlap',
         )
 
@@ -61,7 +61,7 @@ async def create_distance_band(
 ) -> DeliveryDistanceBand:
     _validate_bounds(min_distance_km, max_distance_km)
     if fee_amount < 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='fee_amount must be >= 0')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='fee_amount must be >= 0')
     if is_active:
         await _ensure_no_overlap(db, min_distance_km, max_distance_km)
 
@@ -92,7 +92,7 @@ async def update_distance_band(
 
     _validate_bounds(Decimal(band.min_distance_km), Decimal(band.max_distance_km))
     if Decimal(band.fee_amount) < 0:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='fee_amount must be >= 0')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='fee_amount must be >= 0')
     if band.is_active:
         await _ensure_no_overlap(
             db, Decimal(band.min_distance_km), Decimal(band.max_distance_km), exclude_id=band.id

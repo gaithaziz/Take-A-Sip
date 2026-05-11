@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 
 import { authService } from '@/services/authService';
-import { setAuthToken } from '@/services/http';
+import { resolveApiBaseUrl, setAuthToken } from '@/services/http';
 import { sessionTokenStore } from '@/services/sessionTokenStore';
 import { AuthUser, SendOtpPayload, VerifyOtpPayload } from '@/types/api';
 
@@ -17,19 +17,20 @@ type AuthContextValue = {
 
 const TOKEN_KEY = 'take_a_sip_frontdesk_token';
 const USER_KEY = 'take_a_sip_frontdesk_user';
+const AUTH_API_BASE_URL_KEY = 'take_a_sip_frontdesk_api_base_url';
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const isDevelopmentBuild =
   typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
 
-const getDevBootstrapAuth = (): { token: string; user: AuthUser } | null => {
-  if (!isDevelopmentBuild) {
-    return null;
-  }
-
-  const token = process.env.EXPO_PUBLIC_FRONTDESK_DEV_TOKEN?.trim();
-  const userJson = process.env.EXPO_PUBLIC_FRONTDESK_DEV_USER_JSON?.trim();
+const getBootstrapAuth = (): { token: string; user: AuthUser } | null => {
+  const token =
+    process.env.EXPO_PUBLIC_FRONTDESK_KIOSK_TOKEN?.trim() ??
+    (isDevelopmentBuild ? process.env.EXPO_PUBLIC_FRONTDESK_DEV_TOKEN?.trim() : undefined);
+  const userJson =
+    process.env.EXPO_PUBLIC_FRONTDESK_KIOSK_USER_JSON?.trim() ??
+    (isDevelopmentBuild ? process.env.EXPO_PUBLIC_FRONTDESK_DEV_USER_JSON?.trim() : undefined);
   if (!token || !userJson) {
     return null;
   }
@@ -41,53 +42,84 @@ const getDevBootstrapAuth = (): { token: string; user: AuthUser } | null => {
   }
 };
 
-export const AuthProvider = ({ children }: PropsWithChildren) => {
+  export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const apiBaseUrl = resolveApiBaseUrl();
+
+  const clearStoredAuth = async () => {
+    await Promise.all([
+      sessionTokenStore.remove(),
+      AsyncStorage.removeItem(TOKEN_KEY),
+      AsyncStorage.removeItem(USER_KEY),
+      AsyncStorage.removeItem(AUTH_API_BASE_URL_KEY),
+    ]);
+  };
+
+  const persistAuthState = async (nextToken: string, nextUser: AuthUser) => {
+    setToken(nextToken);
+    setUser(nextUser);
+    setAuthToken(nextToken);
+    try {
+      await Promise.all([
+        sessionTokenStore.set(nextToken),
+        AsyncStorage.removeItem(TOKEN_KEY),
+        AsyncStorage.setItem(USER_KEY, JSON.stringify(nextUser)),
+        AsyncStorage.setItem(AUTH_API_BASE_URL_KEY, apiBaseUrl),
+      ]);
+    } catch {
+      // Keep the user signed in in memory even if persistence fails.
+    }
+  };
+
+  const bootstrapAuth = async () => {
+    const bootstrap = getBootstrapAuth();
+    if (!bootstrap) {
+      return false;
+    }
+
+    await persistAuthState(bootstrap.token, bootstrap.user);
+    return true;
+  };
 
   useEffect(() => {
     const run = async () => {
       try {
-        const [savedToken, legacyToken, savedUser] = await Promise.all([
+        const [savedToken, legacyToken, savedUser, savedApiBaseUrl] = await Promise.all([
           sessionTokenStore.get(),
           AsyncStorage.getItem(TOKEN_KEY),
           AsyncStorage.getItem(USER_KEY),
+          AsyncStorage.getItem(AUTH_API_BASE_URL_KEY),
         ]);
         const restoredToken = savedToken ?? legacyToken;
         if (legacyToken) {
           await AsyncStorage.removeItem(TOKEN_KEY);
         }
-        if (restoredToken) {
+        const shouldRestorePersistedAuth = restoredToken && savedApiBaseUrl === apiBaseUrl;
+        if (shouldRestorePersistedAuth) {
           if (!savedToken && legacyToken) {
             await sessionTokenStore.set(legacyToken);
           }
           setToken(restoredToken);
           setAuthToken(restoredToken);
-        }
-        if (savedUser) {
-          setUser(JSON.parse(savedUser) as AuthUser);
-        }
-        if (!restoredToken) {
-          const devAuth = getDevBootstrapAuth();
-          if (devAuth) {
-            setToken(devAuth.token);
-            setUser(devAuth.user);
-            setAuthToken(devAuth.token);
-            await Promise.all([
-              sessionTokenStore.set(devAuth.token),
-              AsyncStorage.removeItem(TOKEN_KEY),
-              AsyncStorage.setItem(USER_KEY, JSON.stringify(devAuth.user)),
-            ]);
+          if (savedUser) {
+            setUser(JSON.parse(savedUser) as AuthUser);
           }
+        } else {
+          await clearStoredAuth();
+        }
+        if (!shouldRestorePersistedAuth) {
+          await bootstrapAuth();
         }
       } catch {
         // Continue without persisted auth if local storage is unavailable/corrupt.
         setToken(null);
         setUser(null);
         setAuthToken(null);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     void run();
   }, []);
@@ -101,29 +133,22 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     if (response.user.role !== 'FRONTDESK' && response.user.role !== 'ADMIN') {
       throw new Error('This account is not allowed to use frontdesk.');
     }
-    setToken(response.access_token);
-    setUser(response.user);
-    setAuthToken(response.access_token);
-    try {
-      await Promise.all([
-        sessionTokenStore.set(response.access_token),
-        AsyncStorage.removeItem(TOKEN_KEY),
-        AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user)),
-      ]);
-    } catch {
-      // Keep the user signed in memory even if persistence fails.
-    }
+    await persistAuthState(response.access_token, response.user);
   };
 
   const logout = async () => {
-    setToken(null);
-    setUser(null);
-    setAuthToken(null);
     try {
-      await Promise.all([sessionTokenStore.remove(), AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
+      await clearStoredAuth();
+      const bootstrapped = await bootstrapAuth();
+      if (bootstrapped) {
+        return;
+      }
     } catch {
       // Ignore storage cleanup failures to avoid logout crashes.
     }
+    setToken(null);
+    setUser(null);
+    setAuthToken(null);
   };
 
   const value = useMemo(

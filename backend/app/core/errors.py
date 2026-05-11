@@ -15,9 +15,9 @@ _ERROR_BY_STATUS: dict[int, str] = {
     status.HTTP_403_FORBIDDEN: 'FORBIDDEN',
     status.HTTP_404_NOT_FOUND: 'NOT_FOUND',
     status.HTTP_409_CONFLICT: 'CONFLICT',
-    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+    status.HTTP_413_CONTENT_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
     status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
-    status.HTTP_422_UNPROCESSABLE_ENTITY: 'VALIDATION_ERROR',
+    status.HTTP_422_UNPROCESSABLE_CONTENT: 'VALIDATION_ERROR',
     status.HTTP_500_INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
     status.HTTP_503_SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
 }
@@ -69,10 +69,10 @@ def register_exception_handlers(app: FastAPI) -> None:
             for error in exc.errors()
         ]
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content=_error_payload(
                 request=request,
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 message='Validation failed',
                 details=details,
             ),

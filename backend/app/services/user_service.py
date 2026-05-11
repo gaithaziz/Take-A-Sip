@@ -131,7 +131,7 @@ async def provision_staff_user(
 ) -> tuple[User, bool]:
     role_enum = UserRole(role)
     if role_enum == UserRole.CLIENT:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Role is not allowed')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='Role is not allowed')
 
     normalized_phone = normalize_phone_number(phone_number)
     existing = await db.execute(select(User).where(User.phone_number == normalized_phone))
@@ -177,13 +177,13 @@ async def _get_staff_user(db: AsyncSession, target_user_id: UUID) -> User:
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='User not found')
     if user.role == UserRole.CLIENT:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='This action is only available for staff accounts')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='This action is only available for staff accounts')
     return user
 
 
 def _guard_self_staff_action(target_user_id: UUID, actor_user_id: UUID) -> None:
     if target_user_id == actor_user_id:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='You cannot apply this action to your own account')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='You cannot apply this action to your own account')
 
 
 async def archive_staff_user(db: AsyncSession, target_user_id: UUID, actor_user_id: UUID) -> User:
@@ -225,7 +225,7 @@ async def delete_staff_user(db: AsyncSession, target_user_id: UUID, actor_user_i
     user = await _get_staff_user(db, target_user_id)
     if user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail='Archive the staff account before permanently deleting it',
         )
 
@@ -235,7 +235,7 @@ async def delete_staff_user(db: AsyncSession, target_user_id: UUID, actor_user_i
     rating_count = int(rating_count_result.scalar_one() or 0)
     if order_count > 0 or rating_count > 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail='This staff account has customer history and cannot be permanently deleted',
         )
 

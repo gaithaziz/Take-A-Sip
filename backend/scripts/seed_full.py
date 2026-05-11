@@ -20,8 +20,8 @@ from app.models.user_event import UserEvent
 from app.models.user_push_token import UserPushToken
 
 
-AMMAN_LATITUDE = Decimal('31.9539000')
-AMMAN_LONGITUDE = Decimal('35.9106000')
+STORE_LATITUDE = Decimal('32.5513470')
+STORE_LONGITUDE = Decimal('36.0170050')
 
 
 @dataclass(frozen=True)
@@ -146,7 +146,13 @@ async def seed_users() -> dict[str, User]:
 
 async def seed_store_and_delivery() -> list[DeliveryDistanceBand]:
     async with SessionLocal() as session:
-        session.add(StoreSettings(store_name='Take A Sip Demo Store', store_latitude=AMMAN_LATITUDE, store_longitude=AMMAN_LONGITUDE))
+        session.add(
+            StoreSettings(
+                store_name='Take A Sip Demo Store',
+                store_latitude=STORE_LATITUDE,
+                store_longitude=STORE_LONGITUDE,
+            )
+        )
         bands = [
             DeliveryDistanceBand(min_distance_km=money('0.000'), max_distance_km=money('3.000'), fee_amount=money('1.00'), sort_order=1, is_active=True),
             DeliveryDistanceBand(min_distance_km=money('3.001'), max_distance_km=money('7.500'), fee_amount=money('1.75'), sort_order=2, is_active=True),

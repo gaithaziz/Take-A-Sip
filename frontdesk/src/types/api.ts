@@ -19,6 +19,10 @@ export type VerifyOtpPayload = {
   last_name?: string;
 };
 
+export type KioskLoginPayload = {
+  secret: string;
+};
+
 export type TokenResponse = {
   access_token: string;
   token_type: string;

@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -13,6 +13,20 @@ from app.models.user import User, UserRole
 
 settings = get_settings()
 security = HTTPBearer(auto_error=False)
+APP_RLS_ROLE = 'take_a_sip_app'
+
+
+async def _activate_rls_context(db: AsyncSession, user: User) -> None:
+    await db.execute(
+        text(
+            "select set_config('app.current_user_id', :user_id, false), set_config('app.current_user_role', :user_role, false)"
+        ),
+        {'user_id': str(user.id), 'user_role': user.role.value},
+    )
+
+    role_exists = await db.execute(text('select exists(select 1 from pg_roles where rolname = :role_name)'), {'role_name': APP_RLS_ROLE})
+    if role_exists.scalar_one():
+        await db.execute(text(f'SET ROLE {APP_RLS_ROLE}'))
 
 
 async def get_current_user(
@@ -41,6 +55,7 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User inactive')
 
+    await _activate_rls_context(db, user)
     return user
 
 

@@ -8,6 +8,9 @@ from app.models.order import OrderStatus
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 
+NEAR_SHOP_LAT = 32.5589
+NEAR_SHOP_LNG = 36.0265
+
 
 async def _seed_order_context(db_session):
     admin = User(
@@ -56,8 +59,8 @@ async def _seed_order_context(db_session):
     size = Size(item_type=item_type, name_en='Large', name_ar='Large', price=Decimal('3.50'), is_active=True)
     settings = StoreSettings(
         store_name='Take A Sip',
-        store_latitude=Decimal('31.9539000'),
-        store_longitude=Decimal('35.9106000'),
+        store_latitude=Decimal('32.5513470'),
+        store_longitude=Decimal('36.0170050'),
     )
     band = DeliveryDistanceBand(
         min_distance_km=Decimal('0.000'),
@@ -95,8 +98,8 @@ async def test_admin_dashboard_analytics_and_security_guards(client, db_session)
         json={
             'order_type': 'delivery',
             'delivery_address_text': 'Amman',
-            'delivery_lat': 31.9639,
-            'delivery_lng': 35.9206,
+            'delivery_lat': NEAR_SHOP_LAT,
+            'delivery_lng': NEAR_SHOP_LNG,
             'items': [{'size_id': str(seeded['size'].id), 'quantity': 1, 'addon_ids': []}],
         },
     )

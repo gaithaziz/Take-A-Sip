@@ -186,14 +186,14 @@ def _parse_hhmm(raw_value: str, field_name: str):
         return datetime.strptime(raw_value, '%H:%M').time()
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f'{field_name} must be HH:MM',
         ) from exc
 
 
 def _ensure_days(days_of_week: list[int]) -> None:
     if any(day < 0 or day > 6 for day in days_of_week):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='days_of_week must be 0..6')
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail='days_of_week must be 0..6')
 
 
 def _menu_models():
@@ -226,7 +226,7 @@ async def upload_menu_image(
     max_bytes = settings.max_upload_size_mb * 1024 * 1024
     if len(content) > max_bytes:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f'Image must be <= {settings.max_upload_size_mb}MB',
         )
 

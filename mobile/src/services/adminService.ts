@@ -161,6 +161,8 @@ export const adminService = {
     required_completed_orders?: number | null;
     buy_quantity?: number | null;
     free_quantity?: number | null;
+    free_delivery_mode?: 'FREE_DELIVERY' | 'PERCENTAGE_DISCOUNT' | null;
+    free_delivery_discount_percent?: number | null;
     loyalty_rule_id?: string | null;
     targets: PromotionTargetInput[];
     buy_targets?: PromotionTargetInput[];

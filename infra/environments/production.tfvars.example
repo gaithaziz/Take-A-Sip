@@ -10,8 +10,10 @@ min_instance_count             = 0
 max_instance_count             = 3
 
 backend_runtime_env = {
-  ENVIRONMENT = "production"
-  LOG_LEVEL   = "INFO"
+  ENVIRONMENT    = "production"
+  LOG_LEVEL      = "INFO"
+  STORE_LATITUDE  = "32.551347"
+  STORE_LONGITUDE = "36.017005"
 }
 
 secret_ids = [

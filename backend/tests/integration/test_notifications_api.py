@@ -11,6 +11,9 @@ from app.models.user import User, UserRole
 from app.models.user_push_token import UserPushToken
 from app.services import notification_service
 
+NEAR_SHOP_LAT = 32.5589
+NEAR_SHOP_LNG = 36.0265
+
 
 def _auth_headers(user: User) -> dict[str, str]:
     return {'Authorization': f'Bearer {create_access_token(str(user.id), user.role.value)}'}
@@ -215,8 +218,8 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
     size = Size(item_type=item_type, name_en='Regular', name_ar='Regular', price=Decimal('3.50'), is_active=True)
     store_settings = StoreSettings(
         store_name='Take A Sip',
-        store_latitude=Decimal('31.9539000'),
-        store_longitude=Decimal('35.9106000'),
+        store_latitude=Decimal('32.5513470'),
+        store_longitude=Decimal('36.0170050'),
     )
     db_session.add_all(
         [
@@ -305,8 +308,8 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
             json={
                 'order_type': 'delivery',
                 'delivery_address': 'Amman',
-                'delivery_lat': 31.9639,
-                'delivery_lng': 35.9206,
+                'delivery_lat': NEAR_SHOP_LAT,
+                'delivery_lng': NEAR_SHOP_LNG,
                 'items': [{'size_id': str(size.id), 'quantity': 1, 'addon_ids': []}],
             },
         )

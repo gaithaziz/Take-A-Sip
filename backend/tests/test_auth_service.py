@@ -1,10 +1,14 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+from uuid import UUID
 
+from app.core.config import Settings
+from app.models.user import User, UserRole
 from app.schemas.auth import SendOTPRequest
-from app.services.auth_service import send_otp
+from app.schemas.auth import KioskLoginRequest
+from app.services.auth_service import kiosk_login, send_otp
 from app.services.sms_service import SMSProviderError
 
 
@@ -34,3 +38,32 @@ async def test_send_otp_clears_failed_delivery_challenge() -> None:
     assert exc.value.status_code == 503
     generate_mock.assert_awaited_once_with(db, payload.phone_number)
     clear_mock.assert_awaited_once_with(db, payload.phone_number)
+
+
+@pytest.mark.asyncio
+async def test_kiosk_login_returns_frontdesk_token() -> None:
+    db = AsyncMock()
+    user = User(
+        id=UUID('0d15bd53-e6bd-467d-969e-999be51a40cd'),
+        first_name='Front',
+        last_name='Desk',
+        phone_number='0790000001',
+        role=UserRole.FRONTDESK,
+        is_active=True,
+        is_banned=False,
+    )
+    db_result = MagicMock()
+    db_result.scalar_one_or_none.return_value = user
+    db.execute = AsyncMock(return_value=db_result)
+    settings = Settings(
+        kiosk_login_secret='sunmi-secret',
+        kiosk_frontdesk_phone_number='0790000001',
+    )
+
+    with patch('app.services.auth_service.get_settings', return_value=settings):
+        response = await kiosk_login(KioskLoginRequest(secret='sunmi-secret'), db)
+
+    assert response.user.phone_number == '0790000001'
+    assert response.user.role == 'FRONTDESK'
+    assert response.access_token
+    db.execute.assert_awaited_once()

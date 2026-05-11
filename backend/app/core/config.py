@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_from_number: str | None = None
+    kiosk_login_secret: str | None = None
+    kiosk_frontdesk_phone_number: str | None = None
     mersal_api_url: str | None = None
     mersal_api_key: str | None = None
     mersal_sender_id: str | None = None

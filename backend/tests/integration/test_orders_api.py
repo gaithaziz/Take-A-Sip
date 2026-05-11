@@ -9,6 +9,9 @@ from app.models.promotion import Promotion, PromotionType
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 
+NEAR_SHOP_LAT = 32.5589
+NEAR_SHOP_LNG = 36.0265
+
 
 async def test_create_order_and_fetch_history(client, db_session):
     user = User(
@@ -310,8 +313,8 @@ async def test_create_delivery_order_requires_delivery_address(client, db_sessio
 
     store_settings = StoreSettings(
         store_name='Take A Sip',
-        store_latitude=Decimal('31.9539000'),
-        store_longitude=Decimal('35.9106000'),
+        store_latitude=Decimal('32.5513470'),
+        store_longitude=Decimal('36.0170050'),
     )
     distance_band = DeliveryDistanceBand(
         min_distance_km=Decimal('0.000'),
@@ -348,13 +351,13 @@ async def test_create_delivery_order_requires_delivery_address(client, db_sessio
         '/orders',
         headers=headers,
         json={
-            'order_type': 'delivery',
-            'delivery_address': 'Amman - 7th Circle',
-            'delivery_lat': 31.9639,
-            'delivery_lng': 35.9206,
-            'items': [
-                {
-                    'size_id': str(size.id),
+                'order_type': 'delivery',
+                'delivery_address': 'Amman - 7th Circle',
+                'delivery_lat': NEAR_SHOP_LAT,
+                'delivery_lng': NEAR_SHOP_LNG,
+                'items': [
+                    {
+                        'size_id': str(size.id),
                     'quantity': 1,
                     'addon_ids': [],
                 }

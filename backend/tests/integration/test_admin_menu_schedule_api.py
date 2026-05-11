@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.security import create_access_token
 from app.models.menu import Item, ItemType, Section, Size
@@ -25,7 +25,7 @@ async def test_admin_schedule_can_hide_menu_entities(client, db_session):
     token = create_access_token(str(admin.id), admin.role.value)
     headers = {'Authorization': f'Bearer {token}'}
 
-    today = datetime.utcnow().weekday()
+    today = datetime.now(timezone.utc).weekday()
     blocked_day = (today + 1) % 7
 
     schedule_response = await client.post(

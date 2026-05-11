@@ -34,6 +34,8 @@ class Promotion(UUIDPrimaryKeyMixin, Base):
     required_completed_orders: Mapped[int | None] = mapped_column(Integer, nullable=True)
     buy_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     free_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    free_delivery_mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    free_delivery_discount_percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     loyalty_rule_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey('loyalty_rules.id', ondelete='SET NULL'), nullable=True
     )

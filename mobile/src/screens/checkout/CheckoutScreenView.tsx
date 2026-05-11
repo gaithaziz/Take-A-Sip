@@ -15,6 +15,11 @@ import { mirroredRow } from '@/utils/layout';
 
 type CheckoutOrderType = 'pickup' | 'delivery';
 
+const DEFAULT_STORE_LOCATION = {
+  latitude: 32.551347,
+  longitude: 36.017005,
+};
+
 type CheckoutScreenViewProps = {
   title: string;
   pickupLabel: string;
@@ -131,8 +136,8 @@ export const CheckoutScreenView = ({
   const mapRef = useRef<MapView | null>(null);
   const mapCenter = useMemo(
     () => ({
-      latitude: selectedLat ?? 31.9539,
-      longitude: selectedLng ?? 35.9106,
+      latitude: selectedLat ?? DEFAULT_STORE_LOCATION.latitude,
+      longitude: selectedLng ?? DEFAULT_STORE_LOCATION.longitude,
     }),
     [selectedLat, selectedLng],
   );

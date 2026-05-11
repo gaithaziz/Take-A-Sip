@@ -11,7 +11,6 @@ type SocketHandlers = {
 type ReactNativeWebSocketConstructor = new (
   url: string,
   protocols?: string | string[] | null,
-  options?: { headers?: Record<string, string> },
 ) => WebSocket;
 
 const WebSocketWithHeaders = WebSocket as unknown as ReactNativeWebSocketConstructor;
@@ -39,12 +38,8 @@ export class FrontdeskSocket {
       return;
     }
     const wsBase = this.baseHttpUrl.replace(/^http/, 'ws').replace(/\/$/, '');
-    const url = `${wsBase}/ws/frontdesk`;
-    this.ws = new WebSocketWithHeaders(url, undefined, {
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-      },
-    });
+    const url = `${wsBase}/ws/frontdesk?token=${encodeURIComponent(this.token)}`;
+    this.ws = new WebSocketWithHeaders(url);
 
     this.ws.onopen = () => {
       this.reconnectAttempt = 0;
