@@ -6,6 +6,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.cache import public_response_cache
 from app.core.database import get_db
 from app.main import create_app
 from app.models import Base
@@ -17,6 +18,7 @@ async def db_engine():
     if not test_database_url:
         pytest.skip('TEST_DATABASE_URL is not set; skipping integration tests')
 
+    public_response_cache.clear()
     engine = create_async_engine(test_database_url, future=True)
 
     async with engine.begin() as conn:
@@ -28,6 +30,7 @@ async def db_engine():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
+    public_response_cache.clear()
 
 
 @pytest_asyncio.fixture

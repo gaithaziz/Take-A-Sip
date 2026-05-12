@@ -6,7 +6,7 @@ import { I18nManager } from 'react-native';
 import { resources } from './translations';
 
 const LANGUAGE_KEY = 'frontdesk_language';
-const DEFAULT_LANGUAGE = 'en';
+const DEFAULT_LANGUAGE = 'ar';
 export const isRtlLanguage = (lang: string) => lang.toLowerCase().startsWith('ar');
 const normalizeLanguage = (lang: string | null | undefined) => (isRtlLanguage(lang ?? '') ? 'ar' : DEFAULT_LANGUAGE);
 

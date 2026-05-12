@@ -11,15 +11,16 @@ type LanguageContextValue = {
 };
 
 const STORAGE_KEY = 'take_a_sip_language';
+const DEFAULT_LANGUAGE: LanguageCode = 'ar';
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
 export const LanguageProvider = ({ children }: PropsWithChildren) => {
-  const [language, setLanguage] = useState<LanguageCode>('en');
+  const [language, setLanguage] = useState<LanguageCode>(DEFAULT_LANGUAGE);
 
   useEffect(() => {
     const run = async () => {
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      const next = saved === 'ar' ? 'ar' : 'en';
+      const next = saved === 'en' || saved === 'ar' ? saved : DEFAULT_LANGUAGE;
       setLanguage(next);
       await i18n.changeLanguage(next);
     };

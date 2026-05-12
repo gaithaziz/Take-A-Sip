@@ -45,6 +45,7 @@ def upgrade() -> None:
     op.execute(f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {APP_ROLE}')
 
     op.execute(f'CREATE SCHEMA IF NOT EXISTS {POLICY_SCHEMA}')
+    op.execute(f'GRANT USAGE ON SCHEMA {POLICY_SCHEMA} TO {APP_ROLE}')
     op.execute(
         f"""
         CREATE OR REPLACE FUNCTION {POLICY_SCHEMA}.current_user_id()
@@ -121,6 +122,8 @@ def upgrade() -> None:
         $$;
         """
     )
+    op.execute(f'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA {POLICY_SCHEMA} TO {APP_ROLE}')
+    op.execute(f'ALTER DEFAULT PRIVILEGES IN SCHEMA {POLICY_SCHEMA} GRANT EXECUTE ON FUNCTIONS TO {APP_ROLE}')
 
     for table_name in SENSITIVE_TABLES:
         op.execute(f'ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY')

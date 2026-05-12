@@ -28,6 +28,10 @@ async def test_admin_schedule_can_hide_menu_entities(client, db_session):
     today = datetime.now(timezone.utc).weekday()
     blocked_day = (today + 1) % 7
 
+    primed_menu_response = await client.get('/menu')
+    assert primed_menu_response.status_code == 200
+    assert len(primed_menu_response.json()['sections']) == 1
+
     schedule_response = await client.post(
         '/admin/menu/schedule',
         headers=headers,

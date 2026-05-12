@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import ACTIVE_PROMOTIONS_CACHE_KEY, PUBLIC_MENU_CACHE_KEY, public_response_cache
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.deps import require_roles
@@ -111,6 +112,14 @@ from app.services.user_service import (
 )
 
 router = APIRouter(prefix='/admin', tags=['admin'])
+
+
+def _invalidate_public_menu_cache() -> None:
+    public_response_cache.delete(PUBLIC_MENU_CACHE_KEY)
+
+
+def _invalidate_active_promotions_cache() -> None:
+    public_response_cache.delete(ACTIVE_PROMOTIONS_CACHE_KEY)
 
 
 def _section_to_read(section: Section) -> SectionRead:
@@ -264,6 +273,7 @@ async def create_section(
     db.add(section)
     await db.commit()
     await db.refresh(section)
+    _invalidate_public_menu_cache()
     return _section_to_read(section)
 
 
@@ -281,6 +291,7 @@ async def update_section(
         setattr(section, field, value)
     await db.commit()
     await db.refresh(section)
+    _invalidate_public_menu_cache()
     return _section_to_read(section)
 
 
@@ -302,6 +313,7 @@ async def create_item(
     db.add(item)
     await db.commit()
     await db.refresh(item)
+    _invalidate_public_menu_cache()
     return _item_to_read(item)
 
 
@@ -322,6 +334,7 @@ async def update_item(
         setattr(item, field, value)
     await db.commit()
     await db.refresh(item)
+    _invalidate_public_menu_cache()
     return _item_to_read(item)
 
 
@@ -341,6 +354,7 @@ async def create_type(
     db.add(item_type)
     await db.commit()
     await db.refresh(item_type)
+    _invalidate_public_menu_cache()
     return _type_to_read(item_type)
 
 
@@ -361,6 +375,7 @@ async def update_type(
         setattr(item_type, field, value)
     await db.commit()
     await db.refresh(item_type)
+    _invalidate_public_menu_cache()
     return _type_to_read(item_type)
 
 
@@ -382,6 +397,7 @@ async def create_size(
     db.add(size)
     await db.commit()
     await db.refresh(size)
+    _invalidate_public_menu_cache()
     return _size_to_read(size)
 
 
@@ -402,6 +418,7 @@ async def update_size(
         setattr(size_entity, field, value)
     await db.commit()
     await db.refresh(size_entity)
+    _invalidate_public_menu_cache()
     return _size_to_read(size_entity)
 
 
@@ -422,6 +439,7 @@ async def create_addon(
     db.add(addon)
     await db.commit()
     await db.refresh(addon)
+    _invalidate_public_menu_cache()
     return _addon_to_read(addon)
 
 
@@ -442,6 +460,7 @@ async def update_addon(
         setattr(addon, field, value)
     await db.commit()
     await db.refresh(addon)
+    _invalidate_public_menu_cache()
     return _addon_to_read(addon)
 
 
@@ -452,6 +471,7 @@ async def delete_section(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> MenuDeleteResponse:
     counts = await delete_menu_entity(db, 'section', section_id)
+    _invalidate_public_menu_cache()
     return MenuDeleteResponse(id=section_id, kind='section', deleted_counts=counts)
 
 
@@ -462,6 +482,7 @@ async def delete_item(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> MenuDeleteResponse:
     counts = await delete_menu_entity(db, 'item', item_id)
+    _invalidate_public_menu_cache()
     return MenuDeleteResponse(id=item_id, kind='item', deleted_counts=counts)
 
 
@@ -472,6 +493,7 @@ async def delete_type(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> MenuDeleteResponse:
     counts = await delete_menu_entity(db, 'type', type_id)
+    _invalidate_public_menu_cache()
     return MenuDeleteResponse(id=type_id, kind='type', deleted_counts=counts)
 
 
@@ -482,6 +504,7 @@ async def delete_size(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> MenuDeleteResponse:
     counts = await delete_menu_entity(db, 'size', size_id)
+    _invalidate_public_menu_cache()
     return MenuDeleteResponse(id=size_id, kind='size', deleted_counts=counts)
 
 
@@ -492,6 +515,7 @@ async def delete_addon(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> MenuDeleteResponse:
     counts = await delete_menu_entity(db, 'addon', addon_id)
+    _invalidate_public_menu_cache()
     return MenuDeleteResponse(id=addon_id, kind='addon', deleted_counts=counts)
 
 
@@ -511,6 +535,7 @@ async def toggle_entity(
     entity.is_active = not entity.is_active
     await db.commit()
     await db.refresh(entity)
+    _invalidate_public_menu_cache()
     return ToggleResponse(id=entity.id, is_active=entity.is_active)
 
 
@@ -532,6 +557,7 @@ async def schedule_menu(
         end_time=end_time,
         days_of_week=payload.days_of_week,
     )
+    _invalidate_public_menu_cache()
     return ScheduleMenuResponse(message='Schedule created', schedule_id=schedule.id)
 
 
@@ -583,6 +609,7 @@ async def patch_menu_schedule(
         days_of_week=values.get('days_of_week'),
         is_active=values.get('is_active'),
     )
+    _invalidate_public_menu_cache()
     return ScheduleRead(
         id=updated.id,
         entity_type=updated.entity_type,
@@ -601,6 +628,7 @@ async def remove_menu_schedule(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> None:
     await delete_menu_schedule(db, schedule_id)
+    _invalidate_public_menu_cache()
 
 
 @router.get('/promotions', response_model=PromotionsListResponse)
@@ -623,6 +651,7 @@ async def create_promotion(
     promotion = await create_promotion_record(db, payload)
     await emit_post_commit_promotion_created_notification(db, promotion)
     target_lookup = await _load_target_lookup(db, [promotion])
+    _invalidate_active_promotions_cache()
     return PromotionRead.model_validate(serialize_promotion(promotion, target_lookup))
 
 
@@ -641,6 +670,7 @@ async def update_promotion(
         ensure_promotion_type(values['type'])
     promotion = await update_promotion_record(db, promotion, values)
     target_lookup = await _load_target_lookup(db, [promotion])
+    _invalidate_active_promotions_cache()
     return PromotionRead.model_validate(serialize_promotion(promotion, target_lookup))
 
 
@@ -655,6 +685,7 @@ async def toggle_promotion(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Promotion not found')
     promotion = await toggle_promotion_record(db, promotion)
     target_lookup = await _load_target_lookup(db, [promotion])
+    _invalidate_active_promotions_cache()
     return PromotionRead.model_validate(serialize_promotion(promotion, target_lookup))
 
 
@@ -682,6 +713,7 @@ async def create_loyalty_rule(
     db.add(rule)
     await db.commit()
     await db.refresh(rule)
+    _invalidate_active_promotions_cache()
     return LoyaltyRuleRead.model_validate(rule)
 
 
@@ -699,6 +731,7 @@ async def update_loyalty_rule(
         setattr(rule, field, value)
     await db.commit()
     await db.refresh(rule)
+    _invalidate_active_promotions_cache()
     return LoyaltyRuleRead.model_validate(rule)
 
 
@@ -714,6 +747,7 @@ async def toggle_loyalty_rule(
     rule.is_active = not rule.is_active
     await db.commit()
     await db.refresh(rule)
+    _invalidate_active_promotions_cache()
     return LoyaltyRuleRead.model_validate(rule)
 
 

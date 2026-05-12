@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     database_pool_recycle_seconds: int = 1800
     database_use_null_pool: bool = False
     ready_check_db: bool = True
+    public_cache_ttl_seconds: int = 60
 
     jwt_secret_key: str = 'change-me'
     jwt_algorithm: str = 'HS256'

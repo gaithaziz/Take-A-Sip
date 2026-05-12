@@ -97,6 +97,10 @@ async def test_admin_promotions_and_loyalty_crud(client, db_session):
     assert list_promotions.status_code == 200
     assert len(list_promotions.json()['promotions']) == 1
 
+    active_promotions = await client.get('/promotions/active')
+    assert active_promotions.status_code == 200
+    assert len(active_promotions.json()['promotions']) == 1
+
     create_promotion = await client.post(
         '/admin/promotions',
         headers=headers,
@@ -113,9 +117,17 @@ async def test_admin_promotions_and_loyalty_crud(client, db_session):
     assert create_promotion.status_code == 200
     promotion_id = create_promotion.json()['id']
 
+    refreshed_active_promotions = await client.get('/promotions/active')
+    assert refreshed_active_promotions.status_code == 200
+    assert len(refreshed_active_promotions.json()['promotions']) == 2
+
     toggle_promotion = await client.patch(f'/admin/promotions/{promotion_id}/toggle', headers=headers)
     assert toggle_promotion.status_code == 200
     assert toggle_promotion.json()['is_active'] is False
+
+    active_after_toggle = await client.get('/promotions/active')
+    assert active_after_toggle.status_code == 200
+    assert len(active_after_toggle.json()['promotions']) == 1
 
     list_rules = await client.get('/admin/loyalty-rules', headers=headers)
     assert list_rules.status_code == 200
