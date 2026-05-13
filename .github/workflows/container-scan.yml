@@ -17,7 +17,6 @@ permissions:
 jobs:
   trivy:
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -27,7 +26,7 @@ jobs:
         run: docker build -t take-a-sip-backend-scan:local backend
 
       - name: Scan backend image
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: take-a-sip-backend-scan:local
           format: sarif
