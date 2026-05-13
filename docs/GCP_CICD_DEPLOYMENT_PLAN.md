@@ -1,5 +1,7 @@
 # GCP CI/CD And Deployment Plan
 
+> Historical note: this plan has been superseded for production data services. The current target stack is Cloud Run + Neon Postgres + Cloudflare R2, documented in `backend/DEPLOYMENT.md`, `docs/deployment-readiness.md`, and `docs/deployment-operations.md`. References below to Cloud SQL or Cloud Storage are retained only as older planning context and should not be used for new production configuration.
+
 ## Summary
 Set up a GCP-based CI/CD and deployment workflow for the `Take-A-Sip` system with clear separation between build, test, release, and runtime infrastructure.
 

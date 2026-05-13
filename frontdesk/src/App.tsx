@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
 
 import { initializeI18n } from '@/i18n';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useKioskMode } from '@/hooks/useKioskMode';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { AuthScreen } from '@/screens/AuthScreen';
@@ -66,7 +67,9 @@ const AppShell = () => {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppShell />
+      <ErrorBoundary>
+        <AppShell />
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

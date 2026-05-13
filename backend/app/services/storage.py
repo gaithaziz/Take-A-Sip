@@ -43,6 +43,9 @@ class StorageService:
     ) -> StoredObject:
         raise NotImplementedError
 
+    async def get_object(self, key: str) -> tuple[bytes, str | None]:
+        raise NotImplementedError
+
 
 class LocalStorageService(StorageService):
     def __init__(self, upload_dir: str, public_base_url: str | None = None) -> None:
@@ -70,6 +73,12 @@ class LocalStorageService(StorageService):
             key=object_name,
             url=_join_url(base_url, f'uploads/{quote(object_name)}'),
         )
+
+    async def get_object(self, key: str) -> tuple[bytes, str | None]:
+        file_path = self.uploads_dir / key
+        if not file_path.is_file() or self.uploads_dir not in file_path.resolve().parents:
+            raise FileNotFoundError(key)
+        return await run_in_threadpool(file_path.read_bytes), None
 
 
 class S3CompatibleStorageService(StorageService):
@@ -132,6 +141,15 @@ class S3CompatibleStorageService(StorageService):
             **extra_args,
         )
         return StoredObject(key=object_key, url=self._public_url(object_key))
+
+    async def get_object(self, key: str) -> tuple[bytes, str | None]:
+        response = await run_in_threadpool(
+            self.client.get_object,
+            Bucket=self.bucket_name,
+            Key=key,
+        )
+        body = await run_in_threadpool(response['Body'].read)
+        return body, response.get('ContentType')
 
 
 @lru_cache

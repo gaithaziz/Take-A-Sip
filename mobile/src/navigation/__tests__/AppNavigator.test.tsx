@@ -152,6 +152,10 @@ describe('AppNavigator', () => {
     jest.useRealTimers();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('renders branded loading state while auth is restoring', () => {
     render(<AppNavigator />);
     expect(mockLoadingState).toHaveBeenCalledWith('Take A Sip');

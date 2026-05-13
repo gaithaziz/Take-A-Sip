@@ -220,3 +220,139 @@ resource "google_monitoring_alert_policy" "backend_uptime" {
 
   user_labels = local.labels
 }
+
+resource "google_monitoring_alert_policy" "backend_5xx_rate" {
+  display_name          = "${local.name_prefix}-backend-5xx-rate"
+  combiner              = "OR"
+  enabled               = true
+  notification_channels = var.notification_channel_ids
+
+  conditions {
+    display_name = "Backend 5xx responses exceeded threshold"
+
+    condition_threshold {
+      comparison      = "COMPARISON_GT"
+      threshold_value = var.backend_5xx_count_threshold
+      duration        = "300s"
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${google_cloud_run_v2_service.backend.name}\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\""
+
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_SUM"
+      }
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  user_labels = local.labels
+}
+
+resource "google_monitoring_alert_policy" "backend_latency" {
+  display_name          = "${local.name_prefix}-backend-latency"
+  combiner              = "OR"
+  enabled               = true
+  notification_channels = var.notification_channel_ids
+
+  conditions {
+    display_name = "Backend p95 latency exceeded threshold"
+
+    condition_threshold {
+      comparison      = "COMPARISON_GT"
+      threshold_value = var.backend_latency_ms_threshold
+      duration        = "300s"
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${google_cloud_run_v2_service.backend.name}\" AND metric.type=\"run.googleapis.com/request_latencies\""
+
+      aggregations {
+        alignment_period     = "300s"
+        per_series_aligner   = "ALIGN_PERCENTILE_95"
+        cross_series_reducer = "REDUCE_MAX"
+        group_by_fields      = ["resource.labels.service_name"]
+      }
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  user_labels = local.labels
+}
+
+resource "google_monitoring_alert_policy" "backend_startup_latency" {
+  display_name          = "${local.name_prefix}-backend-startup-latency"
+  combiner              = "OR"
+  enabled               = true
+  notification_channels = var.notification_channel_ids
+
+  conditions {
+    display_name = "Backend revision startup latency exceeded threshold"
+
+    condition_threshold {
+      comparison      = "COMPARISON_GT"
+      threshold_value = var.backend_startup_latency_ms_threshold
+      duration        = "300s"
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${google_cloud_run_v2_service.backend.name}\" AND metric.type=\"run.googleapis.com/container/startup_latencies\""
+
+      aggregations {
+        alignment_period     = "300s"
+        per_series_aligner   = "ALIGN_PERCENTILE_95"
+        cross_series_reducer = "REDUCE_MAX"
+        group_by_fields      = ["resource.labels.service_name"]
+      }
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  user_labels = local.labels
+}
+
+resource "google_monitoring_alert_policy" "migration_job_failure" {
+  display_name          = "${local.name_prefix}-migration-job-failure"
+  combiner              = "OR"
+  enabled               = true
+  notification_channels = var.notification_channel_ids
+
+  conditions {
+    display_name = "Migration job failed"
+
+    condition_threshold {
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      duration        = "60s"
+      filter          = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${google_cloud_run_v2_job.migrate.name}\" AND metric.type=\"run.googleapis.com/job/completed_execution_count\" AND metric.labels.result=\"failed\""
+
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_SUM"
+      }
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  user_labels = local.labels
+}

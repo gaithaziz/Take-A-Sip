@@ -145,7 +145,7 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
   return (
     <View style={styles.screen}>
       <TopAppBar title={t('orders.detailsTitle')} onBack={() => navigation.goBack()} />
-      <AppShell>
+      <AppShell includeTopInset={false} resetScrollKey={order.id}>
         <View style={[styles.header, mirroredRow(isRTL)]}>
           <BadgeChip label={t(`status.${order.status}`)} tone={statusToneMap[order.status]} />
           <BadgeChip label={formatCurrency(totalAmount, language)} tone="success" />

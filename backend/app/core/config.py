@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     database_use_null_pool: bool = False
     ready_check_db: bool = True
     public_cache_ttl_seconds: int = 60
+    rate_limit_enabled: bool = True
+    rate_limit_global_per_minute: int = 600
+    rate_limit_send_otp_per_minute: int = 5
+    rate_limit_verify_otp_per_minute: int = 10
+    rate_limit_order_create_per_minute: int = 20
+    rate_limit_upload_per_minute: int = 10
+    rate_limit_admin_mutation_per_minute: int = 120
 
     jwt_secret_key: str = 'change-me'
     jwt_algorithm: str = 'HS256'
@@ -164,7 +171,7 @@ class Settings(BaseSettings):
                 return False
         return False
 
-    @field_validator('database_use_null_pool', 'ready_check_db', mode='before')
+    @field_validator('database_use_null_pool', 'ready_check_db', 'rate_limit_enabled', mode='before')
     @classmethod
     def coerce_runtime_bool_flags(cls, value):
         return cls.coerce_bool_flags(value)

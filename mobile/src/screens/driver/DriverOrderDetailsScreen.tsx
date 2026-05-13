@@ -127,7 +127,7 @@ export const DriverOrderDetailsScreen = ({ route, navigation }: Props) => {
   }
 
   return (
-    <AppShell>
+    <AppShell resetScrollKey={order.id}>
       <AppButton title={t('common.goBack')} variant="ghost" fullWidth={false} onPress={() => navigation.goBack()} />
       <AppText variant="h1">#{order.order_number}</AppText>
       <AppCard style={styles.block}>

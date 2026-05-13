@@ -17,6 +17,7 @@ from app.core.database import get_db
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, log_structured, request_log_context
 from app.core.metrics import metrics
+from app.core.rate_limit import enforce_rate_limit, rate_limit_headers
 from app.services.storage import LocalStorageService, get_storage_service
 
 
@@ -51,6 +52,22 @@ def create_app() -> FastAPI:
     async def request_context_middleware(request, call_next):
         started_at = time.perf_counter()
         request.state.request_id = str(uuid4())
+        rate_limit_response = await enforce_rate_limit(request, settings)
+        if rate_limit_response is not None:
+            metrics.record_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=429,
+                elapsed_ms=round((time.perf_counter() - started_at) * 1000, 2),
+            )
+            log_structured(
+                logger,
+                logging.WARNING,
+                'http.rate_limited',
+                request_log_context(request, started_at, 429),
+            )
+            rate_limit_response.headers['X-Request-ID'] = request.state.request_id
+            return rate_limit_response
         try:
             response = await call_next(request)
         except Exception:
@@ -68,6 +85,8 @@ def create_app() -> FastAPI:
             )
             raise
         response.headers['X-Request-ID'] = request.state.request_id
+        for header, value in rate_limit_headers(request).items():
+            response.headers[header] = value
         context = request_log_context(request, started_at, response.status_code)
         metrics.record_request(
             method=request.method,

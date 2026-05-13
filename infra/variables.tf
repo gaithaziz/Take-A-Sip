@@ -87,6 +87,24 @@ variable "notification_channel_ids" {
   default     = []
 }
 
+variable "backend_5xx_count_threshold" {
+  description = "Number of 5xx responses in a five-minute window that triggers an alert."
+  type        = number
+  default     = 5
+}
+
+variable "backend_latency_ms_threshold" {
+  description = "Backend p95 request latency in milliseconds that triggers an alert."
+  type        = number
+  default     = 1500
+}
+
+variable "backend_startup_latency_ms_threshold" {
+  description = "Cloud Run container startup latency in milliseconds that triggers an alert."
+  type        = number
+  default     = 30000
+}
+
 variable "labels" {
   description = "Additional labels applied to supported resources."
   type        = map(string)

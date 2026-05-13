@@ -41,3 +41,31 @@ jobs:
 
       - name: Run frontdesk typecheck
         run: npm run typecheck
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    defaults:
+      run:
+        working-directory: frontdesk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontdesk/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit frontdesk dependencies
+        run: |
+          npm audit --audit-level=high || {
+            echo "::warning title=Frontdesk dependency audit::High severity vulnerabilities found. Review the audit log and schedule package upgrades."
+          }

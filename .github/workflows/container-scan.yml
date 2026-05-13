@@ -1,0 +1,44 @@
+name: Backend Container Scan
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/container-scan.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/container-scan.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build backend image
+        run: docker build -t take-a-sip-backend-scan:local backend
+
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: take-a-sip-backend-scan:local
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+
+      - name: Upload scan results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif

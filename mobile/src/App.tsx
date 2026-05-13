@@ -14,6 +14,7 @@ import {
 
 import './i18n';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoadingState } from './components/LoadingState';
 import { AppNavigator } from './navigation/AppNavigator';
 import { AppProviders } from './state/AppProviders';
@@ -33,9 +34,11 @@ export const AppRoot = () => {
   ]);
 
   return (
-    <AppProviders>
-      <StatusBar style="dark" />
-      {fontsLoaded && assetsLoaded ? <AppNavigator /> : <LoadingState label="Loading..." />}
-    </AppProviders>
+    <ErrorBoundary>
+      <AppProviders>
+        <StatusBar style="dark" />
+        {fontsLoaded && assetsLoaded ? <AppNavigator /> : <LoadingState label="Loading..." />}
+      </AppProviders>
+    </ErrorBoundary>
   );
 };

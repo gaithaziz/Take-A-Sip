@@ -50,7 +50,8 @@ beforeAll(() => {
   jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
     const text = args.map((value) => String(value)).join(' ');
     const isActWarning = text.includes('not wrapped in act');
-    if (isActWarning) {
+    const isExpectedErrorBoundaryProbe = text.includes('hidden render failure') || text.includes('App render failed');
+    if (isActWarning || isExpectedErrorBoundaryProbe) {
       return;
     }
     originalConsoleError(...args);

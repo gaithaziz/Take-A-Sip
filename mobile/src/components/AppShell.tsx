@@ -1,4 +1,4 @@
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useEffect, useRef } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,14 +8,31 @@ type AppShellProps = PropsWithChildren<{
   scroll?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
+  includeTopInset?: boolean;
+  resetScrollKey?: string | number;
 }>;
 
-export const AppShell = ({ children, scroll = true, refreshing, onRefresh }: AppShellProps) => {
+export const AppShell = ({
+  children,
+  scroll = true,
+  refreshing,
+  onRefresh,
+  includeTopInset = true,
+  resetScrollKey,
+}: AppShellProps) => {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const topPadding = (includeTopInset ? insets.top : 0) + theme.spacing.lg;
+
+  useEffect(() => {
+    if (scroll) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [resetScrollKey, scroll]);
 
   if (!scroll) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + theme.spacing.lg, paddingBottom: insets.bottom + theme.spacing.lg }]}>
+      <View style={[styles.container, { paddingTop: topPadding, paddingBottom: insets.bottom + theme.spacing.lg }]}>
         {children}
       </View>
     );
@@ -23,11 +40,12 @@ export const AppShell = ({ children, scroll = true, refreshing, onRefresh }: App
 
   return (
     <ScrollView
+      ref={scrollRef}
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[
         styles.container,
         {
-          paddingTop: insets.top + theme.spacing.lg,
+          paddingTop: topPadding,
           paddingBottom: insets.bottom + theme.spacing.xl,
         },
       ]}
