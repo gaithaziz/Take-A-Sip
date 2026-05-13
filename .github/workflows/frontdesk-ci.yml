@@ -8,9 +8,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'frontdesk/**'
-      - '.github/workflows/frontdesk-ci.yml'
   workflow_dispatch:
 
 jobs:
