@@ -37,4 +37,6 @@ export const formatDateTimeWithZone = (value: string | number | Date, language: 
 
 export const getCurrentTimeZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+export const getStoreTimeZone = (): string => 'Asia/Amman';
+
 export const toNumber = (value: string | number): number => Number(value);

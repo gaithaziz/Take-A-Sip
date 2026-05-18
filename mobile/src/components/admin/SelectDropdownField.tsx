@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { useLanguage } from '@/state/LanguageContext';
@@ -19,6 +19,9 @@ type SelectDropdownFieldProps = {
   options: SelectOption[];
   onChange: (nextValue: string) => void;
   emptyLabel?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  noMatchesLabel?: string;
 };
 
 export const SelectDropdownField = ({
@@ -27,10 +30,14 @@ export const SelectDropdownField = ({
   options,
   onChange,
   emptyLabel,
+  searchable = false,
+  searchPlaceholder,
+  noMatchesLabel,
 }: SelectDropdownFieldProps) => {
   const { t } = useAppTranslation();
   const { isRTL } = useLanguage();
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const selectedLabel = useMemo(
     () => options.find((option) => option.value === value)?.label ?? '',
@@ -38,6 +45,11 @@ export const SelectDropdownField = ({
   );
 
   const hasOptions = options.length > 0;
+  const filteredOptions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(query));
+  }, [options, searchQuery]);
 
   return (
     <View style={styles.wrapper}>
@@ -48,6 +60,7 @@ export const SelectDropdownField = ({
         style={[styles.trigger, !hasOptions ? styles.triggerDisabled : null]}
         onPress={() => {
           if (!hasOptions) return;
+          setSearchQuery('');
           setOpen(true);
         }}>
         <View style={[styles.triggerRow, mirroredRow(isRTL)]}>
@@ -67,8 +80,27 @@ export const SelectDropdownField = ({
               {label}
             </AppText>
 
+            {searchable ? (
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={searchPlaceholder ?? t('admin.searchMenuPlaceholder')}
+                placeholderTextColor={theme.colors.textMuted}
+                style={[styles.searchInput, isRTL ? styles.textRTL : null]}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            ) : null}
+
             <ScrollView style={styles.optionsScroll} showsVerticalScrollIndicator={false}>
-              {options.map((option) => {
+              {filteredOptions.length === 0 ? (
+                <View style={styles.emptyOption}>
+                  <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                    {noMatchesLabel ?? emptyLabel ?? '-'}
+                  </AppText>
+                </View>
+              ) : null}
+              {filteredOptions.map((option) => {
                 const selected = option.value === value;
                 return (
                   <Pressable
@@ -146,6 +178,19 @@ const styles = StyleSheet.create({
   optionsScroll: {
     marginTop: theme.spacing.md,
   },
+  searchInput: {
+    marginTop: theme.spacing.md,
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    color: theme.colors.textPrimary,
+    backgroundColor: theme.colors.surface,
+  },
+  textRTL: {
+    textAlign: 'right',
+  },
   option: {
     minHeight: 44,
     justifyContent: 'center',
@@ -158,6 +203,11 @@ const styles = StyleSheet.create({
   optionSelected: {
     backgroundColor: theme.colors.secondaryCream,
     borderColor: theme.colors.primary200,
+  },
+  emptyOption: {
+    minHeight: 52,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
   },
   footer: {
     marginTop: theme.spacing.sm,

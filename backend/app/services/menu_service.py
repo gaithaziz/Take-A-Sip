@@ -1,14 +1,37 @@
 from collections import defaultdict
-from datetime import datetime, time, timezone
+from datetime import datetime, time
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import get_settings
 from app.models.menu import Addon, Item, ItemType, MenuSchedule, Section, Size
 from app.schemas.menu import MenuDeleteCounts
+
+DEFAULT_STORE_TIMEZONE = 'Asia/Amman'
+
+
+def get_store_timezone() -> ZoneInfo:
+    timezone_name = (get_settings().store_timezone or DEFAULT_STORE_TIMEZONE).strip() or DEFAULT_STORE_TIMEZONE
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo(DEFAULT_STORE_TIMEZONE)
+
+
+def current_store_datetime() -> datetime:
+    return datetime.now(get_store_timezone())
+
+
+def _to_store_datetime(value: datetime) -> datetime:
+    store_timezone = get_store_timezone()
+    if value.tzinfo is None:
+        return value.replace(tzinfo=store_timezone)
+    return value.astimezone(store_timezone)
 
 
 def _is_time_in_window(start, end, current) -> bool:
@@ -18,10 +41,20 @@ def _is_time_in_window(start, end, current) -> bool:
 
 
 def _is_schedule_active(schedule: MenuSchedule, now: datetime) -> bool:
-    day = now.weekday()
-    if schedule.days_of_week and day not in schedule.days_of_week:
+    store_now = _to_store_datetime(now)
+    day = store_now.weekday()
+    current_time = store_now.time()
+    schedule_day = day
+
+    if schedule.start_time > schedule.end_time:
+        if current_time <= schedule.end_time:
+            schedule_day = (day - 1) % 7
+        elif current_time < schedule.start_time:
+            return False
+
+    if schedule.days_of_week and schedule_day not in schedule.days_of_week:
         return False
-    return _is_time_in_window(schedule.start_time, schedule.end_time, now.time())
+    return _is_time_in_window(schedule.start_time, schedule.end_time, current_time)
 
 
 def _entity_available(
@@ -55,7 +88,7 @@ async def get_schedules_index(db: AsyncSession) -> dict[tuple[str, UUID], list[M
 
 
 async def get_menu_tree(db: AsyncSession, now: datetime | None = None) -> list[Section]:
-    current = now or datetime.now(timezone.utc)
+    current = now or current_store_datetime()
     schedules_index = await get_schedules_index(db)
 
     result = await db.execute(

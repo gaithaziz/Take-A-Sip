@@ -23,7 +23,7 @@ import { MenuEntityType, MenuSchedule, Section } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { getLocalizedValue } from '@/utils/i18n';
 import { mirroredRow } from '@/utils/layout';
-import { getCurrentTimeZone } from '@/utils/format';
+import { getStoreTimeZone } from '@/utils/format';
 
 type EntityOption = {
   id: string;
@@ -52,19 +52,24 @@ const defaultForm: ScheduleForm = {
 const buildEntityOptions = (sections: Section[], language: 'en' | 'ar'): EntityOption[] => {
   const options: EntityOption[] = [];
   sections.forEach((section) => {
-    options.push({ id: section.id, type: 'section', label: `${section.name_en} / ${section.name_ar}` });
+    const sectionName = getLocalizedValue(section, language, 'name');
+    options.push({ id: section.id, type: 'section', label: sectionName });
 
     section.items.forEach((item) => {
-      options.push({ id: item.id, type: 'item', label: getLocalizedValue(item, language, 'name') });
+      const itemName = getLocalizedValue(item, language, 'name');
+      options.push({ id: item.id, type: 'item', label: `${sectionName} > ${itemName}` });
 
       item.item_types.forEach((itemType) => {
-        options.push({ id: itemType.id, type: 'type', label: getLocalizedValue(itemType, language, 'name') });
+        const typeName = getLocalizedValue(itemType, language, 'name');
+        options.push({ id: itemType.id, type: 'type', label: `${sectionName} > ${itemName} > ${typeName}` });
 
         itemType.sizes.forEach((size) => {
-          options.push({ id: size.id, type: 'size', label: getLocalizedValue(size, language, 'name') });
+          const sizeName = getLocalizedValue(size, language, 'name');
+          options.push({ id: size.id, type: 'size', label: `${sectionName} > ${itemName} > ${typeName} > ${sizeName}` });
 
           size.addons.forEach((addon) => {
-            options.push({ id: addon.id, type: 'addon', label: getLocalizedValue(addon, language, 'name') });
+            const addonName = getLocalizedValue(addon, language, 'name');
+            options.push({ id: addon.id, type: 'addon', label: `${sectionName} > ${itemName} > ${typeName} > ${sizeName} > ${addonName}` });
           });
         });
       });
@@ -130,21 +135,13 @@ export const AdminSchedulingScreen = () => {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    const firstOption = filteredOptions[0];
-    if (!firstOption) return;
-    if (!form.entity_id || !filteredOptions.some((option) => option.id === form.entity_id)) {
-      setForm((prev) => ({ ...prev, entity_id: firstOption.id }));
-    }
-  }, [filteredOptions, form.entity_id]);
-
   const resetForm = () => {
     setEditingScheduleId(null);
     setFormError(null);
     setForm((prev) => ({
       ...defaultForm,
       entity_type: prev.entity_type,
-      entity_id: prev.entity_id || filteredOptions[0]?.id || '',
+      entity_id: '',
     }));
   };
 
@@ -246,6 +243,11 @@ export const AdminSchedulingScreen = () => {
     });
   };
 
+  const setDayPreset = (days: number[]) => {
+    setFormError(null);
+    setForm((prev) => ({ ...prev, days_of_week: days }));
+  };
+
   const timeToDate = (value: string): Date => {
     const [h, m] = value.split(':').map(Number);
     const next = new Date();
@@ -256,7 +258,7 @@ export const AdminSchedulingScreen = () => {
   const dateToTime = (value: Date): string =>
     `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
 
-  const timezone = getCurrentTimeZone();
+  const timezone = getStoreTimeZone();
   const canSave = !saving && Boolean(form.entity_id) && Boolean(form.start_time) && Boolean(form.end_time) && form.days_of_week.length > 0;
 
   const renderSchedule = ({ item: schedule }: { item: MenuSchedule }) => (
@@ -272,7 +274,7 @@ export const AdminSchedulingScreen = () => {
         <BadgeChip label={schedule.is_active ? t('admin.active') : t('admin.inactive')} tone={schedule.is_active ? 'success' : 'default'} />
       </View>
       <View style={styles.infoBox}>
-        <InfoLine label={`${t('admin.timeRange')} (${timezone})`} value={`${schedule.start_time} - ${schedule.end_time}`} />
+        <InfoLine label={`${t('admin.timeRange')} (${t('admin.storeTimezone')}: ${timezone})`} value={`${schedule.start_time} - ${schedule.end_time}`} />
         <InfoLine
           label={t('admin.daysOfWeek')}
           value={schedule.days_of_week.map((day) => dayLabelByValue[day]).join(', ')}
@@ -330,7 +332,7 @@ export const AdminSchedulingScreen = () => {
                 />
 
                 <SelectDropdownField
-                  label={t('admin.entityId')}
+                  label={t('admin.availableTargets')}
                   value={form.entity_id}
                   options={filteredOptions.map((option) => ({ value: option.id, label: option.label }))}
                   onChange={(value) => {
@@ -338,6 +340,9 @@ export const AdminSchedulingScreen = () => {
                     setForm((prev) => ({ ...prev, entity_id: value }));
                   }}
                   emptyLabel={t('admin.noTargets')}
+                  searchable
+                  searchPlaceholder={t('admin.targetSearchPlaceholder')}
+                  noMatchesLabel={t('admin.noMatchingTargets')}
                 />
               </View>
 
@@ -363,12 +368,26 @@ export const AdminSchedulingScreen = () => {
                   />
                 </View>
                 <AppText variant="caption" color={theme.colors.textSecondary}>
-                  {`${t('admin.timeRange')}: ${timezone}`}
+                  {`${t('admin.storeTimezone')}: ${timezone}`}
+                </AppText>
+                <AppText variant="caption" color={theme.colors.textSecondary}>
+                  {t('admin.scheduleAvailabilityHint')}
                 </AppText>
               </View>
 
               <View style={styles.formGroup}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.daysOfWeek')}</AppText>
+                <View style={[styles.presetRow, mirroredRow(isRTL)]}>
+                  <Pressable style={styles.presetChip} onPress={() => setDayPreset([0, 1, 2, 3, 4, 5, 6])}>
+                    <AppText variant="caption">{t('admin.everyDay')}</AppText>
+                  </Pressable>
+                  <Pressable style={styles.presetChip} onPress={() => setDayPreset([0, 1, 2, 3, 4])}>
+                    <AppText variant="caption">{t('admin.weekdays')}</AppText>
+                  </Pressable>
+                  <Pressable style={styles.presetChip} onPress={() => setDayPreset([5, 6])}>
+                    <AppText variant="caption">{t('admin.weekend')}</AppText>
+                  </Pressable>
+                </View>
                 <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
                   {Object.entries(dayLabelByValue).map(([value, label]) => {
                     const day = Number(value);
@@ -388,7 +407,7 @@ export const AdminSchedulingScreen = () => {
                 </View>
               </View>
 
-              <View style={styles.formGroup}>
+              {editingScheduleId ? <View style={styles.formGroup}>
                 <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
                 <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
                   <Pressable
@@ -408,7 +427,7 @@ export const AdminSchedulingScreen = () => {
                     <AppText variant="caption">{t('admin.inactive')}</AppText>
                   </Pressable>
                 </View>
-              </View>
+              </View> : null}
 
               {formError ? <AppText variant="caption" color={theme.colors.error}>{formError}</AppText> : null}
 
@@ -478,6 +497,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.md,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  presetChip: {
+    borderWidth: 1,
+    borderColor: theme.colors.primary200,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.pill,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    minHeight: 34,
+    justifyContent: 'center',
   },
   optionChip: {
     borderWidth: 1,

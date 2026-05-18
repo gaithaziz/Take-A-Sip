@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     database_use_null_pool: bool = False
     ready_check_db: bool = True
     public_cache_ttl_seconds: int = 60
+    store_timezone: str = 'Asia/Amman'
     rate_limit_enabled: bool = True
     rate_limit_global_per_minute: int = 600
     rate_limit_send_otp_per_minute: int = 5
