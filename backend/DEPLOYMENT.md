@@ -183,6 +183,7 @@ gcloud builds submit \
 - `min-instances=0` for lowest cost, or `1` if you want reduced cold starts
 - `max-instances=3` to start
 - `cpu=1`
+- keep CPU throttling enabled for cost-efficient scale-to-zero behavior
 - `memory=512Mi`
 - `concurrency=80`
 - public unauthenticated ingress enabled if mobile clients access the API directly

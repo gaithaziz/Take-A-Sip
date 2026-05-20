@@ -16,6 +16,7 @@ MIN_INSTANCES="${MIN_INSTANCES:-0}"
 MAX_INSTANCES="${MAX_INSTANCES:-3}"
 CPU="${CPU:-1}"
 MEMORY="${MEMORY:-512Mi}"
+CPU_THROTTLING="${CPU_THROTTLING:-true}"
 CONCURRENCY="${CONCURRENCY:-80}"
 TIMEOUT="${TIMEOUT:-300}"
 PORT="${PORT:-8000}"
@@ -46,6 +47,12 @@ deploy_args=(
   --concurrency "${CONCURRENCY}"
   --timeout "${TIMEOUT}"
 )
+
+if [[ "${CPU_THROTTLING}" == "true" ]]; then
+  deploy_args+=(--cpu-throttling)
+else
+  deploy_args+=(--no-cpu-throttling)
+fi
 
 if [[ "${ALLOW_UNAUTHENTICATED}" == "true" ]]; then
   deploy_args+=(--allow-unauthenticated)

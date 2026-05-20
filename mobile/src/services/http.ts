@@ -38,7 +38,7 @@ const baseURL = resolveApiBaseUrl();
 
 export const http = axios.create({
   baseURL,
-  timeout: 10000,
+  timeout: 20000,
 });
 
 export const setAuthToken = (token: string | null) => {
