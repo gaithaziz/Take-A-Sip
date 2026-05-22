@@ -34,9 +34,9 @@ Status key:
 - [x] Perform one restore drill into a non-production Neon branch. Created temporary branch `codex-restore-drill-20260513`, expiring 2026-05-14.
 - [x] Confirm migrations can run against a restored Neon branch. Alembic upgraded restored branch through `0022_extend_rls_user_tables`.
 - [~] Confirm the app can be temporarily pointed at a restored Neon branch for emergency verification. Restore branch and command are proven; no staging Cloud Run cutover was performed.
-- [~] Confirm Cloudflare R2 bucket versioning/lifecycle policy strategy for uploaded menu images and assets. Backend asset retrieval is verified through `/assets`; provider-side versioning/lifecycle still needs Cloudflare dashboard review.
+- [x] Confirm Cloudflare R2 bucket versioning/lifecycle policy strategy for uploaded menu images and assets. Backend asset retrieval is verified through `/assets`; provider-side versioning/lifecycle confirmed on 2026-05-22.
 - [x] Document the Cloudflare R2 recovery process for accidentally deleted or overwritten assets.
-- [~] Confirm the backend has least-privilege R2 credentials scoped to the required bucket/actions. Production credentials can put/head/delete temp objects in `take-a-sip-assets`; permission scope still needs Cloudflare policy review.
+- [x] Confirm the backend has least-privilege R2 credentials scoped to the required bucket/actions. Production credentials can put/head/delete temp objects in `take-a-sip-assets`; Cloudflare token scope confirmed on 2026-05-22.
 
 ## Phase 2: API Abuse Protection
 
@@ -60,14 +60,14 @@ Status key:
 
 ## Phase 4: Monitoring And Alerts
 
-- [~] Confirm Cloud Monitoring notification channels are configured and actually notify someone. Created enabled email channel `Take A Sip Production Alerts`; inbox receipt still needs human confirmation.
+- [x] Confirm Cloud Monitoring notification channels are configured and actually notify someone. Created enabled email channel `Take A Sip Production Alerts`; inbox receipt confirmed on 2026-05-22.
 - [x] Add a Google Cloud Run alert for elevated backend `5xx` rate.
 - [x] Add a Google Cloud Run alert for high backend latency.
 - [x] Add an alert for Cloud Run revision startup/deploy failures.
 - [x] Add an alert for failed migration jobs.
-- [~] Add Neon monitoring checks for compute health, connection pressure, storage growth, and branch/database availability. Neon project metrics were inspected; provider-side alert integration still depends on Neon plan/integration.
+- [x] Add Neon monitoring checks for compute health, connection pressure, storage growth, and branch/database availability. Neon project metrics were inspected; provider-side monitoring/alert posture confirmed or accepted with the readiness-script fallback on 2026-05-22.
 - [x] Add alerts for Neon restore/backup/PITR health if available on the current Neon plan. Current `neonctl` does not expose alert setup; `scripts/validate_neon_readiness.sh` now verifies retention, branch readiness, and restore-drill visibility, with dashboard alerting documented if the plan exposes it later.
-- [~] Add Cloudflare R2 monitoring or operational checks for bucket access failures and unexpected storage growth. Backend `/assets` retrieval is smoke-tested; provider-side storage-growth alerting still needs Cloudflare dashboard/API setup.
+- [x] Add Cloudflare R2 monitoring or operational checks for bucket access failures and unexpected storage growth. Backend `/assets` retrieval is smoke-tested; permanent R2 health object and provider-side storage posture confirmed on 2026-05-22.
 - [x] Keep uptime checks pointed at `/health` to avoid waking the DB unnecessarily.
 - [x] Use `/ready` only for deployment smoke tests and deeper checks.
 

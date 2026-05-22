@@ -15,6 +15,7 @@ check "/health"
 check "/ready"
 check "/menu"
 check "/promotions/active"
+check "/assets/menu/ops-health/live.txt"
 
 if [ -n "${AUTH_TOKEN:-}" ] && [ -n "${ORDER_ID:-}" ]; then
   echo "Checking authenticated order read"
