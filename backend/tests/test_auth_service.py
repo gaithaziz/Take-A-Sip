@@ -66,4 +66,4 @@ async def test_kiosk_login_returns_frontdesk_token() -> None:
     assert response.user.phone_number == '0790000001'
     assert response.user.role == 'FRONTDESK'
     assert response.access_token
-    db.execute.assert_awaited_once()
+    assert db.execute.await_count == 3
