@@ -24,7 +24,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const isDevelopmentBuild =
   typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
 
-const getBootstrapAuth = (): { token: string; user: AuthUser } | null => {
+const getBootstrapKioskSecret = () =>
+  process.env.EXPO_PUBLIC_FRONTDESK_KIOSK_SECRET?.trim() ??
+  (isDevelopmentBuild ? process.env.EXPO_PUBLIC_FRONTDESK_DEV_KIOSK_SECRET?.trim() : undefined);
+
+const getBootstrapTokenAuth = (): { token: string; user: AuthUser } | null => {
   const token =
     process.env.EXPO_PUBLIC_FRONTDESK_KIOSK_TOKEN?.trim() ??
     (isDevelopmentBuild ? process.env.EXPO_PUBLIC_FRONTDESK_DEV_TOKEN?.trim() : undefined);
@@ -42,7 +46,7 @@ const getBootstrapAuth = (): { token: string; user: AuthUser } | null => {
   }
 };
 
-  export const AuthProvider = ({ children }: PropsWithChildren) => {
+export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -74,7 +78,20 @@ const getBootstrapAuth = (): { token: string; user: AuthUser } | null => {
   };
 
   const bootstrapAuth = async () => {
-    const bootstrap = getBootstrapAuth();
+    const kioskSecret = getBootstrapKioskSecret();
+    if (kioskSecret) {
+      try {
+        const response = await authService.kioskLogin({ secret: kioskSecret });
+        if (response.user.role === 'FRONTDESK' || response.user.role === 'ADMIN') {
+          await persistAuthState(response.access_token, response.user);
+          return true;
+        }
+      } catch {
+        // Fall back to any legacy baked token below.
+      }
+    }
+
+    const bootstrap = getBootstrapTokenAuth();
     if (!bootstrap) {
       return false;
     }

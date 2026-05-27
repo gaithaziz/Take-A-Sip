@@ -43,9 +43,16 @@ async def get_current_user(
             algorithms=[settings.jwt_algorithm],
         )
         user_id = UUID(payload['sub'])
+        token_role = UserRole(payload['role'])
     except (JWTError, KeyError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token')
 
+    await db.execute(
+        text(
+            "select set_config('app.current_user_id', :user_id, true), set_config('app.current_user_role', :user_role, true)"
+        ),
+        {'user_id': str(user_id), 'user_role': token_role.value},
+    )
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if user is None:

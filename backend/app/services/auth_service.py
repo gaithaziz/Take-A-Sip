@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import logging
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -206,6 +206,8 @@ async def kiosk_login(payload: KioskLoginRequest, db: AsyncSession) -> TokenResp
     if payload.secret != secret:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Invalid kiosk secret')
 
+    await db.execute(text("select set_config('app.current_user_role', 'ADMIN', true)"))
+    await db.execute(text("select set_config('app.current_user_id', '00000000-0000-0000-0000-000000000000', true)"))
     result = await db.execute(select(User).where(User.phone_number == kiosk_phone_number))
     user = result.scalar_one_or_none()
     if user is None:

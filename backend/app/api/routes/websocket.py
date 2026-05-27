@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
@@ -35,6 +35,8 @@ async def frontdesk_ws(websocket: WebSocket) -> None:
             await websocket.close(code=1008)
             return
         async with SessionLocal() as session:
+            await session.execute(text("select set_config('app.current_user_role', 'ADMIN', true)"))
+            await session.execute(text("select set_config('app.current_user_id', '00000000-0000-0000-0000-000000000000', true)"))
             result = await session.execute(select(User).where(User.id == user_id))
             user = result.scalar_one_or_none()
             if user is None or not user.is_active or user.is_banned:
