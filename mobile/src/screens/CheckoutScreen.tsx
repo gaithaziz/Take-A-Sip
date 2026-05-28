@@ -23,8 +23,8 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const { isRTL } = useLanguage();
   const { token, user } = useAuth();
   const { items, subtotal, clearCart } = useCart();
-  const { discount, total, freeDelivery } = useCartPricing(items, subtotal);
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
+  const { discount, total, freeDelivery } = useCartPricing(items, subtotal, orderType);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);

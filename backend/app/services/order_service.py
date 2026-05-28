@@ -358,6 +358,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                     )
                     for line in payload.items
                 ],
+                order_type=order_type.value,
             )
             subtotal_amount = _calculate_order_subtotal(payload, sizes_by_id)
             discount_amount = _quantize(

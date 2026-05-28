@@ -15,7 +15,7 @@ type CartPricing = {
   freeDeliveryPromotion: Promotion | null;
 };
 
-export const useCartPricing = (items: CartItem[], subtotal: number): CartPricing => {
+export const useCartPricing = (items: CartItem[], subtotal: number, orderType?: 'pickup' | 'delivery'): CartPricing => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
@@ -34,13 +34,15 @@ export const useCartPricing = (items: CartItem[], subtotal: number): CartPricing
       }
       try {
         setLoading(true);
-        const evaluation = await promotionService.evaluateCart({
+        const payload = {
           items: items.map((item) => ({
             size_id: item.size.id,
             quantity: item.quantity,
             addon_ids: item.addons.map((addon) => addon.id),
           })),
-        });
+          ...(orderType ? { order_type: orderType } : {}),
+        };
+        const evaluation = await promotionService.evaluateCart(payload);
         setAppliedPromotion(evaluation.applied_promotion ?? null);
         setFreeDeliveryPromotion(evaluation.free_delivery_promotion ?? null);
         setFreeDelivery(Boolean(evaluation.free_delivery));
@@ -50,7 +52,7 @@ export const useCartPricing = (items: CartItem[], subtotal: number): CartPricing
       }
     };
     void run();
-  }, [items, subtotal, user]);
+  }, [items, orderType, subtotal, user]);
 
   const total = useMemo(() => subtotal - discount, [discount, subtotal]);
 

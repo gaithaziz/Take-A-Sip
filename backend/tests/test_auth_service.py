@@ -6,8 +6,11 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.models.user import User, UserRole
+from app.models.user_push_token import UserPushToken
+from app.schemas.notification import PushTokenRegisterRequest
 from app.schemas.auth import SendOTPRequest
 from app.schemas.auth import KioskLoginRequest
+from app.services.notification_service import register_push_token
 from app.services.auth_service import kiosk_login, send_otp
 from app.services.sms_service import SMSProviderError
 
@@ -67,3 +70,49 @@ async def test_kiosk_login_returns_frontdesk_token() -> None:
     assert response.user.role == 'FRONTDESK'
     assert response.access_token
     assert db.execute.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_register_push_token_uses_idempotent_upsert() -> None:
+    user = User(
+        id=UUID('0d15bd53-e6bd-467d-969e-999be51a40cd'),
+        first_name='Admin',
+        last_name='Owner',
+        phone_number='0790000000',
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_banned=False,
+    )
+    token = UserPushToken(
+        id=UUID('11111111-1111-1111-1111-111111111111'),
+        user_id=user.id,
+        platform='ios',
+        push_provider='apns',
+        push_token='duplicate-push-token',
+        device_id='device-a',
+        language='en',
+        is_active=True,
+    )
+    db = AsyncMock()
+    db_result = MagicMock()
+    db_result.scalar_one.return_value = token.id
+    db.execute = AsyncMock(return_value=db_result)
+    db.commit = AsyncMock()
+    db.get = AsyncMock(return_value=token)
+
+    response = await register_push_token(
+        db,
+        user,
+        PushTokenRegisterRequest(
+            push_token='duplicate-push-token',
+            platform='ios',
+            push_provider='apns',
+            device_id='device-a',
+            language='ar',
+        ),
+    )
+
+    statement = db.execute.await_args.args[0]
+    assert 'ON CONFLICT' in str(statement)
+    assert response.id == token.id
+    db.commit.assert_awaited_once()

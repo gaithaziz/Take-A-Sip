@@ -26,6 +26,7 @@ from app.services.sms_service import SMSProviderError, build_sms_provider
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+AUTH_RLS_USER_ID = '00000000-0000-0000-0000-000000000000'
 
 
 def _ensure_secure_otp_configuration() -> None:
@@ -42,6 +43,15 @@ def _ensure_secure_otp_configuration() -> None:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail='OTP service is misconfigured',
         )
+
+
+async def _activate_auth_rls_context(db: AsyncSession) -> None:
+    await db.execute(
+        text(
+            "select set_config('app.current_user_id', :user_id, true), set_config('app.current_user_role', :user_role, true)"
+        ),
+        {'user_id': AUTH_RLS_USER_ID, 'user_role': UserRole.ADMIN.value},
+    )
 
 
 async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> str:
@@ -133,6 +143,7 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid OTP')
 
+    await _activate_auth_rls_context(db)
     result = await db.execute(select(User).where(User.phone_number == payload.phone_number))
     user = result.scalar_one_or_none()
 

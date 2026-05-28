@@ -101,6 +101,7 @@ class PromotionEvaluationItem(AppBaseModel):
 
 class PromotionEvaluationRequest(AppBaseModel):
     items: list[PromotionEvaluationItem] = Field(min_length=1)
+    order_type: str | None = Field(default=None, pattern='^(pickup|delivery)$')
 
 
 class PromotionEvaluationEntry(AppBaseModel):

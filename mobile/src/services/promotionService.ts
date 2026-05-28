@@ -8,6 +8,7 @@ export const promotionService = {
     return data;
   },
   async evaluateCart(payload: {
+    order_type?: 'pickup' | 'delivery';
     items: Array<{
       size_id: string;
       quantity: number;

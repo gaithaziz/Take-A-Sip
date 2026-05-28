@@ -11,6 +11,7 @@ import httpx
 from fastapi import HTTPException, status
 from jose import jwt
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -45,33 +46,33 @@ def set_notification_sender_override(sender) -> None:
 
 
 async def register_push_token(db: AsyncSession, user: User, payload: PushTokenRegisterRequest) -> UserPushToken:
-    result = await db.execute(select(UserPushToken).where(UserPushToken.push_token == payload.push_token))
-    token = result.scalar_one_or_none()
     now = datetime.now(timezone.utc)
-
-    if token is None:
-        token = UserPushToken(
-            user_id=user.id,
-            platform=payload.platform,
-            push_provider=payload.push_provider,
-            push_token=payload.push_token,
-            device_id=payload.device_id,
-            language=payload.language,
-            is_active=True,
-            last_seen_at=now,
+    values = {
+        'user_id': user.id,
+        'platform': payload.platform,
+        'push_provider': payload.push_provider,
+        'push_token': payload.push_token,
+        'device_id': payload.device_id,
+        'language': payload.language,
+        'is_active': True,
+        'last_seen_at': now,
+    }
+    statement = (
+        pg_insert(UserPushToken)
+        .values(**values)
+        .on_conflict_do_update(
+            index_elements=[UserPushToken.push_token],
+            set_=values,
         )
-        db.add(token)
-    else:
-        token.user_id = user.id
-        token.platform = payload.platform
-        token.push_provider = payload.push_provider
-        token.device_id = payload.device_id
-        token.language = payload.language
-        token.is_active = True
-        token.last_seen_at = now
+        .returning(UserPushToken.id)
+    )
 
+    result = await db.execute(statement)
+    token_id = result.scalar_one()
     await db.commit()
-    await db.refresh(token)
+    token = await db.get(UserPushToken, token_id)
+    if token is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Push token not found')
     return token
 
 

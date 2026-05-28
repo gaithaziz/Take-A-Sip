@@ -13,9 +13,10 @@ def test_first_time_offer_eligibility() -> None:
 
 
 def test_loyalty_offer_eligibility() -> None:
-    assert eligible_for_loyalty_offer(5, 5) is True
-    assert eligible_for_loyalty_offer(10, 5) is True
     assert eligible_for_loyalty_offer(4, 5) is False
+    assert eligible_for_loyalty_offer(5, 5) is True
+    assert eligible_for_loyalty_offer(6, 5) is True
+    assert eligible_for_loyalty_offer(10, 5) is True
     assert eligible_for_loyalty_offer(0, 5) is False
     assert eligible_for_loyalty_offer(10, 0) is False
 

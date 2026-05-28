@@ -1,11 +1,12 @@
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 from app.models.delivery import DeliveryDistanceBand
 from app.core.security import create_access_token
 from app.models.menu import Addon, Item, ItemType, Section, Size
-from app.models.order import OrderStatus
-from app.models.promotion import Promotion, PromotionType
+from app.models.order import Order, OrderStatus, OrderType
+from app.models.promotion import LoyaltyRule, Promotion, PromotionType
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 
@@ -117,9 +118,160 @@ async def test_create_order_snapshots_first_time_discount_once(client, db_sessio
     assert first['applied_promotion_id'] == str(promotion.id)
     assert first['applied_promotion_title_en'] == 'Welcome offer'
 
+    first_order = await db_session.get(Order, UUID(first['id']))
+    first_order.status = OrderStatus.COMPLETED
+    first_order.completed_at = datetime.now(timezone.utc)
+    await db_session.commit()
+
     second_response = await client.post('/orders', headers=headers, json=payload)
-    assert second_response.status_code == 409
-    assert second_response.json()['detail'] == 'You already have an order in progress'
+    assert second_response.status_code == 201
+    second = second_response.json()
+    assert second['discount_amount'] == '0.00'
+    assert second['applied_promotion_id'] is None
+
+
+async def test_loyalty_discount_applies_once_per_completed_order_cycle(client, db_session):
+    user = User(
+        first_name='Loyal',
+        last_name='Client',
+        phone_number='+962790000229',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Coffee', name_ar='قهوة', sort_order=1, is_active=True)
+    item = Item(section=section, name_en='Latte', name_ar='لاتيه', is_active=True)
+    item_type = ItemType(item=item, name_en='Hot', name_ar='ساخن', is_active=True)
+    size = Size(item_type=item_type, name_en='Large', name_ar='كبير', price=Decimal('10.00'), is_active=True)
+    loyalty_rule = LoyaltyRule(required_orders=5, reward_type='DISCOUNT', reward_value='Reward', is_active=True)
+    promotion = Promotion(
+        title_en='Loyal Client',
+        title_ar='عميل وفي',
+        type=PromotionType.LOYALTY,
+        value=Decimal('50.00'),
+        starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+        ends_at=datetime.now(timezone.utc) + timedelta(days=1),
+        is_active=True,
+        loyalty_rule=loyalty_rule,
+    )
+    db_session.add_all([user, section, item, item_type, size, loyalty_rule, promotion])
+    await db_session.flush()
+
+    base_time = datetime.now(timezone.utc) - timedelta(days=10)
+    for index in range(5):
+        completed_at = base_time + timedelta(minutes=index)
+        db_session.add(
+            Order(
+                order_number=1000 + index,
+                user_id=user.id,
+                status=OrderStatus.COMPLETED,
+                order_type=OrderType.PICKUP,
+                completed_at=completed_at,
+            )
+        )
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(user.id), user.role.value)}"}
+    payload = {'order_type': 'pickup', 'items': [{'size_id': str(size.id), 'quantity': 1, 'addon_ids': []}]}
+
+    first_response = await client.post('/orders', headers=headers, json=payload)
+    assert first_response.status_code == 201
+    first_order = first_response.json()
+    assert first_order['applied_promotion_id'] == str(promotion.id)
+    assert first_order['discount_amount'] == '5.00'
+    first = await db_session.get(Order, UUID(first_order['id']))
+    first.status = OrderStatus.COMPLETED
+    first.completed_at = base_time + timedelta(days=1)
+    await db_session.commit()
+
+    second_response = await client.post('/orders', headers=headers, json=payload)
+    assert second_response.status_code == 201
+    second_order = second_response.json()
+    assert second_order['applied_promotion_id'] is None
+    assert second_order['discount_amount'] == '0.00'
+    second = await db_session.get(Order, UUID(second_order['id']))
+    second.status = OrderStatus.COMPLETED
+    second.completed_at = base_time + timedelta(days=2)
+
+    for index in range(4):
+        db_session.add(
+            Order(
+                order_number=1100 + index,
+                user_id=user.id,
+                status=OrderStatus.COMPLETED,
+                order_type=OrderType.PICKUP,
+                completed_at=base_time + timedelta(days=3, minutes=index),
+            )
+        )
+    await db_session.commit()
+
+    renewed_response = await client.post('/orders', headers=headers, json=payload)
+    assert renewed_response.status_code == 201
+    renewed = renewed_response.json()
+    assert renewed['applied_promotion_id'] == str(promotion.id)
+    assert renewed['discount_amount'] == '5.00'
+
+
+async def test_cancelled_loyalty_discount_order_does_not_consume_cycle(client, db_session):
+    user = User(
+        first_name='Restored',
+        last_name='Client',
+        phone_number='+962790000230',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Coffee', name_ar='قهوة', sort_order=1, is_active=True)
+    item = Item(section=section, name_en='Latte', name_ar='لاتيه', is_active=True)
+    item_type = ItemType(item=item, name_en='Hot', name_ar='ساخن', is_active=True)
+    size = Size(item_type=item_type, name_en='Large', name_ar='كبير', price=Decimal('10.00'), is_active=True)
+    loyalty_rule = LoyaltyRule(required_orders=5, reward_type='DISCOUNT', reward_value='Reward', is_active=True)
+    promotion = Promotion(
+        title_en='Loyal Client',
+        title_ar='عميل وفي',
+        type=PromotionType.LOYALTY,
+        value=Decimal('50.00'),
+        starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+        ends_at=datetime.now(timezone.utc) + timedelta(days=1),
+        is_active=True,
+        loyalty_rule=loyalty_rule,
+    )
+    db_session.add_all([user, section, item, item_type, size, loyalty_rule, promotion])
+    await db_session.flush()
+
+    base_time = datetime.now(timezone.utc) - timedelta(days=10)
+    for index in range(5):
+        db_session.add(
+            Order(
+                order_number=1200 + index,
+                user_id=user.id,
+                status=OrderStatus.COMPLETED,
+                order_type=OrderType.PICKUP,
+                completed_at=base_time + timedelta(minutes=index),
+            )
+        )
+    db_session.add(
+        Order(
+            order_number=1210,
+            user_id=user.id,
+            status=OrderStatus.CANCELLED,
+            order_type=OrderType.PICKUP,
+            applied_promotion_id=promotion.id,
+            discount_amount=Decimal('5.00'),
+        )
+    )
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(user.id), user.role.value)}"}
+    evaluate = await client.post(
+        '/promotions/evaluate',
+        headers=headers,
+        json={'order_type': 'pickup', 'items': [{'size_id': str(size.id), 'quantity': 1, 'addon_ids': []}]},
+    )
+    assert evaluate.status_code == 200
+    payload = evaluate.json()
+    assert payload['applied_promotion']['id'] == str(promotion.id)
+    assert payload['discount'] == '5.00'
 
 
 async def test_create_order_rejects_when_customer_has_active_order(client, db_session):

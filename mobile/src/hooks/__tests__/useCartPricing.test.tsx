@@ -180,4 +180,30 @@ describe('useCartPricing', () => {
       expect(result.current.freeDeliveryPromotion?.id).toBe('promo-free-delivery');
     });
   });
+
+  it('passes the selected checkout order type to promotion evaluation', async () => {
+    const item = {
+      id: 'cart-1',
+      item: { id: 'item-1', section_id: 'section-1', name_en: 'Latte', name_ar: 'لاتيه', image_url: null, description_en: null, description_ar: null, sort_order: 1, is_active: true, item_types: [] },
+      itemType: { id: 'type-1', item_id: 'item-1', name_en: 'Hot', name_ar: 'ساخن', image_url: null, sort_order: 1, is_active: true, sizes: [] },
+      size: { id: 'size-1', type_id: 'type-1', name_en: 'Large', name_ar: 'كبير', image_url: null, price: '20.00', sort_order: 1, is_active: true, addons: [] },
+      addons: [],
+      quantity: 1,
+    };
+
+    renderHook(() => useCartPricing([item], 20, 'pickup'));
+
+    await waitFor(() => {
+      expect(mockEvaluateCart).toHaveBeenCalledWith({
+        order_type: 'pickup',
+        items: [
+          {
+            size_id: 'size-1',
+            quantity: 1,
+            addon_ids: [],
+          },
+        ],
+      });
+    });
+  });
 });

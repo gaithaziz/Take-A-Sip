@@ -379,6 +379,47 @@ async def test_client_free_delivery_offer_does_not_require_completed_orders(clie
     assert payload['discount'] == '0.00'
 
 
+async def test_pickup_promotion_evaluation_excludes_delivery_only_offer(client, db_session):
+    client_user = User(
+        first_name='Nora',
+        last_name='Pickup',
+        phone_number='+962790001229',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Coffee', name_ar='قهوة', sort_order=1, is_active=True)
+    item = Item(section=section, name_en='Latte', name_ar='لاتيه', sort_order=1, is_active=True)
+    item_type = ItemType(item=item, name_en='Hot', name_ar='ساخن', sort_order=1, is_active=True)
+    size = Size(item_type=item_type, name_en='Large', name_ar='كبير', price=Decimal('10.00'), sort_order=1, is_active=True)
+    free_delivery_promotion = Promotion(
+        title_en='Free delivery',
+        title_ar='توصيل مجاني',
+        type=PromotionType.FREE_DELIVERY_ABOVE_AMOUNT,
+        value=Decimal('15.00'),
+        starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+        ends_at=datetime.now(timezone.utc) + timedelta(days=1),
+        is_active=True,
+        free_delivery_mode='FREE_DELIVERY',
+    )
+    db_session.add_all([client_user, section, item, item_type, size, free_delivery_promotion])
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(client_user.id), client_user.role.value)}"}
+    evaluate = await client.post(
+        '/promotions/evaluate',
+        headers=headers,
+        json={'order_type': 'pickup', 'items': [{'size_id': str(size.id), 'quantity': 2, 'addon_ids': []}]},
+    )
+
+    assert evaluate.status_code == 200
+    payload = evaluate.json()
+    assert payload['free_delivery'] is False
+    assert payload['free_delivery_promotion'] is None
+    ineligible = {entry['promotion']['id']: entry for entry in payload['ineligible_promotions']}
+    assert ineligible[str(free_delivery_promotion.id)]['reason_code'] == 'ORDER_TYPE_NOT_ELIGIBLE'
+
+
 async def test_client_percentage_discount_free_delivery_offer_applies_discount(client, db_session):
     client_user = User(
         first_name='Omar',

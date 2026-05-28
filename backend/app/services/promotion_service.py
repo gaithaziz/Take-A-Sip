@@ -19,7 +19,11 @@ from app.schemas.promotion import (
     PromotionEvaluationResponse,
     PromotionTargetCreate,
 )
-from app.services.promotion_rules_service import eligible_for_first_time_offer, eligible_for_free_delivery
+from app.services.promotion_rules_service import (
+    eligible_for_first_time_offer,
+    eligible_for_free_delivery,
+    eligible_for_loyalty_offer,
+)
 
 MENU_MODEL_BY_TYPE = {
     'section': Section,
@@ -628,6 +632,37 @@ async def _completed_orders_count(db: AsyncSession, user_id: UUID) -> int:
     return int(result.scalar_one() or 0)
 
 
+def _successful_order_timestamp():
+    return func.coalesce(Order.completed_at, Order.created_at)
+
+
+async def _completed_orders_count_since_last_loyalty_use(
+    db: AsyncSession,
+    user_id: UUID,
+    promotion_id: UUID,
+) -> int:
+    successful_statuses = [OrderStatus.DELIVERED, OrderStatus.COMPLETED]
+    last_use_result = await db.execute(
+        select(func.max(_successful_order_timestamp())).where(
+            Order.user_id == user_id,
+            Order.applied_promotion_id == promotion_id,
+            Order.discount_amount > 0,
+            Order.status.in_(successful_statuses),
+        )
+    )
+    last_use_at = last_use_result.scalar_one_or_none()
+
+    query = select(func.count(Order.id)).where(
+        Order.user_id == user_id,
+        Order.status.in_(successful_statuses),
+    )
+    if last_use_at is not None:
+        query = query.where(_successful_order_timestamp() > last_use_at)
+
+    result = await db.execute(query)
+    return int(result.scalar_one() or 0)
+
+
 async def _first_time_order_count(db: AsyncSession, user_id: UUID) -> int:
     result = await db.execute(select(func.count(Order.id)).where(Order.user_id == user_id))
     return int(result.scalar_one() or 0)
@@ -657,6 +692,7 @@ def _reason_payload(reason_code: str) -> tuple[str, str]:
         'TARGET_MISMATCH': ('Cart does not include eligible menu items', 'السلة لا تحتوي على عناصر مؤهلة'),
         'BUY_GET_QUANTITY_NOT_MET': ('Cart does not include enough qualifying items for this buy-and-get offer', 'السلة لا تحتوي على عدد كاف من العناصر المؤهلة لهذا العرض'),
         'ORDER_AMOUNT_NOT_MET': ('Cart total has not reached the free delivery threshold', 'إجمالي السلة لم يصل إلى حد التوصيل المجاني'),
+        'ORDER_TYPE_NOT_ELIGIBLE': ('Offer is only available for delivery orders', 'العرض متاح فقط لطلبات التوصيل'),
         'ELIGIBILITY_RULE_MISSING': ('Offer is missing its eligibility rule setup', 'العرض يفتقد إعداد شرط الأهلية'),
     }
     return reasons.get(reason_code, ('Offer is not eligible', 'العرض غير مؤهل'))
@@ -750,6 +786,7 @@ async def evaluate_promotions_for_user(
     db: AsyncSession,
     user: User,
     items: list[PromotionEvaluationItem],
+    order_type: str | None = None,
 ) -> PromotionEvaluationResponse:
     promotions = await list_promotions(db)
     target_lookup = await _load_target_lookup(db, promotions)
@@ -787,12 +824,22 @@ async def evaluate_promotions_for_user(
             required_orders = _resolved_required_orders(promotion)
             if promotion.type == PromotionType.LOYALTY and required_orders is None:
                 reason_code = 'ELIGIBILITY_RULE_MISSING'
+            elif promotion.type == PromotionType.LOYALTY and required_orders is not None:
+                completed_orders_since_use = await _completed_orders_count_since_last_loyalty_use(
+                    db,
+                    user.id,
+                    promotion.id,
+                )
+                if not eligible_for_loyalty_offer(completed_orders_since_use, required_orders):
+                    reason_code = 'ORDER_COUNT_NOT_MET'
             elif required_orders is not None and completed_orders < required_orders:
                 reason_code = 'ORDER_COUNT_NOT_MET'
 
         if promotion.type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
             matched_subtotal = cart_total
-            if reason_code is None and not eligible_for_free_delivery(cart_total, Decimal(promotion.value)):
+            if reason_code is None and order_type == 'pickup':
+                reason_code = 'ORDER_TYPE_NOT_ELIGIBLE'
+            elif reason_code is None and not eligible_for_free_delivery(cart_total, Decimal(promotion.value)):
                 reason_code = 'ORDER_AMOUNT_NOT_MET'
             if reason_code is None:
                 mode = _resolved_free_delivery_mode(promotion)

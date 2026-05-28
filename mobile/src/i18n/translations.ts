@@ -56,7 +56,7 @@ export const en = {
     editNumber: 'Edit number',
   },
   welcome: {
-    arabicGreeting: 'أهلاً بك في خذ لك شفة',
+    arabicGreeting: 'أهلاً بك في خذلك شفة',
     englishGreeting: 'Welcome to Take A Sip',
     poweredBy: 'Powered by Codevex',
     poweredByArabic: 'بدعم من Codevex',
@@ -561,7 +561,7 @@ export const ar = {
     editNumber: '\u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0631\u0642\u0645',
   },
   welcome: {
-    arabicGreeting: '\u0623\u0647\u0644\u0627\u064B \u0628\u0643 \u0641\u064A \u062E\u0630 \u0644\u0643 \u0634\u0641\u0629',
+    arabicGreeting: '\u0623\u0647\u0644\u0627\u064B \u0628\u0643 \u0641\u064A \u062E\u0630\u0644\u0643 \u0634\u0641\u0629',
     englishGreeting: 'Welcome to Take A Sip',
     poweredBy: 'Powered by Codevex',
     poweredByArabic: '\u0628\u062F\u0639\u0645 \u0645\u0646 Codevex',

@@ -1,5 +1,6 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import UUID
 
 import pytest
 from fastapi import HTTPException
@@ -67,3 +68,31 @@ async def test_verify_otp_rejects_non_client_self_signup() -> None:
 
     assert exc.value.status_code == 403
     assert exc.value.detail == 'Only client self-signup is allowed'
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_uses_privileged_rls_context_for_self_signup() -> None:
+    class FakeResult:
+        def scalar_one_or_none(self):
+            return None
+
+    db = AsyncMock()
+    db.execute.return_value = FakeResult()
+    db.add = MagicMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+    db.refresh.side_effect = lambda user: setattr(user, 'id', UUID('00000000-0000-0000-0000-000000000123'))
+
+    payload = VerifyOTPRequest(
+        phone_number='0790000000',
+        otp_code='123456',
+        first_name='فارس',
+        last_name='ابو ختلة',
+    )
+
+    with patch('app.services.auth_service.otp_service.verify', new=AsyncMock(return_value=OTPVerifyResult.SUCCESS)):
+        await verify_otp(payload, db)
+
+    first_execute = db.execute.await_args_list[0]
+    assert 'app.current_user_role' in str(first_execute.args[0])
+    assert first_execute.args[1]['user_role'] == UserRole.ADMIN.value
