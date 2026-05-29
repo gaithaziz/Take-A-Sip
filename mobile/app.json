@@ -4,11 +4,18 @@
     "slug": "take-a-sip-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/welcome-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f5f1eb"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
+      "bundleIdentifier": "com.takeasip.mobile",
       "supportsTablet": true,
       "infoPlist": {
         "NSUserNotificationsUsageDescription": "Take A Sip uses notifications to send order updates and operational alerts.",
@@ -20,6 +27,7 @@
       }
     },
     "android": {
+      "package": "com.takeasip.mobile",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -27,6 +35,7 @@
         "READ_MEDIA_IMAGES"
       ],
       "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#f5f1eb"
       }
     },

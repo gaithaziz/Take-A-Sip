@@ -1,6 +1,6 @@
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
@@ -189,91 +189,103 @@ export const AdminUsersScreen = ({ navigation }: Props) => {
   );
 
   return (
-    <FlatList
-      data={loading || error ? [] : sortedUsers}
-      renderItem={renderUser}
-      keyExtractor={(user) => user.id}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListHeaderComponent={
-        <View style={styles.headerBlock}>
-          <AppText variant="h1">{t('admin.usersTitle')}</AppText>
-          <AdminPageSection title={t('admin.searchUsers')} subtitle={t('admin.searchByNameOrPhone')}>
-            <View style={styles.filterStack}>
-              <AppInput
-                label={t('admin.searchUsers')}
-                value={searchInput}
-                onChangeText={setSearchInput}
-                placeholder={t('admin.searchByNameOrPhone')}
-              />
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}>
+      <FlatList
+        data={loading || error ? [] : sortedUsers}
+        renderItem={renderUser}
+        keyExtractor={(user) => user.id}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+        ListHeaderComponent={
+          <View style={styles.headerBlock}>
+            <AppText variant="h1">{t('admin.usersTitle')}</AppText>
+            <AdminPageSection title={t('admin.searchUsers')} subtitle={t('admin.searchByNameOrPhone')}>
+              <View style={styles.filterStack}>
+                <AppInput
+                  label={t('admin.searchUsers')}
+                  value={searchInput}
+                  onChangeText={setSearchInput}
+                  placeholder={t('admin.searchByNameOrPhone')}
+                />
 
-              <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
-                <BadgeChip label={`${t('admin.filterAll')}: ${counts.all}`} tone={query.filter === 'all' ? 'info' : 'default'} />
-                <BadgeChip label={`${t('admin.filterBanned')}: ${counts.banned}`} tone={counts.banned > 0 ? 'error' : 'default'} />
-                <BadgeChip label={`${t('admin.filterActive')}: ${counts.active}`} tone="success" />
-              </View>
+                <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+                  <BadgeChip label={`${t('admin.filterAll')}: ${counts.all}`} tone={query.filter === 'all' ? 'info' : 'default'} />
+                  <BadgeChip label={`${t('admin.filterBanned')}: ${counts.banned}`} tone={counts.banned > 0 ? 'error' : 'default'} />
+                  <BadgeChip label={`${t('admin.filterActive')}: ${counts.active}`} tone="success" />
+                </View>
 
-              <View style={[styles.filterButtonsRow, mirroredRow(isRTL), isCompact ? styles.filterButtonsRowCompact : null]}>
-                <AppButton
-                  title={t('admin.filterAll')}
-                  variant={query.filter === 'all' ? 'primary' : 'secondary'}
-                  onPress={() => setFilter('all')}
-                  style={styles.filterButton}
-                  fullWidth={false}
-                  accessibilityState={{ selected: query.filter === 'all' }}
-                  testID="users-filter-all"
-                />
-                <AppButton
-                  title={t('admin.filterBanned')}
-                  variant={query.filter === 'banned' ? 'primary' : 'secondary'}
-                  onPress={() => setFilter('banned')}
-                  style={styles.filterButton}
-                  fullWidth={false}
-                  accessibilityState={{ selected: query.filter === 'banned' }}
-                  testID="users-filter-banned"
-                />
-                <AppButton
-                  title={t('admin.filterActive')}
-                  variant={query.filter === 'active' ? 'primary' : 'secondary'}
-                  onPress={() => setFilter('active')}
-                  style={styles.filterButton}
-                  fullWidth={false}
-                  accessibilityState={{ selected: query.filter === 'active' }}
-                  testID="users-filter-active"
-                />
+                <View style={[styles.filterButtonsRow, mirroredRow(isRTL), isCompact ? styles.filterButtonsRowCompact : null]}>
+                  <AppButton
+                    title={t('admin.filterAll')}
+                    variant={query.filter === 'all' ? 'primary' : 'secondary'}
+                    onPress={() => setFilter('all')}
+                    style={styles.filterButton}
+                    fullWidth={false}
+                    accessibilityState={{ selected: query.filter === 'all' }}
+                    testID="users-filter-all"
+                  />
+                  <AppButton
+                    title={t('admin.filterBanned')}
+                    variant={query.filter === 'banned' ? 'primary' : 'secondary'}
+                    onPress={() => setFilter('banned')}
+                    style={styles.filterButton}
+                    fullWidth={false}
+                    accessibilityState={{ selected: query.filter === 'banned' }}
+                    testID="users-filter-banned"
+                  />
+                  <AppButton
+                    title={t('admin.filterActive')}
+                    variant={query.filter === 'active' ? 'primary' : 'secondary'}
+                    onPress={() => setFilter('active')}
+                    style={styles.filterButton}
+                    fullWidth={false}
+                    accessibilityState={{ selected: query.filter === 'active' }}
+                    testID="users-filter-active"
+                  />
+                </View>
               </View>
-            </View>
-          </AdminPageSection>
-        </View>
-      }
-      ListEmptyComponent={
-        loading ? (
-          <ListPageSkeleton isRTL={isRTL} shell={false} showFilters cards={3} />
-        ) : error ? (
-          <EmptyState
-            title={t('common.error')}
-            subtitle={error}
-            actionLabel={t('common.retry')}
-            onAction={() => void load(query)}
-          />
-        ) : (
-          <EmptyState title={t('admin.noUsersTitle')} subtitle={t('admin.noUsersSubtitle')} />
-        )
-      }
-      refreshing={loading}
-      onRefresh={() => void load(query)}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: insets.top + theme.spacing.md,
-          paddingBottom: insets.bottom + theme.spacing.xl,
-        },
-      ]}
-    />
+            </AdminPageSection>
+          </View>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <ListPageSkeleton isRTL={isRTL} shell={false} showFilters cards={3} />
+          ) : error ? (
+            <EmptyState
+              title={t('common.error')}
+              subtitle={error}
+              actionLabel={t('common.retry')}
+              onAction={() => void load(query)}
+            />
+          ) : (
+            <EmptyState title={t('admin.noUsersTitle')} subtitle={t('admin.noUsersSubtitle')} />
+          )
+        }
+        refreshing={loading}
+        onRefresh={() => void load(query)}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + theme.spacing.md,
+            paddingBottom: insets.bottom + theme.spacing.xxl * 2,
+          },
+        ]}
+      />
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   content: {
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.lg,

@@ -1,5 +1,5 @@
 import { PropsWithChildren, useEffect, useRef } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '@/theme';
@@ -32,35 +32,52 @@ export const AppShell = ({
 
   if (!scroll) {
     return (
-      <View style={[styles.container, { paddingTop: topPadding, paddingBottom: insets.bottom + theme.spacing.lg }]}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}>
+        <View style={[styles.container, { paddingTop: topPadding, paddingBottom: insets.bottom + theme.spacing.lg }]}>
         {children}
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      contentInsetAdjustmentBehavior="never"
-      contentContainerStyle={[
-        styles.container,
-        {
-          paddingTop: topPadding,
-          paddingBottom: insets.bottom + theme.spacing.xl,
-        },
-      ]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} tintColor={theme.colors.primary500} />
-        ) : undefined
-      }>
-      {children}
-    </ScrollView>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}>
+      <ScrollView
+        ref={scrollRef}
+        contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        contentContainerStyle={[
+          styles.container,
+          {
+            paddingTop: topPadding,
+            paddingBottom: insets.bottom + theme.spacing.xxl * 2,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} tintColor={theme.colors.primary500} />
+          ) : undefined
+        }>
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flexGrow: 1,
     backgroundColor: theme.colors.background,

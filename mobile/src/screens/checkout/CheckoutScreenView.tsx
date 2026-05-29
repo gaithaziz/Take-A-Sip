@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import MapView, { MapPressEvent, Marker } from 'react-native-maps';
+import MapView, { MapPressEvent, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -19,6 +19,8 @@ const DEFAULT_STORE_LOCATION = {
   latitude: 32.551347,
   longitude: 36.017005,
 };
+
+const HAS_GOOGLE_MAPS_API_KEY = Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim());
 
 type CheckoutScreenViewProps = {
   title: string;
@@ -154,7 +156,7 @@ export const CheckoutScreenView = ({
   }, []);
 
   useEffect(() => {
-    if (selectedLat === null || selectedLng === null) {
+    if (!HAS_GOOGLE_MAPS_API_KEY || selectedLat === null || selectedLng === null) {
       return;
     }
     mapRef.current?.animateToRegion(
@@ -220,13 +222,15 @@ export const CheckoutScreenView = ({
         <ScrollView
           style={styles.scroll}
           contentInsetAdjustmentBehavior="never"
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingBottom: 232 + bottomInset,
+              paddingBottom: 280 + bottomInset,
             },
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled">
           <AppCard style={styles.selectorCard}>
             <AppText variant="bodySmall" color={theme.colors.textSecondary}>
@@ -329,26 +333,35 @@ export const CheckoutScreenView = ({
                   <AppText variant="caption" color={theme.colors.textSecondary}>
                     {mapHintLabel}
                   </AppText>
-                  <MapView
-                    ref={mapRef}
-                    style={styles.map}
-                    initialRegion={{
-                      ...mapCenter,
-                      latitudeDelta: 0.012,
-                      longitudeDelta: 0.012,
-                    }}
-                    onPress={onMapPress}>
-                    {selectedLat !== null && selectedLng !== null ? (
-                      <Marker
-                        coordinate={{ latitude: selectedLat, longitude: selectedLng }}
-                        draggable
-                        onDragEnd={(event) => {
-                          const { latitude, longitude } = event.nativeEvent.coordinate;
-                          onSelectDeliveryLocation(Number(latitude.toFixed(6)), Number(longitude.toFixed(6)));
-                        }}
-                      />
-                    ) : null}
-                  </MapView>
+                  {HAS_GOOGLE_MAPS_API_KEY ? (
+                    <MapView
+                      ref={mapRef}
+                      provider={PROVIDER_GOOGLE}
+                      style={styles.map}
+                      initialRegion={{
+                        ...mapCenter,
+                        latitudeDelta: 0.012,
+                        longitudeDelta: 0.012,
+                      }}
+                      onPress={onMapPress}>
+                      {selectedLat !== null && selectedLng !== null ? (
+                        <Marker
+                          coordinate={{ latitude: selectedLat, longitude: selectedLng }}
+                          draggable
+                          onDragEnd={(event) => {
+                            const { latitude, longitude } = event.nativeEvent.coordinate;
+                            onSelectDeliveryLocation(Number(latitude.toFixed(6)), Number(longitude.toFixed(6)));
+                          }}
+                        />
+                      ) : null}
+                    </MapView>
+                  ) : (
+                    <View style={styles.mapUnavailable}>
+                      <AppText variant="caption" color={theme.colors.textSecondary}>
+                        {useCurrentLocationLabel}
+                      </AppText>
+                    </View>
+                  )}
                   {selectedLat !== null && selectedLng !== null ? (
                     <AppText variant="caption" color={theme.colors.textSecondary}>
                       {selectedLocationLabel}: {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
@@ -494,6 +507,17 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  mapUnavailable: {
+    width: '100%',
+    minHeight: 96,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.secondaryCream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.md,
   },
   notesInput: {
     minHeight: 112,

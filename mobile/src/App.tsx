@@ -15,7 +15,7 @@ import {
 import './i18n';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { LoadingState } from './components/LoadingState';
+import { WelcomeSplash } from './components/WelcomeSplash';
 import { AppNavigator } from './navigation/AppNavigator';
 import { AppProviders } from './state/AppProviders';
 
@@ -37,7 +37,7 @@ export const AppRoot = () => {
     <ErrorBoundary>
       <AppProviders>
         <StatusBar style="dark" />
-        {fontsLoaded && assetsLoaded ? <AppNavigator /> : <LoadingState label="Loading..." />}
+        {fontsLoaded && assetsLoaded ? <AppNavigator /> : <WelcomeSplash />}
       </AppProviders>
     </ErrorBoundary>
   );

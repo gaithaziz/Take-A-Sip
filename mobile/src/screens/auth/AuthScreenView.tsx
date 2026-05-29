@@ -104,15 +104,20 @@ export const AuthScreenView = ({
   const canResend = cooldownRemaining === 0 && !loading;
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={[
           styles.scrollContent,
           {
             paddingTop: topInset + theme.spacing.lg,
-            paddingBottom: bottomInset + theme.spacing.xl,
+            paddingBottom: bottomInset + theme.spacing.xxl * 2,
           },
         ]}>
         <View style={styles.container}>

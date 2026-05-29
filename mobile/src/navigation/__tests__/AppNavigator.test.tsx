@@ -2,7 +2,6 @@ import { act, render } from '@testing-library/react-native';
 
 import { AppNavigator } from '@/navigation/AppNavigator';
 
-const mockLoadingState = jest.fn((_: string | undefined) => null);
 const authState = {
   token: null as string | null,
   user: null as { role: 'CLIENT' | 'ADMIN' | 'DRIVER' } | null,
@@ -41,10 +40,6 @@ jest.mock('@/hooks/useAppTranslation', () => ({
 
 jest.mock('@/state/AuthContext', () => ({
   useAuth: () => authState,
-}));
-
-jest.mock('@/components/LoadingState', () => ({
-  LoadingState: ({ label }: { label?: string }) => mockLoadingState(label),
 }));
 
 jest.mock('@/screens/AuthScreen', () => ({
@@ -145,7 +140,6 @@ jest.mock('react-native-safe-area-context', () => ({
 
 describe('AppNavigator', () => {
   beforeEach(() => {
-    mockLoadingState.mockClear();
     authState.token = null;
     authState.user = null;
     authState.isLoading = true;
@@ -156,9 +150,9 @@ describe('AppNavigator', () => {
     jest.useRealTimers();
   });
 
-  it('renders branded loading state while auth is restoring', () => {
-    render(<AppNavigator />);
-    expect(mockLoadingState).toHaveBeenCalledWith('Take A Sip');
+  it('renders the welcome screen while auth is restoring', () => {
+    const { getByText } = render(<AppNavigator />);
+    expect(getByText('Welcome to Take A Sip')).toBeTruthy();
   });
 
   it('renders welcome first once auth restoration finishes', () => {

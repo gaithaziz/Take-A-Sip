@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BottomTabBar } from '@/components/BottomTabBar';
-import { LoadingState } from '@/components/LoadingState';
+import { WelcomeSplash } from '@/components/WelcomeSplash';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { notificationService } from '@/services/notificationService';
 import { useAuth } from '@/state/AuthContext';
@@ -155,7 +155,6 @@ const DriverTabs = () => {
 export const AppNavigator = () => {
   const { t } = useAppTranslation();
   const { token, user, isLoading } = useAuth();
-  const appName = t('common.appName');
   const initialSignedInRoute =
     user?.role === 'ADMIN' ? 'AdminTabs' : user?.role === 'DRIVER' ? 'DriverTabs' : 'MainTabs';
 
@@ -198,7 +197,7 @@ export const AppNavigator = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <LoadingState label={appName} />
+        <WelcomeSplash arabicGreeting={t('welcome.arabicGreeting')} englishGreeting={t('welcome.englishGreeting')} />
       </View>
     );
   }
