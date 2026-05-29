@@ -60,8 +60,9 @@ export const OrdersScreen = ({
   const [activeCancelOrderId, setActiveCancelOrderId] = useState<string | null>(null);
   const [activeCompleteOrderId, setActiveCompleteOrderId] = useState<string | null>(null);
   const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
-  const dockBottom = Math.max(10, insets.bottom + 6);
-  const listBottomPadding = 132 + dockBottom;
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const topPadding = Math.max(24, insets.top + frontdeskTheme.spacing.sm);
+  const listBottomPadding = Math.max(frontdeskTheme.spacing.lg, insets.bottom + frontdeskTheme.spacing.lg);
   const previousFailedCountRef = useRef(failedPrints.length);
 
   const newOrders = orders.filter((order) => order.status === 'NEW');
@@ -141,30 +142,88 @@ export const OrdersScreen = ({
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.topBar, isRTL ? styles.topBarRtl : styles.topBarLtr]}>
-        <FrontdeskCompositeText style={styles.title} isRTL={isRTL} runs={[{ text: t('orders.title'), direction: 'rtl' }]} />
+    <View style={[styles.container, { paddingTop: topPadding }]}>
+      <View style={styles.topBar}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.title, isRTL ? styles.titleRtl : styles.titleLtr, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}
+          numberOfLines={1}
+        >
+          {t('orders.title')}
+        </Text>
       </View>
 
-      <View
-        style={[
-          styles.connectionPill,
-          connectionState === 'connected' ? styles.connected : styles.disconnected,
-          isRTL ? styles.connectionPillRtl : null,
-        ]}
-      >
-        <FrontdeskCompositeText
-          style={styles.connectionText}
-          isRTL={isRTL}
-          numberOfLines={1}
-          runs={[
-            { text: `${t('orders.connection')}: `, direction: 'rtl' },
-            { text: t(`orders.connectionState.${connectionState}`), direction: 'rtl' },
-            { text: ' ', direction: 'rtl' },
-            { text: connectionIcon, direction: 'ltr' },
+      <View style={[styles.connectionRow, isRTL ? styles.connectionRowRtl : null]}>
+        <View
+          style={[
+            styles.connectionPill,
+            connectionState === 'connected' ? styles.connected : styles.disconnected,
+            isRTL ? styles.connectionPillRtl : null,
           ]}
+        >
+          <FrontdeskCompositeText
+            style={styles.connectionText}
+            isRTL={isRTL}
+            numberOfLines={1}
+            runs={[
+              { text: `${t('orders.connection')}: `, direction: 'rtl' },
+              { text: t(`orders.connectionState.${connectionState}`), direction: 'rtl' },
+              { text: ' ', direction: 'rtl' },
+              { text: connectionIcon, direction: 'ltr' },
+            ]}
+          />
+        </View>
+        <FrontdeskButton
+          label={isSettingsOpen ? t('orders.closeSettings') : t('orders.settings')}
+          onPress={() => setIsSettingsOpen((current) => !current)}
+          variant="secondary"
+          isRTL={isRTL}
+          minHeight={frontdeskTheme.touch.min}
+          style={styles.settingsButton}
         />
       </View>
+
+      {isSettingsOpen ? (
+        <FrontdeskCard elevated={false} style={styles.settingsPanel}>
+          <View style={[styles.settingsRow, isRTL ? styles.settingsRowRtl : null]}>
+            <FrontdeskButton
+              label={density === 'compact' ? t('orders.densityCompact') : t('orders.densityComfortable')}
+              onPress={() => setDensity((current) => (current === 'compact' ? 'comfortable' : 'compact'))}
+              variant="secondary"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.min}
+              style={styles.settingsAction}
+            />
+            <FrontdeskButton
+              label={i18n.language.toUpperCase()}
+              onPress={() => void i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en')}
+              variant="secondary"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.min}
+              style={styles.settingsAction}
+            />
+          </View>
+          <View style={[styles.settingsRow, isRTL ? styles.settingsRowRtl : null]}>
+            <FrontdeskButton
+              label={isPrintingTest ? t('orders.printing') : t('orders.printerTest')}
+              onPress={() => void handlePrinterTest()}
+              disabled={isPrintingTest}
+              variant="primary"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.min}
+              style={styles.settingsAction}
+            />
+            <FrontdeskButton
+              label={t('orders.logout')}
+              onPress={onLogout}
+              variant="danger"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.min}
+              style={styles.settingsAction}
+            />
+          </View>
+        </FrontdeskCard>
+      ) : null}
 
       <View style={[styles.summaryRow, isRTL ? styles.summaryRowRtl : null]}>
         <FrontdeskCard elevated={false} style={[styles.summaryChip, isRTL ? styles.summaryChipRtl : null]}>
@@ -191,7 +250,7 @@ export const OrdersScreen = ({
 
       {failedPrints.length > 0 ? (
         <FrontdeskCard elevated={false} style={[styles.failedSection, isRTL ? styles.failedSectionRtl : null]}>
-          <Text style={[styles.failedTitle, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>
+          <Text allowFontScaling={false} style={[styles.failedTitle, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>
             {t('orders.failedPrints')}
           </Text>
           {failedPrints.map((job) => (
@@ -241,9 +300,9 @@ export const OrdersScreen = ({
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void onRefresh()} />}
         ListEmptyComponent={
           isLoading ? (
-            <Text style={[styles.empty, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('orders.loading')}</Text>
+            <Text allowFontScaling={false} style={[styles.empty, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('orders.loading')}</Text>
           ) : (
-            <Text style={[styles.empty, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('orders.empty')}</Text>
+            <Text allowFontScaling={false} style={[styles.empty, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('orders.empty')}</Text>
           )
         }
         renderItem={({ item }) => (
@@ -278,46 +337,6 @@ export const OrdersScreen = ({
           />
         )}
       />
-
-      <FrontdeskCard elevated={false} style={[styles.bottomDock, { bottom: dockBottom }]}>
-        <View style={[styles.dockRow, isRTL ? styles.dockRowRtl : null]}>
-          <FrontdeskButton
-            label={density === 'compact' ? t('orders.densityCompact') : t('orders.densityComfortable')}
-            onPress={() => setDensity((current) => (current === 'compact' ? 'comfortable' : 'compact'))}
-            variant="secondary"
-            isRTL={isRTL}
-            minHeight={frontdeskTheme.touch.min}
-            style={styles.dockHalf}
-          />
-          <FrontdeskButton
-            label={i18n.language.toUpperCase()}
-            onPress={() => void i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en')}
-            variant="secondary"
-            isRTL={isRTL}
-            minHeight={frontdeskTheme.touch.min}
-            style={styles.dockHalf}
-          />
-        </View>
-        <View style={[styles.dockRow, isRTL ? styles.dockRowRtl : null]}>
-          <FrontdeskButton
-            label={isPrintingTest ? t('orders.printing') : t('orders.printerTest')}
-            onPress={() => void handlePrinterTest()}
-            disabled={isPrintingTest}
-            variant="primary"
-            isRTL={isRTL}
-            minHeight={frontdeskTheme.touch.min}
-            style={styles.dockHalf}
-          />
-          <FrontdeskButton
-            label={t('orders.logout')}
-            onPress={onLogout}
-            variant="danger"
-            isRTL={isRTL}
-            minHeight={frontdeskTheme.touch.min}
-            style={styles.dockHalf}
-          />
-        </View>
-      </FrontdeskCard>
     </View>
   );
 };
@@ -327,36 +346,64 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: frontdeskTheme.colors.background,
     paddingHorizontal: frontdeskTheme.spacing.md,
-    paddingTop: frontdeskTheme.spacing.md,
   },
   topBar: {
+    alignItems: 'stretch',
     marginBottom: frontdeskTheme.spacing.sm,
     width: '100%',
   },
-  topBarRtl: {
-    alignItems: 'stretch',
-  },
-  topBarLtr: {
-    alignItems: 'stretch',
-  },
   title: {
     ...frontdeskTheme.typography.titleLg,
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 22,
+    lineHeight: 28,
     color: frontdeskTheme.colors.textPrimary,
-    alignSelf: 'flex-end',
     maxWidth: '100%',
   },
-  connectionPill: {
-    marginBottom: frontdeskTheme.spacing.md,
-    borderRadius: frontdeskTheme.radius.pill,
-    paddingHorizontal: frontdeskTheme.spacing.lg,
-    paddingVertical: frontdeskTheme.spacing.sm,
+  titleLtr: {
     alignSelf: 'flex-start',
+  },
+  titleRtl: {
+    alignSelf: 'flex-end',
+  },
+  settingsButton: {
+    width: 150,
+  },
+  connectionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: frontdeskTheme.spacing.sm,
+    marginBottom: frontdeskTheme.spacing.sm,
+  },
+  connectionRowRtl: {
+    flexDirection: 'row-reverse',
+  },
+  settingsPanel: {
+    borderColor: frontdeskTheme.colors.border,
+    borderRadius: frontdeskTheme.radius.lg,
+    gap: frontdeskTheme.spacing.xs,
+    marginBottom: frontdeskTheme.spacing.md,
+    padding: frontdeskTheme.spacing.sm,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    gap: frontdeskTheme.spacing.xs,
+  },
+  settingsRowRtl: {
+    flexDirection: 'row-reverse',
+  },
+  settingsAction: {
+    flex: 1,
+  },
+  connectionPill: {
+    flex: 1,
+    borderRadius: frontdeskTheme.radius.pill,
+    paddingHorizontal: frontdeskTheme.spacing.md,
+    paddingVertical: frontdeskTheme.spacing.xs,
+    alignSelf: 'stretch',
     borderWidth: 1,
   },
   connectionPillRtl: {
-    marginLeft: 'auto',
+    alignItems: 'flex-end',
   },
   connected: {
     backgroundColor: frontdeskTheme.colors.successBg,
@@ -447,33 +494,12 @@ const styles = StyleSheet.create({
     color: frontdeskTheme.colors.textTertiary,
   },
   listContent: {
-    paddingBottom: 132,
+    paddingBottom: frontdeskTheme.spacing.lg,
   },
   listContentCompact: {
     paddingTop: frontdeskTheme.spacing.xs,
   },
   listContentComfortable: {
     paddingTop: frontdeskTheme.spacing.md,
-  },
-  bottomDock: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 10,
-    gap: frontdeskTheme.spacing.xs,
-    borderRadius: frontdeskTheme.radius.lg,
-    borderColor: frontdeskTheme.colors.border,
-    padding: frontdeskTheme.spacing.sm,
-    ...frontdeskTheme.elevation.dock,
-  },
-  dockRow: {
-    flexDirection: 'row',
-    gap: frontdeskTheme.spacing.xs,
-  },
-  dockRowRtl: {
-    flexDirection: 'row-reverse',
-  },
-  dockHalf: {
-    flex: 1,
   },
 });

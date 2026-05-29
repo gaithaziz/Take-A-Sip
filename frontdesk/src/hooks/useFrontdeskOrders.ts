@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import { AppState } from 'react-native';
 
 import i18next from '@/i18n';
 import { buildReceiptText } from '@/printer/receiptFormatter';
@@ -15,6 +16,7 @@ import { FrontdeskSocket } from '@/websocket/frontdeskSocket';
 
 const baseUrl = resolveApiBaseUrl();
 const ALERT_INTERVAL_MS = 8000;
+const ORDER_POLL_INTERVAL_MS = 10000;
 
 type FailedPrintJob = {
   order: OrderRead;
@@ -38,6 +40,8 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
   const shopNameArabicRef = useRef((process.env.EXPO_PUBLIC_SHOP_NAME_AR || 'خذلك شفة').trim());
   const alertLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const alertedNewOrderIdsRef = useRef<Set<string>>(new Set());
+  const loadInFlightRef = useRef(false);
+  const appStateRef = useRef(AppState.currentState);
 
   const stopAlertLoop = useCallback(() => {
     if (alertLoopRef.current) {
@@ -86,6 +90,10 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
   }, [orders, startAlertLoop, stopAlertLoop]);
 
   const loadNewOrders = useCallback(async () => {
+    if (loadInFlightRef.current) {
+      return;
+    }
+    loadInFlightRef.current = true;
     try {
       const latestOrders = await orderService.listLatestOrders({ limit: 50 });
       if (!isMountedRef.current) {
@@ -111,6 +119,8 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
         return;
       }
       setBanner(i18next.t('banner.loadFailed'));
+    } finally {
+      loadInFlightRef.current = false;
     }
   }, [onUnauthorized]);
 
@@ -193,9 +203,23 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     socketRef.current = socket;
     setConnectionState('connecting');
     socket.connect();
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      const wasInactive = appStateRef.current !== 'active';
+      appStateRef.current = nextState;
+      if (nextState === 'active' && wasInactive) {
+        void loadNewOrders();
+      }
+    });
+    const pollTimer = setInterval(() => {
+      if (appStateRef.current === 'active') {
+        void loadNewOrders();
+      }
+    }, ORDER_POLL_INTERVAL_MS);
 
     return () => {
       isMounted = false;
+      clearInterval(pollTimer);
+      appStateSubscription.remove();
       socket.disconnect();
       socketRef.current = null;
       stopAlertLoop();

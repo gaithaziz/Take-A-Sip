@@ -1,5 +1,7 @@
 package com.takeasip.frontdesk
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Handler
@@ -58,6 +60,30 @@ class SunmiPrinterModule(private val reactContext: ReactApplicationContext) :
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject("PRINT_TEXT_FAILED", e)
+    }
+  }
+
+  @ReactMethod
+  fun printShopLogo(promise: Promise) {
+    try {
+      val source = BitmapFactory.decodeResource(reactContext.resources, R.drawable.shop_logo)
+        ?: throw IllegalStateException("Shop logo resource could not be decoded")
+      val maxWidth = 320
+      val scaled = if (source.width > maxWidth) {
+        val ratio = maxWidth.toFloat() / source.width.toFloat()
+        Bitmap.createScaledBitmap(source, maxWidth, (source.height * ratio).toInt(), true)
+      } else {
+        source
+      }
+
+      requirePrinterService().printBitmap(scaled, null)
+      if (scaled != source) {
+        scaled.recycle()
+      }
+      source.recycle()
+      promise.resolve(null)
+    } catch (e: Exception) {
+      promise.reject("PRINT_LOGO_FAILED", e)
     }
   }
 

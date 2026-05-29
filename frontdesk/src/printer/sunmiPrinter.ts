@@ -3,6 +3,7 @@ import { NativeModules, Platform, Vibration } from 'react-native';
 type SunmiPrinterNativeModule = {
   initPrinter?: () => Promise<void>;
   setAlignment?: (alignment: number) => Promise<void>;
+  printShopLogo?: () => Promise<void>;
   printText?: (text: string) => Promise<void>;
   lineWrap?: (lines: number) => Promise<void>;
   cutPaper?: () => Promise<void>;
@@ -41,8 +42,18 @@ export const sunmiPrinter = {
     } catch {
       throw new Error('Printer init failed');
     }
+    if (!moduleRef.printShopLogo) {
+      throw new Error('Printer logo output failed');
+    }
     try {
-      await withTimeout(moduleRef.setAlignment?.(options?.isArabic ? 2 : 0), 3000, 'Printer alignment');
+      await withTimeout(moduleRef.setAlignment?.(1), 3000, 'Printer logo alignment');
+      await withTimeout(moduleRef.printShopLogo?.(), 5000, 'Printer logo output');
+      await withTimeout(moduleRef.lineWrap?.(1), 3000, 'Printer logo spacing');
+    } catch {
+      throw new Error('Printer logo output failed');
+    }
+    try {
+      await withTimeout(moduleRef.setAlignment?.(options?.isArabic ? 2 : 0), 3000, 'Printer text alignment');
     } catch {
       throw new Error('Printer alignment failed');
     }

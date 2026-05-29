@@ -163,7 +163,7 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComp
         <View style={[styles.assignWrap, isRTL ? styles.assignWrapRtl : null]}>
           <SectionHeader title={t('details.assignDriver')} isRTL={isRTL} />
           {drivers.length === 0 ? (
-            <Text style={[styles.itemLine, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('details.noDrivers')}</Text>
+            <Text allowFontScaling={false} style={[styles.itemLine, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]}>{t('details.noDrivers')}</Text>
           ) : (
             drivers.map((driver) => (
               <FrontdeskButton

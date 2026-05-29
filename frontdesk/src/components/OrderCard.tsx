@@ -129,7 +129,7 @@ export const OrderCard = ({
           numberOfLines={1}
         />
         {needsDriverAssignment(order) ? (
-          <Text style={[styles.assignmentMeta, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]} numberOfLines={1}>
+          <Text allowFontScaling={false} style={[styles.assignmentMeta, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr]} numberOfLines={1}>
             {labels.needsAssignment}
           </Text>
         ) : order.assigned_driver_id ? (

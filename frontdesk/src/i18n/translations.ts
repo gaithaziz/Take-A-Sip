@@ -18,6 +18,8 @@
       },
       orders: {
         title: 'Incoming Orders',
+        settings: 'Settings',
+        closeSettings: 'Close',
         language: 'Language',
         logout: 'Logout',
         printerTest: 'Printer Test',
@@ -130,6 +132,8 @@
       },
       orders: {
         title: 'الطلبات الجديدة',
+        settings: 'الإعدادات',
+        closeSettings: 'إغلاق',
         language: 'اللغة',
         logout: 'تسجيل خروج',
         printerTest: 'اختبار الطباعة',

@@ -20,7 +20,9 @@ type SectionHeaderProps = {
 };
 
 export const SectionHeader = ({ title, isRTL = false, style }: SectionHeaderProps) => (
-  <Text style={[styles.sectionHeader, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr, style]}>{title}</Text>
+  <Text allowFontScaling={false} style={[styles.sectionHeader, isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr, style]}>
+    {title}
+  </Text>
 );
 
 type CompositeTextRun = {
@@ -54,7 +56,11 @@ export const FrontdeskCompositeText = ({
   style,
   numberOfLines,
 }: FrontdeskCompositeTextProps) => (
-  <Text style={[isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr, style]} numberOfLines={numberOfLines}>
+  <Text
+    allowFontScaling={false}
+    style={[isRTL ? frontdeskTextAlign.rtl : frontdeskTextAlign.ltr, style]}
+    numberOfLines={numberOfLines}
+  >
     {runs.map((run, index) => (
       <Text key={`${index}-${run.text}`} style={[resolveDirectionStyle(run.direction, isRTL), run.style]}>
         {run.text}
