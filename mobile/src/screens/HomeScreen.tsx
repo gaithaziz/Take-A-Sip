@@ -13,7 +13,7 @@ import { getLocalizedValue } from '@/utils/i18n';
 import { useLanguage } from '@/state/LanguageContext';
 
 import { HomeScreenView } from './home/HomeScreenView';
-import { HomeMenuSection } from './home/types';
+import { HomeMenuGroup, HomeMenuSection } from './home/types';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'Home'>;
 
@@ -69,15 +69,47 @@ export const HomeScreen = ({ navigation }: Props) => {
     [cartItems],
   );
   const insets = useSafeAreaInsets();
+  const buildMenuGroups = useCallback(
+    (section: Section, activeItems: Item[]): HomeMenuGroup[] => {
+      const groups: HomeMenuGroup[] = [];
+      const groupIndexByTitle = new Map<string, number>();
+
+      activeItems.forEach((item) => {
+        const rawGroupTitle = getLocalizedValue(item, language, 'description').trim();
+        const groupTitle = rawGroupTitle.length > 0 ? rawGroupTitle : null;
+        const groupKey = groupTitle ?? '__ungrouped__';
+        const existingIndex = groupIndexByTitle.get(groupKey);
+
+        if (existingIndex === undefined) {
+          groupIndexByTitle.set(groupKey, groups.length);
+          groups.push({
+            id: `${section.id}-${groupKey}`,
+            title: groupTitle,
+            data: [item],
+          });
+          return;
+        }
+
+        groups[existingIndex].data.push(item);
+      });
+
+      return groups;
+    },
+    [language],
+  );
   const menuSections = useMemo<HomeMenuSection[]>(
     () =>
-      sections.map((section) => ({
-        id: section.id,
-        title: getLocalizedValue(section, language, 'name'),
-        imageUrl: section.image_url,
-        data: section.items.filter((item) => item.is_active),
-      })),
-    [language, sections],
+      sections.map((section) => {
+        const activeItems = section.items.filter((item) => item.is_active);
+        return {
+          id: section.id,
+          title: getLocalizedValue(section, language, 'name'),
+          imageUrl: section.image_url,
+          data: activeItems,
+          groups: buildMenuGroups(section, activeItems),
+        };
+      }),
+    [buildMenuGroups, language, sections],
   );
 
   const openProduct = (item: Item) => {

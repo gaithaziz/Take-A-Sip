@@ -52,6 +52,26 @@ cd backend
 python -m scripts.seed_full --wipe
 ```
 
+## Import Deployed Menu CSV
+
+The menu can be imported from `docs/menu_sections_items.csv`. This importer is intended for a deployed database such as staging or production; set `DATABASE_URL` to the target Neon database before running the write command.
+
+Dry-run first:
+
+```bash
+cd backend
+python -m scripts.import_menu_csv --dry-run
+```
+
+Import into the configured database:
+
+```bash
+cd backend
+DATABASE_URL="postgresql+asyncpg://..." python -m scripts.import_menu_csv --replace-menu
+```
+
+The importer clears existing menu data only when `--replace-menu` is provided. Omit `--image-base-url` for the initial text-only menu import; images can be attached in a later pass.
+
 ## Run tests
 
 ```bash

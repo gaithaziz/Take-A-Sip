@@ -77,7 +77,7 @@ export const sunmiPrinter = {
     Vibration.vibrate([0, 110, 70, 170]);
     if (moduleRef?.beep) {
       try {
-        await moduleRef.beep(760);
+        await moduleRef.beep(6000);
       } catch {
         try {
           // Backward compatibility with builds where beep() takes no args.

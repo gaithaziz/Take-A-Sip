@@ -1,0 +1,248 @@
+section_sort_order,item_sort_order,section_ar,section_en,subgroup_ar,subgroup_en,item_ar,item_en,type_ar,type_en,size_ar,size_en,price_jod,order_limit,description_ar,description_en,item_image,size_image,addon_ar,addon_en,addon_price_jod,addon_image,is_active
+1,1,سناكات,Snacks,ساندوتشات,Sandwiches,كبدة,Liver Sandwich,تقديم,Serving,عادي,Regular,1.00,,,,liver-sandwich.jpg,,,,,,true
+1,2,سناكات,Snacks,ساندوتشات,Sandwiches,نقانق وبيض (فرنسي),Sausage & Eggs Sandwich (French Bread),تقديم,Serving,عادي,Regular,1.00,,,,sausage-eggs-french-bread.jpg,,,,,,true
+1,3,سناكات,Snacks,ساندوتشات,Sandwiches,نقانق وبيض (صاج),Sausage & Eggs Saj,تقديم,Serving,عادي,Regular,1.00,,,,sausage-eggs-saj.jpg,,,,,,true
+1,4,سناكات,Snacks,ساندوتشات,Sandwiches,زنجر حلو (فرنسي),Sweet Zinger Sandwich (French Bread),تقديم,Serving,عادي,Regular,2.00,,,,sweet-zinger-french-bread.jpg,,,,,,true
+1,5,سناكات,Snacks,ساندوتشات,Sandwiches,زنجر حلو (صاج),Sweet Zinger Saj,تقديم,Serving,عادي,Regular,2.00,,,,sweet-zinger-saj.jpg,,,,,,true
+1,6,سناكات,Snacks,ساندوتشات,Sandwiches,زنجر حار (فرنسي),Spicy Zinger Sandwich (French Bread),تقديم,Serving,عادي,Regular,2.00,,,,spicy-zinger-french-bread.jpg,,,,,,true
+1,7,سناكات,Snacks,ساندوتشات,Sandwiches,زنجر حار (صاج),Spicy Zinger Saj,تقديم,Serving,عادي,Regular,2.00,,,,spicy-zinger-saj.jpg,,,,,,true
+1,8,سناكات,Snacks,ساندوتشات,Sandwiches,فاهيتا (فرنسي),Fajita Sandwich (French Bread),تقديم,Serving,عادي,Regular,2.00,,,,fajita-french-bread.jpg,,,,,,true
+1,9,سناكات,Snacks,ساندوتشات,Sandwiches,فاهيتا (صاج),Fajita Saj,تقديم,Serving,عادي,Regular,2.00,,,,fajita-saj.jpg,,,,,,true
+1,10,سناكات,Snacks,ساندوتشات,Sandwiches,برغر لحمة 100غم,Beef Burger 100g,تقديم,Serving,عادي,Regular,1.75,,,,beef-burger-100g.jpg,,,,,,true
+1,11,سناكات,Snacks,ساندوتشات,Sandwiches,برغر لحمة 150غم,Beef Burger 150g,تقديم,Serving,عادي,Regular,2.50,,,,beef-burger-150g.jpg,,,,,,true
+1,12,سناكات,Snacks,ساندوتشات,Sandwiches,هوت دوغ,Hot Dog,تقديم,Serving,عادي,Regular,1.00,,,,hot-dog.jpg,,,,,,true
+1,13,سناكات,Snacks,ساندوتشات,Sandwiches,كوردن بلو,Cordon Bleu,تقديم,Serving,عادي,Regular,2.00,,,,cordon-bleu.jpg,,,,,,true
+1,14,سناكات,Snacks,ساندوتشات,Sandwiches,سكالوب,Chicken Escalope (100g),تقديم,Serving,عادي,Regular,1.50,,,,chicken-escalope-100g.jpg,,,,,,true
+1,15,سناكات,Snacks,ساندوتشات,Sandwiches,بطاطا ودجز,Potato Wedges,تقديم,Serving,عادي,Regular,1.00,,,,potato-wedges.jpg,,,,,,true
+1,16,سناكات,Snacks,ساندوتشات,Sandwiches,بطاطا كيرلي,Curly Fries,تقديم,Serving,عادي,Regular,1.00,,,,curly-fries.jpg,,,,,,true
+1,17,سناكات,Snacks,ساندوتشات,Sandwiches,ناجت دجاج,Chicken Nuggets,تقديم,Serving,عادي,Regular,1.50,,,,chicken-nuggets.jpg,,,,,,true
+1,18,سناكات,Snacks,ساندوتشات,Sandwiches,ساندويش بطاطا (فرنسي),Potato Sandwich (French Bread),تقديم,Serving,عادي,Regular,1.00,,,,potato-sandwich-french-bread.jpg,,,,,,true
+1,19,سناكات,Snacks,ساندوتشات,Sandwiches,ساندويش بطاطا (صاج),Potato Saj,تقديم,Serving,عادي,Regular,1.00,,,,potato-saj.jpg,,,,,,true
+1,20,سناكات,Snacks,وجبات,Meals,وجبة زنجر,Zinger Meal,تقديم,Serving,عادي,Regular,3.00,,,,zinger-meal.jpg,,,,,,true
+1,21,سناكات,Snacks,وجبات,Meals,وجبة برغر لحمة,Beef Burger Meal,تقديم,Serving,عادي,Regular,3.50,,,,beef-burger-meal.jpg,,,,,,true
+1,22,سناكات,Snacks,وجبات,Meals,وجبة سكالوب,Escalope Meal,تقديم,Serving,عادي,Regular,2.50,,,,escalope-meal.jpg,,,,,,true
+1,23,سناكات,Snacks,وجبات,Meals,وجبة فاهيتا,Fajita Meal,تقديم,Serving,عادي,Regular,3.00,,,,fajita-meal.jpg,,,,,,true
+1,24,سناكات,Snacks,وجبات,Meals,وجبة كوردن بلو,Cordon Bleu Meal,تقديم,Serving,عادي,Regular,3.00,,,,cordon-bleu-meal.jpg,,,,,,true
+1,25,سناكات,Snacks,وجبات,Meals,وجبة ناجت دجاج,Chicken Nuggets Meal,تقديم,Serving,عادي,Regular,2.25,,,,chicken-nuggets-meal.jpg,,,,,,true
+1,26,سناكات,Snacks,اضافات,Add-ons,كأس بطاطا,Fries Cup,تقديم,Serving,عادي,Regular,1.00,,,,fries-cup.jpg,,,,,,true
+1,27,سناكات,Snacks,اضافات,Add-ons,علبة بطاطا,Fries Box,تقديم,Serving,عادي,Regular,0.75,,,,fries-box.jpg,,,,,,true
+1,28,سناكات,Snacks,اضافات,Add-ons,علبة جبنة صغيرة,Small Cheese Cup,تقديم,Serving,عادي,Regular,0.25,,,,small-cheese-cup.jpg,,,,,,true
+1,29,سناكات,Snacks,اضافات,Add-ons,علبة صوص صغيرة,Small Sauce Cup,تقديم,Serving,عادي,Regular,0.35,,,,small-sauce-cup.jpg,,,,,,true
+1,30,سناكات,Snacks,اضافات,Add-ons,إضافة جبنة,Extra Cheese,تقديم,Serving,عادي,Regular,0.25,,,,extra-cheese.jpg,,,,,,true
+2,1,حلويات,Desserts,كريب,Crepe,كأس كريب,Crepe Cup,نكهة,Flavor,شوكولاته,Chocolate,1.25,,,,crepe-cup-chocolate.jpg,,,,,,true
+2,1,حلويات,Desserts,كريب,Crepe,كأس كريب,Crepe Cup,نكهة,Flavor,نوتيلا,Nutella,1.75,,,,crepe-cup-nutella.jpg,,,,,,true
+2,1,حلويات,Desserts,كريب,Crepe,كأس كريب,Crepe Cup,نكهة,Flavor,لوتس,Lotus,1.50,,,,crepe-cup-lotus.jpg,,,,,,true
+2,1,حلويات,Desserts,كريب,Crepe,كأس كريب,Crepe Cup,نكهة,Flavor,بستاشيو,Pistachio,1.75,,,,crepe-cup-pistachio.jpg,,,,,,true
+2,1,حلويات,Desserts,كريب,Crepe,كأس كريب,Crepe Cup,نكهة,Flavor,مكس,Mix,1.50,,,,crepe-cup-mix.jpg,,,,,,true
+2,2,حلويات,Desserts,كريب,Crepe,كريب صحن,Crepe Plate,نكهة,Flavor,شوكولاته,Chocolate,2.25,,,,crepe-plate-chocolate.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,2,حلويات,Desserts,كريب,Crepe,كريب صحن,Crepe Plate,نكهة,Flavor,نوتيلا,Nutella,2.75,,,,crepe-plate-nutella.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,2,حلويات,Desserts,كريب,Crepe,كريب صحن,Crepe Plate,نكهة,Flavor,لوتس,Lotus,2.50,,,,crepe-plate-lotus.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,2,حلويات,Desserts,كريب,Crepe,كريب صحن,Crepe Plate,نكهة,Flavor,بستاشيو,Pistachio,3.00,,,,crepe-plate-pistachio.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,2,حلويات,Desserts,كريب,Crepe,كريب صحن,Crepe Plate,نكهة,Flavor,مكس,Mix,2.75,,,,crepe-plate-mix.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,3,حلويات,Desserts,كريب,Crepe,قطايف موز وشوكولاتة,Qatayef Banana Chocolate,تقديم,Serving,عادي,Regular,2.00,,,,qatayef-banana-chocolate.jpg,,,,,,true
+2,4,حلويات,Desserts,كريب,Crepe,قطايف فراولة وشوكولاتة,Qatayef Strawberry Chocolate,تقديم,Serving,عادي,Regular,2.00,,,,qatayef-strawberry-chocolate.jpg,,,,,,true
+2,5,حلويات,Desserts,وافل,Waffle,وافل ستيك,Waffle Stick,نكهة,Flavor,شوكولاته,Chocolate,1.25,,,,waffle-stick-chocolate.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,5,حلويات,Desserts,وافل,Waffle,وافل ستيك,Waffle Stick,نكهة,Flavor,نوتيلا,Nutella,1.75,,,,waffle-stick-nutella.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,5,حلويات,Desserts,وافل,Waffle,وافل ستيك,Waffle Stick,نكهة,Flavor,لوتس,Lotus,1.50,,,,waffle-stick-lotus.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,5,حلويات,Desserts,وافل,Waffle,وافل ستيك,Waffle Stick,نكهة,Flavor,بستاشيو,Pistachio,1.75,,,,waffle-stick-pistachio.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,5,حلويات,Desserts,وافل,Waffle,وافل ستيك,Waffle Stick,نكهة,Flavor,مكس,Mix,1.50,,,,waffle-stick-mix.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,6,حلويات,Desserts,وافل,Waffle,وافل طبق,Waffle Plate,نكهة,Flavor,شوكولاته,Chocolate,2.00,,,,waffle-plate-chocolate.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,6,حلويات,Desserts,وافل,Waffle,وافل طبق,Waffle Plate,نكهة,Flavor,نوتيلا,Nutella,2.75,,,,waffle-plate-nutella.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,6,حلويات,Desserts,وافل,Waffle,وافل طبق,Waffle Plate,نكهة,Flavor,لوتس,Lotus,2.25,,,,waffle-plate-lotus.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,6,حلويات,Desserts,وافل,Waffle,وافل طبق,Waffle Plate,نكهة,Flavor,بستاشيو,Pistachio,2.75,,,,waffle-plate-pistachio.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,6,حلويات,Desserts,وافل,Waffle,وافل طبق,Waffle Plate,نكهة,Flavor,مكس,Mix,2.50,,,,waffle-plate-mix.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,7,حلويات,Desserts,وافل,Waffle,وافل كرات,Waffle Balls,قطع,Pieces,٦ قطع,6 Pieces,1.50,,,,waffle-balls-6-pieces.jpg,,,,,,true
+2,7,حلويات,Desserts,وافل,Waffle,وافل كرات,Waffle Balls,قطع,Pieces,٨ قطع,8 Pieces,2.00,,,,waffle-balls-8-pieces.jpg,,,,,,true
+2,7,حلويات,Desserts,وافل,Waffle,وافل كرات,Waffle Balls,قطع,Pieces,٦ قطع محشي,6 Stuffed Pieces,2.25,,,,waffle-balls-6-stuffed-pieces.jpg,,,,,,true
+2,7,حلويات,Desserts,وافل,Waffle,وافل كرات,Waffle Balls,قطع,Pieces,٨ قطع محشي,8 Stuffed Pieces,2.75,,,,waffle-balls-8-stuffed-pieces.jpg,,,,,,true
+2,8,حلويات,Desserts,بان كيك,Pancake,بان كيك,Pancake,نكهة,Flavor,شوكولاته,Chocolate,2.00,,,,pancake-chocolate.jpg,,,,,,true
+2,8,حلويات,Desserts,بان كيك,Pancake,بان كيك,Pancake,نكهة,Flavor,نوتيلا,Nutella,2.50,,,,pancake-nutella.jpg,,,,,,true
+2,8,حلويات,Desserts,بان كيك,Pancake,بان كيك,Pancake,نكهة,Flavor,لوتس,Lotus,2.25,,,,pancake-lotus.jpg,,,,,,true
+2,8,حلويات,Desserts,بان كيك,Pancake,بان كيك,Pancake,نكهة,Flavor,بستاشيو,Pistachio,2.50,,,,pancake-pistachio.jpg,,,,,,true
+2,8,حلويات,Desserts,بان كيك,Pancake,بان كيك,Pancake,نكهة,Flavor,مكس,Mix,2.50,,,,pancake-mix.jpg,,,,,,true
+2,8,حلويات,Desserts,بان كيك,Pancake,بان كيك,Pancake,نكهة,Flavor,3 طبقات مكس,3-Layer Mix,3.25,,,,pancake-3-layer-mix.jpg,,,,,,true
+2,9,حلويات,Desserts,بان كيك,Pancake,ميني بان كيك,Mini Pancake,قطع,Pieces,6 قطع شوكولاتة,6 Chocolate Pieces,1.50,,,,mini-pancake-6-chocolate-pieces.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,9,حلويات,Desserts,بان كيك,Pancake,ميني بان كيك,Mini Pancake,قطع,Pieces,12 قطع شوكولاتة,12 Chocolate Pieces,2.75,,,,mini-pancake-12-chocolate-pieces.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,9,حلويات,Desserts,بان كيك,Pancake,ميني بان كيك,Mini Pancake,قطع,Pieces,6 قطع مكس,6 Mix Pieces,1.75,,,,mini-pancake-6-mix-pieces.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,9,حلويات,Desserts,بان كيك,Pancake,ميني بان كيك,Mini Pancake,قطع,Pieces,12 قطع مكس,12 Mix Pieces,3.00,,,,mini-pancake-12-mix-pieces.jpg,,إضافة فواكه,Extra Fruit,0.75,,true
+2,10,حلويات,Desserts,كيكة خذلك شفه,Take A Sip Cake,كيكة خذلك شفه,Take A Sip Cake,نكهة,Flavor,شوكولاتة,Chocolate,1.50,,,,take-a-sip-cake-chocolate.jpg,,,,,,true
+2,10,حلويات,Desserts,كيكة خذلك شفه,Take A Sip Cake,كيكة خذلك شفه,Take A Sip Cake,نكهة,Flavor,لوتس,Lotus,1.75,,,,take-a-sip-cake-lotus.jpg,,,,,,true
+2,10,حلويات,Desserts,كيكة خذلك شفه,Take A Sip Cake,كيكة خذلك شفه,Take A Sip Cake,نكهة,Flavor,بستاشيو,Pistachio,2.00,,,,take-a-sip-cake-pistachio.jpg,,,,,,true
+2,11,حلويات,Desserts,تحلايه,Dessert Cup,قشطة وعسل ومكسرات,Cream Honey & Nuts,حجم,Size,عادي,Regular,2.75,,,,cream-honey-nuts.jpg,,,,,,true
+2,11,حلويات,Desserts,تحلايه,Dessert Cup,قشطة وعسل ومكسرات,Cream Honey & Nuts,حجم,Size,كبير,Large,4.50,,,,cream-honey-nuts.jpg,,,,,,true
+2,12,حلويات,Desserts,تحلايه,Dessert Cup,سلطة فواكة,Fruit Salad,تقديم,Serving,عادي,Regular,4.50,,,,fruit-salad.jpg,,,,,,true
+2,13,حلويات,Desserts,تحلايه,Dessert Cup,صحن فواكة بالشوكولاتة,Fruit Plate with Chocolate,تقديم,Serving,عادي,Regular,3.00,,,,fruit-plate-with-chocolate.jpg,,,,,,true
+3,1,ستيم,Steam Drinks,بارد,Cold,إيس لاتيه,Iced Latte,حجم,Size,وسط,Medium,1.25,,,,iced-latte.jpg,,,,,,true
+3,1,ستيم,Steam Drinks,بارد,Cold,إيس لاتيه,Iced Latte,حجم,Size,كبير,Large,1.75,,,,iced-latte.jpg,,,,,,true
+3,2,ستيم,Steam Drinks,بارد,Cold,إيس سبانيش لاتي,Iced Spanish Latte,حجم,Size,وسط,Medium,1.50,,,,iced-spanish-latte.jpg,,,,,,true
+3,2,ستيم,Steam Drinks,بارد,Cold,إيس سبانيش لاتي,Iced Spanish Latte,حجم,Size,كبير,Large,2.00,,,,iced-spanish-latte.jpg,,,,,,true
+3,3,ستيم,Steam Drinks,بارد,Cold,إيس كراميل لاتيه,Iced Caramel Latte,حجم,Size,وسط,Medium,1.25,,,,iced-caramel-latte.jpg,,,,,,true
+3,3,ستيم,Steam Drinks,بارد,Cold,إيس كراميل لاتيه,Iced Caramel Latte,حجم,Size,كبير,Large,1.75,,,,iced-caramel-latte.jpg,,,,,,true
+3,4,ستيم,Steam Drinks,بارد,Cold,إيس لوتس لاتي,Iced Lotus Latte,حجم,Size,وسط,Medium,1.25,,,,iced-lotus-latte.jpg,,,,,,true
+3,4,ستيم,Steam Drinks,بارد,Cold,إيس لوتس لاتي,Iced Lotus Latte,حجم,Size,كبير,Large,1.75,,,,iced-lotus-latte.jpg,,,,,,true
+3,5,ستيم,Steam Drinks,بارد,Cold,ايس بستاشيو,Iced Pistachio,حجم,Size,وسط,Medium,1.50,,,,iced-pistachio.jpg,,,,,,true
+3,5,ستيم,Steam Drinks,بارد,Cold,ايس بستاشيو,Iced Pistachio,حجم,Size,كبير,Large,2.00,,,,iced-pistachio.jpg,,,,,,true
+3,6,ستيم,Steam Drinks,بارد,Cold,ايس بستاشيو لاتيه,Iced Pistachio Latte,حجم,Size,وسط,Medium,1.50,,,,iced-pistachio-latte.jpg,,,,,,true
+3,6,ستيم,Steam Drinks,بارد,Cold,ايس بستاشيو لاتيه,Iced Pistachio Latte,حجم,Size,كبير,Large,2.00,,,,iced-pistachio-latte.jpg,,,,,,true
+3,7,ستيم,Steam Drinks,بارد,Cold,ايس فانيلا لاتيه,Iced Vanilla Latte,حجم,Size,وسط,Medium,1.25,,,,iced-vanilla-latte.jpg,,,,,,true
+3,7,ستيم,Steam Drinks,بارد,Cold,ايس فانيلا لاتيه,Iced Vanilla Latte,حجم,Size,كبير,Large,1.75,,,,iced-vanilla-latte.jpg,,,,,,true
+3,8,ستيم,Steam Drinks,بارد,Cold,أيس ماتشا,Iced Matcha,حجم,Size,وسط,Medium,1.50,,,,iced-matcha.jpg,,,,,,true
+3,8,ستيم,Steam Drinks,بارد,Cold,أيس ماتشا,Iced Matcha,حجم,Size,كبير,Large,2.00,,,,iced-matcha.jpg,,,,,,true
+3,9,ستيم,Steam Drinks,بارد,Cold,إيس كوفي,Iced Coffee,حجم,Size,وسط,Medium,1.25,,,,iced-coffee.jpg,,,,,,true
+3,9,ستيم,Steam Drinks,بارد,Cold,إيس كوفي,Iced Coffee,حجم,Size,كبير,Large,1.75,,,,iced-coffee.jpg,,,,,,true
+3,10,ستيم,Steam Drinks,بارد,Cold,آيس أمريكانو,Iced Americano,حجم,Size,وسط,Medium,1.25,,,,iced-americano.jpg,,,,,,true
+3,10,ستيم,Steam Drinks,بارد,Cold,آيس أمريكانو,Iced Americano,حجم,Size,كبير,Large,1.75,,,,iced-americano.jpg,,,,,,true
+3,11,ستيم,Steam Drinks,بارد,Cold,آيس موكا,Iced Mocha,حجم,Size,وسط,Medium,1.25,,,,iced-mocha.jpg,,,,,,true
+3,11,ستيم,Steam Drinks,بارد,Cold,آيس موكا,Iced Mocha,حجم,Size,كبير,Large,1.75,,,,iced-mocha.jpg,,,,,,true
+3,12,ستيم,Steam Drinks,بارد,Cold,ايس لوتس,Iced Lotus,حجم,Size,وسط,Medium,1.50,,,,iced-lotus.jpg,,,,,,true
+3,12,ستيم,Steam Drinks,بارد,Cold,ايس لوتس,Iced Lotus,حجم,Size,كبير,Large,2.00,,,,iced-lotus.jpg,,,,,,true
+3,13,ستيم,Steam Drinks,بارد,Cold,أيس ماتشا بالكراميل,Iced Caramel Matcha,حجم,Size,وسط,Medium,1.75,,,,iced-caramel-matcha.jpg,,,,,,true
+3,13,ستيم,Steam Drinks,بارد,Cold,أيس ماتشا بالكراميل,Iced Caramel Matcha,حجم,Size,كبير,Large,2.25,,,,iced-caramel-matcha.jpg,,,,,,true
+3,14,ستيم,Steam Drinks,بارد,Cold,ايس ماتشا توت مشكل,Iced Berries Matcha,حجم,Size,وسط,Medium,1.75,,,,iced-berries-matcha.jpg,,,,,,true
+3,14,ستيم,Steam Drinks,بارد,Cold,ايس ماتشا توت مشكل,Iced Berries Matcha,حجم,Size,كبير,Large,2.25,,,,iced-berries-matcha.jpg,,,,,,true
+3,15,ستيم,Steam Drinks,ساخن,Hot,لاتيه,Latte,حجم,Size,وسط,Medium,1.50,,,,latte.jpg,,,,,,true
+3,15,ستيم,Steam Drinks,ساخن,Hot,لاتيه,Latte,حجم,Size,كبير,Large,2.00,,,,latte.jpg,,,,,,true
+3,16,ستيم,Steam Drinks,ساخن,Hot,كباتشينو,Cappuccino,حجم,Size,وسط,Medium,1.25,,,,cappuccino.jpg,,,,,,true
+3,16,ستيم,Steam Drinks,ساخن,Hot,كباتشينو,Cappuccino,حجم,Size,كبير,Large,1.75,,,,cappuccino.jpg,,,,,,true
+3,17,ستيم,Steam Drinks,ساخن,Hot,إسبريسو,Espresso,حجم,Size,وسط,Medium,1.00,,,,espresso.jpg,,,,,,true
+3,17,ستيم,Steam Drinks,ساخن,Hot,إسبريسو,Espresso,حجم,Size,كبير,Large,1.50,,,,espresso.jpg,,,,,,true
+3,18,ستيم,Steam Drinks,ساخن,Hot,كورتادو,Cortado,حجم,Size,وسط,Medium,1.50,,,,cortado.jpg,,,,,,true
+3,18,ستيم,Steam Drinks,ساخن,Hot,كورتادو,Cortado,حجم,Size,كبير,Large,2.00,,,,cortado.jpg,,,,,,true
+3,19,ستيم,Steam Drinks,ساخن,Hot,فلات وايت,Flat White,حجم,Size,وسط,Medium,1.50,,,,flat-white.jpg,,,,,,true
+3,19,ستيم,Steam Drinks,ساخن,Hot,فلات وايت,Flat White,حجم,Size,كبير,Large,2.00,,,,flat-white.jpg,,,,,,true
+3,20,ستيم,Steam Drinks,ساخن,Hot,سبانيش لاتيه,Spanish Latte,حجم,Size,وسط,Medium,1.50,,,,spanish-latte.jpg,,,,,,true
+3,20,ستيم,Steam Drinks,ساخن,Hot,سبانيش لاتيه,Spanish Latte,حجم,Size,كبير,Large,2.00,,,,spanish-latte.jpg,,,,,,true
+3,21,ستيم,Steam Drinks,ساخن,Hot,بستاشيو لاتيه,Pistachio Latte,حجم,Size,وسط,Medium,1.50,,,,pistachio-latte.jpg,,,,,,true
+3,21,ستيم,Steam Drinks,ساخن,Hot,بستاشيو لاتيه,Pistachio Latte,حجم,Size,كبير,Large,2.00,,,,pistachio-latte.jpg,,,,,,true
+3,22,ستيم,Steam Drinks,ساخن,Hot,كراميل لاتيه,Caramel Latte,حجم,Size,وسط,Medium,1.25,,,,caramel-latte.jpg,,,,,,true
+3,22,ستيم,Steam Drinks,ساخن,Hot,كراميل لاتيه,Caramel Latte,حجم,Size,كبير,Large,1.75,,,,caramel-latte.jpg,,,,,,true
+3,23,ستيم,Steam Drinks,ساخن,Hot,ماتشا,Matcha,حجم,Size,وسط,Medium,1.50,,,,matcha.jpg,,,,,,true
+3,23,ستيم,Steam Drinks,ساخن,Hot,ماتشا,Matcha,حجم,Size,كبير,Large,2.00,,,,matcha.jpg,,,,,,true
+3,24,ستيم,Steam Drinks,ساخن,Hot,أمريكانو,Americano,حجم,Size,وسط,Medium,1.25,,,,americano.jpg,,,,,,true
+3,24,ستيم,Steam Drinks,ساخن,Hot,أمريكانو,Americano,حجم,Size,كبير,Large,1.75,,,,americano.jpg,,,,,,true
+3,25,ستيم,Steam Drinks,ساخن,Hot,هوت شوكلت,Hot Chocolate,حجم,Size,وسط,Medium,1.25,,,,hot-chocolate.jpg,,,,,,true
+3,25,ستيم,Steam Drinks,ساخن,Hot,هوت شوكلت,Hot Chocolate,حجم,Size,كبير,Large,1.75,,,,hot-chocolate.jpg,,,,,,true
+3,26,ستيم,Steam Drinks,ساخن,Hot,وايت موكا,White Mocha,حجم,Size,وسط,Medium,1.50,,,,white-mocha.jpg,,,,,,true
+3,26,ستيم,Steam Drinks,ساخن,Hot,وايت موكا,White Mocha,حجم,Size,كبير,Large,2.00,,,,white-mocha.jpg,,,,,,true
+3,27,ستيم,Steam Drinks,ساخن,Hot,لوتس,Lotus,حجم,Size,وسط,Medium,1.50,,,,lotus.jpg,,,,,,true
+3,27,ستيم,Steam Drinks,ساخن,Hot,لوتس,Lotus,حجم,Size,كبير,Large,2.00,,,,lotus.jpg,,,,,,true
+3,28,ستيم,Steam Drinks,ساخن,Hot,بستاشيو,Pistachio,حجم,Size,وسط,Medium,1.50,,,,pistachio.jpg,,,,,,true
+3,28,ستيم,Steam Drinks,ساخن,Hot,بستاشيو,Pistachio,حجم,Size,كبير,Large,2.00,,,,pistachio.jpg,,,,,,true
+3,29,ستيم,Steam Drinks,ساخن,Hot,موكا بندق / فانيلا,Hazelnut / Vanilla Mocha,حجم,Size,وسط,Medium,1.50,,,,hazelnut-vanilla-mocha.jpg,,,,,,true
+3,29,ستيم,Steam Drinks,ساخن,Hot,موكا بندق / فانيلا,Hazelnut / Vanilla Mocha,حجم,Size,كبير,Large,2.00,,,,hazelnut-vanilla-mocha.jpg,,,,,,true
+3,30,ستيم,Steam Drinks,ساخن,Hot,ماتشا بالكراميل,Caramel Matcha,حجم,Size,وسط,Medium,1.75,,,,caramel-matcha.jpg,,,,,,true
+3,30,ستيم,Steam Drinks,ساخن,Hot,ماتشا بالكراميل,Caramel Matcha,حجم,Size,كبير,Large,2.25,,,,caramel-matcha.jpg,,,,,,true
+3,31,ستيم,Steam Drinks,ساخن,Hot,ماتشا توت مشكل,Berries Matcha,حجم,Size,وسط,Medium,1.75,,,,berries-matcha.jpg,,,,,,true
+3,31,ستيم,Steam Drinks,ساخن,Hot,ماتشا توت مشكل,Berries Matcha,حجم,Size,كبير,Large,2.25,,,,berries-matcha.jpg,,,,,,true
+3,32,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,شوكولاتة فراب,Chocolate Frappe,حجم,Size,وسط,Medium,1.50,,,,chocolate-frappe.jpg,,,,,,true
+3,32,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,شوكولاتة فراب,Chocolate Frappe,حجم,Size,كبير,Large,2.00,,,,chocolate-frappe.jpg,,,,,,true
+3,33,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,كراميل فراب,Caramel Frappe,حجم,Size,وسط,Medium,1.50,,,,caramel-frappe.jpg,,,,,,true
+3,33,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,كراميل فراب,Caramel Frappe,حجم,Size,كبير,Large,2.00,,,,caramel-frappe.jpg,,,,,,true
+3,34,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,فانيلا فراب,Vanilla Frappe,حجم,Size,وسط,Medium,1.50,,,,vanilla-frappe.jpg,,,,,,true
+3,34,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,فانيلا فراب,Vanilla Frappe,حجم,Size,كبير,Large,2.00,,,,vanilla-frappe.jpg,,,,,,true
+3,35,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,لوتس فراب,Lotus Frappe,حجم,Size,وسط,Medium,1.75,,,,lotus-frappe.jpg,,,,,,true
+3,35,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,لوتس فراب,Lotus Frappe,حجم,Size,كبير,Large,2.25,,,,lotus-frappe.jpg,,,,,,true
+3,36,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,بستاشيو فراب,Pistachio Frappe,حجم,Size,وسط,Medium,1.75,,,,pistachio-frappe.jpg,,,,,,true
+3,36,ستيم,Steam Drinks,فرابتشبنو,Frappuccino,بستاشيو فراب,Pistachio Frappe,حجم,Size,كبير,Large,2.25,,,,pistachio-frappe.jpg,,,,,,true
+4,1,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,موز وحليب وفراولة,Banana Milk Strawberry Cocktail,حجم,Size,وسط,Medium,1.50,,,,banana-milk-strawberry-cocktail.jpg,,,,,,true
+4,1,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,موز وحليب وفراولة,Banana Milk Strawberry Cocktail,حجم,Size,كبير,Large,2.00,,,,banana-milk-strawberry-cocktail.jpg,,,,,,true
+4,2,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,فراولة وحليب,Strawberry Milk Cocktail,حجم,Size,وسط,Medium,1.50,,,,strawberry-milk-cocktail.jpg,,,,,,true
+4,2,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,فراولة وحليب,Strawberry Milk Cocktail,حجم,Size,كبير,Large,2.00,,,,strawberry-milk-cocktail.jpg,,,,,,true
+4,3,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,موز وحليب,Banana Milk Cocktail,حجم,Size,وسط,Medium,1.50,,,,banana-milk-cocktail.jpg,,,,,,true
+4,3,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,موز وحليب,Banana Milk Cocktail,حجم,Size,كبير,Large,2.00,,,,banana-milk-cocktail.jpg,,,,,,true
+4,4,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,موز بالشوكولاتة,Banana Chocolate Cocktail,حجم,Size,وسط,Medium,1.50,,,,banana-chocolate-cocktail.jpg,,,,,,true
+4,4,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,موز بالشوكولاتة,Banana Chocolate Cocktail,حجم,Size,كبير,Large,2.00,,,,banana-chocolate-cocktail.jpg,,,,,,true
+4,5,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,موز ولوتس,Banana Lotus Cocktail,حجم,Size,وسط,Medium,1.50,,,,banana-lotus-cocktail.jpg,,,,,,true
+4,5,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,موز ولوتس,Banana Lotus Cocktail,حجم,Size,كبير,Large,2.00,,,,banana-lotus-cocktail.jpg,,,,,,true
+4,6,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,كيوي وليمون ونعنع,Kiwi Lemon Mint Cocktail,حجم,Size,وسط,Medium,1.50,,,,kiwi-lemon-mint-cocktail.jpg,,,,,,true
+4,6,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,كيوي وليمون ونعنع,Kiwi Lemon Mint Cocktail,حجم,Size,كبير,Large,2.00,,,,kiwi-lemon-mint-cocktail.jpg,,,,,,true
+4,7,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,كيوي وتفاح,Kiwi Apple Cocktail,حجم,Size,وسط,Medium,1.50,,,,kiwi-apple-cocktail.jpg,,,,,,true
+4,7,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,كيوي وتفاح,Kiwi Apple Cocktail,حجم,Size,كبير,Large,2.00,,,,kiwi-apple-cocktail.jpg,,,,,,true
+4,8,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,ليمون ونعنع,Lemon Mint Cocktail,حجم,Size,وسط,Medium,1.50,,,,lemon-mint-cocktail.jpg,,,,,,true
+4,8,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,ليمون ونعنع,Lemon Mint Cocktail,حجم,Size,كبير,Large,2.00,,,,lemon-mint-cocktail.jpg,,,,,,true
+4,9,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,كيوي,Kiwi Cocktail,حجم,Size,وسط,Medium,1.50,,,,kiwi-cocktail.jpg,,,,,,true
+4,9,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,كيوي,Kiwi Cocktail,حجم,Size,كبير,Large,2.00,,,,kiwi-cocktail.jpg,,,,,,true
+4,10,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,مانجو,Mango Cocktail,حجم,Size,وسط,Medium,1.50,,,,mango-cocktail.jpg,,,,,,true
+4,10,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,مانجو,Mango Cocktail,حجم,Size,كبير,Large,2.00,,,,mango-cocktail.jpg,,,,,,true
+4,11,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,أفوكادو سادة,Plain Avocado Cocktail,حجم,Size,وسط,Medium,1.50,,,,plain-avocado-cocktail.jpg,,,,,,true
+4,11,كوكتيل,Cocktails,كوكتيل فواكه,Fruit Cocktail,أفوكادو سادة,Plain Avocado Cocktail,حجم,Size,كبير,Large,2.00,,,,plain-avocado-cocktail.jpg,,,,,,true
+4,12,كوكتيل,Cocktails,عصير فرش,Fresh Juice,رمان,Pomegranate Juice,تقديم,Serving,عادي,Regular,1.50,,,,pomegranate-juice.jpg,,,,,,true
+4,13,كوكتيل,Cocktails,عصير فرش,Fresh Juice,برتقال,Orange Juice,تقديم,Serving,عادي,Regular,1.50,,,,orange-juice.jpg,,,,,,true
+4,14,كوكتيل,Cocktails,عصير فرش,Fresh Juice,برتقال وجزر,Orange Carrot Juice,تقديم,Serving,عادي,Regular,1.50,,,,orange-carrot-juice.jpg,,,,,,true
+4,15,كوكتيل,Cocktails,عصير فرش,Fresh Juice,توت شامي,Shami Berry Juice,تقديم,Serving,عادي,Regular,2.00,,,,shami-berry-juice.jpg,,,,,,true
+4,16,كوكتيل,Cocktails,شوكولامو,Chocolamo,شوكولاته,Chocolate Chocolamo,تقديم,Serving,عادي,Regular,1.75,,,,chocolate-chocolamo.jpg,,,,,,true
+4,17,كوكتيل,Cocktails,شوكولامو,Chocolamo,تشيز كيك,Cheesecake Chocolamo,تقديم,Serving,عادي,Regular,1.75,,,,cheesecake-chocolamo.jpg,,,,,,true
+4,18,كوكتيل,Cocktails,شوكولامو,Chocolamo,لوتس,Lotus Chocolamo,تقديم,Serving,عادي,Regular,1.75,,,,lotus-chocolamo.jpg,,,,,,true
+4,19,كوكتيل,Cocktails,شوكولامو,Chocolamo,بستاشيو,Pistachio Chocolamo,تقديم,Serving,عادي,Regular,1.75,,,,pistachio-chocolamo.jpg,,,,,,true
+4,20,كوكتيل,Cocktails,شوكولامو,Chocolamo,سنيكرز,Snickers Chocolamo,تقديم,Serving,عادي,Regular,1.75,,,,snickers-chocolamo.jpg,,,,,,true
+4,21,كوكتيل,Cocktails,شوكولامو,Chocolamo,مكس دبي,Dubai Mix Chocolamo,تقديم,Serving,عادي,Regular,1.75,,,,dubai-mix-chocolamo.jpg,,,,,,true
+5,1,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,شوكلولاتة,Chocolate Milkshake,حجم,Size,وسط,Medium,1.50,,,,chocolate-milkshake.jpg,,,,,,true
+5,1,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,شوكلولاتة,Chocolate Milkshake,حجم,Size,كبير,Large,2.00,,,,chocolate-milkshake.jpg,,,,,,true
+5,2,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,تشيز كيك,Cheesecake Milkshake,حجم,Size,وسط,Medium,1.50,,,,cheesecake-milkshake.jpg,,,,,,true
+5,2,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,تشيز كيك,Cheesecake Milkshake,حجم,Size,كبير,Large,2.00,,,,cheesecake-milkshake.jpg,,,,,,true
+5,3,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,سنيكرز,Snickers Milkshake,حجم,Size,وسط,Medium,1.50,,,,snickers-milkshake.jpg,,,,,,true
+5,3,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,سنيكرز,Snickers Milkshake,حجم,Size,كبير,Large,2.00,,,,snickers-milkshake.jpg,,,,,,true
+5,4,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,لوتس,Lotus Milkshake,حجم,Size,وسط,Medium,1.50,,,,lotus-milkshake.jpg,,,,,,true
+5,4,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,لوتس,Lotus Milkshake,حجم,Size,كبير,Large,2.00,,,,lotus-milkshake.jpg,,,,,,true
+5,5,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,أوريو,Oreo Milkshake,حجم,Size,وسط,Medium,1.50,,,,oreo-milkshake.jpg,,,,,,true
+5,5,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,أوريو,Oreo Milkshake,حجم,Size,كبير,Large,2.00,,,,oreo-milkshake.jpg,,,,,,true
+5,6,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,عربي,Arabic Milkshake,حجم,Size,وسط,Medium,1.50,,,,arabic-milkshake.jpg,,,,,,true
+5,6,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,عربي,Arabic Milkshake,حجم,Size,كبير,Large,2.00,,,,arabic-milkshake.jpg,,,,,,true
+5,7,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,بستاشيو,Pistachio Milkshake,حجم,Size,وسط,Medium,1.50,,,,pistachio-milkshake.jpg,,,,,,true
+5,7,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,بستاشيو,Pistachio Milkshake,حجم,Size,كبير,Large,2.00,,,,pistachio-milkshake.jpg,,,,,,true
+5,8,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,كوكيز,Cookies Milkshake,حجم,Size,وسط,Medium,1.50,,,,cookies-milkshake.jpg,,,,,,true
+5,8,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,كوكيز,Cookies Milkshake,حجم,Size,كبير,Large,2.00,,,,cookies-milkshake.jpg,,,,,,true
+5,9,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,إينشتاين,Einstein Milkshake,حجم,Size,وسط,Medium,1.50,,,,einstein-milkshake.jpg,,,,,,true
+5,9,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,إينشتاين,Einstein Milkshake,حجم,Size,كبير,Large,2.00,,,,einstein-milkshake.jpg,,,,,,true
+5,10,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,سيريلاك,Cerelac Milkshake,حجم,Size,وسط,Medium,1.50,,,,cerelac-milkshake.jpg,,,,,,true
+5,10,ميلك شيك,Milkshakes,ميلك شيك,Milkshake,سيريلاك,Cerelac Milkshake,حجم,Size,كبير,Large,2.00,,,,cerelac-milkshake.jpg,,,,,,true
+6,1,سلاش,Slush,طبيعي,Natural Slush,كركديه,Hibiscus Slush,حجم,Size,كبير,Large,1.00,,,,hibiscus-slush.jpg,,,,,,true
+6,1,سلاش,Slush,طبيعي,Natural Slush,كركديه,Hibiscus Slush,حجم,Size,صغير,Small,0.75,,,,hibiscus-slush.jpg,,,,,,true
+6,2,سلاش,Slush,طبيعي,Natural Slush,مانجو,Mango Slush,حجم,Size,كبير,Large,1.00,,,,mango-slush.jpg,,,,,,true
+6,2,سلاش,Slush,طبيعي,Natural Slush,مانجو,Mango Slush,حجم,Size,صغير,Small,0.75,,,,mango-slush.jpg,,,,,,true
+6,3,سلاش,Slush,طبيعي,Natural Slush,ليمون ونعنع,Lemon Mint Slush,حجم,Size,كبير,Large,1.00,,,,lemon-mint-slush.jpg,,,,,,true
+6,3,سلاش,Slush,طبيعي,Natural Slush,ليمون ونعنع,Lemon Mint Slush,حجم,Size,صغير,Small,0.75,,,,lemon-mint-slush.jpg,,,,,,true
+6,4,سلاش,Slush,طبيعي,Natural Slush,سيريلاك,Cerelac Slush,حجم,Size,كبير,Large,1.00,,,,cerelac-slush.jpg,,,,,,true
+6,4,سلاش,Slush,طبيعي,Natural Slush,سيريلاك,Cerelac Slush,حجم,Size,صغير,Small,0.75,,,,cerelac-slush.jpg,,,,,,true
+6,5,سلاش,Slush,طبيعي,Natural Slush,نوتيلا,Nutella Slush,حجم,Size,كبير,Large,1.00,,,,nutella-slush.jpg,,,,,,true
+6,5,سلاش,Slush,طبيعي,Natural Slush,نوتيلا,Nutella Slush,حجم,Size,صغير,Small,0.75,,,,nutella-slush.jpg,,,,,,true
+6,6,سلاش,Slush,طبيعي,Natural Slush,اوريو,Oreo Slush,حجم,Size,كبير,Large,1.00,,,,oreo-slush.jpg,,,,,,true
+6,6,سلاش,Slush,طبيعي,Natural Slush,اوريو,Oreo Slush,حجم,Size,صغير,Small,0.75,,,,oreo-slush.jpg,,,,,,true
+6,7,سلاش,Slush,عادي,Regular Slush,سلاش تمر هندي,Tamarind Slush,حجم,Size,كبير,Large,0.50,,,,tamarind-slush.jpg,,,,,,true
+6,7,سلاش,Slush,عادي,Regular Slush,سلاش تمر هندي,Tamarind Slush,حجم,Size,صغير,Small,0.35,,,,tamarind-slush.jpg,,,,,,true
+6,8,سلاش,Slush,عادي,Regular Slush,سلاش فراولة,Strawberry Slush,حجم,Size,كبير,Large,0.50,,,,strawberry-slush.jpg,,,,,,true
+6,8,سلاش,Slush,عادي,Regular Slush,سلاش فراولة,Strawberry Slush,حجم,Size,صغير,Small,0.35,,,,strawberry-slush.jpg,,,,,,true
+6,9,سلاش,Slush,عادي,Regular Slush,سلاش ليمون,Lemon Slush,حجم,Size,كبير,Large,0.50,,,,lemon-slush.jpg,,,,,,true
+6,9,سلاش,Slush,عادي,Regular Slush,سلاش ليمون,Lemon Slush,حجم,Size,صغير,Small,0.35,,,,lemon-slush.jpg,,,,,,true
+6,10,سلاش,Slush,عادي,Regular Slush,سلاش توت,Berry Slush,حجم,Size,كبير,Large,0.50,,,,berry-slush.jpg,,,,,,true
+6,10,سلاش,Slush,عادي,Regular Slush,سلاش توت,Berry Slush,حجم,Size,صغير,Small,0.35,,,,berry-slush.jpg,,,,,,true
+6,11,سلاش,Slush,عادي,Regular Slush,سلاش تفاح,Apple Slush,حجم,Size,كبير,Large,0.50,,,,apple-slush.jpg,,,,,,true
+6,11,سلاش,Slush,عادي,Regular Slush,سلاش تفاح,Apple Slush,حجم,Size,صغير,Small,0.35,,,,apple-slush.jpg,,,,,,true
+6,12,سلاش,Slush,عادي,Regular Slush,سلاش شمام,Melon Slush,حجم,Size,كبير,Large,0.50,,,,melon-slush.jpg,,,,,,true
+6,12,سلاش,Slush,عادي,Regular Slush,سلاش شمام,Melon Slush,حجم,Size,صغير,Small,0.35,,,,melon-slush.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,عربية,Arabic,0.50,,,,arabic-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,تشيز كيك,Cheesecake,0.50,,,,cheesecake-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,أوريو,Oreo,0.50,,,,oreo-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,شوكولاتة,Chocolate,0.50,,,,chocolate-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,منجا,Mango,0.50,,,,mango-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,سنيكرز,Snickers,0.50,,,,snickers-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,لوتس,Lotus,0.50,,,,lotus-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,بستاشيو,Pistachio,0.75,,,,pistachio-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,ليمون,Lemon,0.50,,,,lemon-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,توت أزرق,Blueberry,0.50,,,,blueberry-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,فراولة,Strawberry,0.50,,,,strawberry-ice-cream-scoop.jpg,,,,,,true
+7,1,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,بوظه سكوبات,Ice Cream Scoops,نكهة,Flavor,فانيلا,Vanilla,0.50,,,,vanilla-ice-cream-scoop.jpg,,,,,,true
+8,1,نكهات,Flavors,نكهه مع كاسة ثلج,Flavor with Cup of Ice,نكهه مع كاسة ثلج,Flavor with Cup of Ice,,,,,,,,,flavor-with-ice-cup.jpg,,,,,,true
+8,2,نكهات,Flavors,عبوات نكهات 1 لتر,1 Liter Flavor Bottles,عبوات نكهات 1 لتر,1 Liter Flavor Bottles,,,,,,,,,one-liter-flavor-bottles.jpg,,,,,,true
+9,1,محمص خذلك شفه,Take A Sip Roastery,قهوة طحن,Ground Coffee,قهوة طحن,Ground Coffee,,,,,,,,,ground-coffee.jpg,,,,,,true
+9,2,محمص خذلك شفه,Take A Sip Roastery,مكسرات وبزر,Nuts and Seeds,مكسرات وبزر,Nuts and Seeds,,,,,,,,,nuts-and-seeds.jpg,,,,,,true
+10,1,شبس,Chips,شبس,Chips,شبس,Chips,,,,,,,,,chips.jpg,,,,,,true
+11,1,بسكويت وشوكولاته,Biscuits and Chocolate,بسكويت وشوكولاته,Biscuits and Chocolate,بسكويت وشوكولاته,Biscuits and Chocolate,,,,,,,,,biscuits-and-chocolate.jpg,,,,,,true
+12,1,مشروبات بارده,Cold Drinks,مشروبات بارده,Cold Drinks,مشروبات بارده,Cold Drinks,,,,,,,,,cold-drinks.jpg,,,,,,true
+13,1,أخرى,Other,مشروبات ساخنه,Hot Drinks,مشروبات ساخنه,Hot Drinks,,,,,,,,,hot-drinks.jpg,,,,,,true
+13,2,أخرى,Other,اندومي,Indomie,اندومي,Indomie,,,,,,,,,indomie.jpg,,,,,,true
+13,3,أخرى,Other,مزيل عرق,Deodorant,مزيل عرق,Deodorant,,,,,,,,,deodorant.jpg,,,,,,true
+13,4,أخرى,Other,وصلات وشواحن,Cables and Chargers,وصلات وشواحن,Cables and Chargers,,,,,,,,,cables-and-chargers.jpg,,,,,,true
+13,5,أخرى,Other,علكه,Gum,علكه,Gum,,,,,,,,,gum.jpg,,,,,,true
+13,6,أخرى,Other,كاندي,Candy,كاندي,Candy,,,,,,,,,candy.jpg,,,,,,true
+13,7,أخرى,Other,عطور جاسمين,Jasmine Perfumes,عطور جاسمين,Jasmine Perfumes,,,,,,,,,jasmine-perfumes.jpg,,,,,,true

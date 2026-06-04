@@ -24,8 +24,8 @@ const menuResponse = {
           name_en: 'Latte',
           name_ar: 'Latte',
           image_url: null,
-          description_en: 'Milky coffee',
-          description_ar: 'Milky coffee',
+          description_en: 'Hot drinks',
+          description_ar: 'Hot drinks',
           sort_order: 1,
           is_active: true,
           item_types: [
@@ -59,8 +59,8 @@ const menuResponse = {
           name_en: 'Cappuccino',
           name_ar: 'Cappuccino',
           image_url: null,
-          description_en: 'Foamy coffee',
-          description_ar: 'Foamy coffee',
+          description_en: 'Hot drinks',
+          description_ar: 'Hot drinks',
           sort_order: 2,
           is_active: true,
           item_types: [
@@ -162,8 +162,8 @@ describe('HomeScreen', () => {
     });
   });
 
-  it('shows collapsed sections, expands rows, opens products, and routes both cart actions to cart', async () => {
-    const { UNSAFE_getByType, getByTestId, getByText, queryByText } = render(
+  it('shows collapsed sections, expands subgroup rows, opens products, and routes both cart actions to cart', async () => {
+    const { UNSAFE_getByType, getAllByText, getByTestId, getByText, queryByText } = render(
       <HomeScreen navigation={{ getParent: () => ({ navigate: mockNavigate }) } as never} route={{} as never} />,
     );
 
@@ -180,6 +180,11 @@ describe('HomeScreen', () => {
     expect(queryByText('Cappuccino')).toBeNull();
 
     fireEvent.press(getByTestId('section-row-section-1'));
+    expect(getAllByText('Hot drinks').length).toBeGreaterThan(0);
+    expect(queryByText('Latte')).toBeNull();
+    expect(queryByText('Cappuccino')).toBeNull();
+
+    fireEvent.press(getByTestId('subgroup-row-section-1-Hot drinks'));
     expect(getByText('Latte')).toBeTruthy();
     expect(getByText('Cappuccino')).toBeTruthy();
 
@@ -192,9 +197,14 @@ describe('HomeScreen', () => {
     fireEvent.press(getByTestId('home-complete-order-button'));
     expect(mockNavigate).toHaveBeenCalledWith('Cart');
 
-    fireEvent.press(getByTestId('section-row-section-1'));
+    fireEvent.press(getByTestId('subgroup-row-section-1-Hot drinks'));
     await waitFor(() => {
       expect(queryByText('Latte')).toBeNull();
+    });
+
+    fireEvent.press(getByTestId('section-row-section-1'));
+    await waitFor(() => {
+      expect(queryByText('Hot drinks')).toBeNull();
     });
   });
 });

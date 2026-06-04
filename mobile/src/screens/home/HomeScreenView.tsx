@@ -59,6 +59,7 @@ export const HomeScreenView = ({
 }: HomeScreenViewProps) => {
   const { width } = useWindowDimensions();
   const [expandedSectionIds, setExpandedSectionIds] = useState<string[]>([]);
+  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const isCompact = width < 390;
   const floatingBottomOffset = theme.spacing.xs;
   const floatingButtonOverlap = 54 + floatingBottomOffset + theme.spacing.sm;
@@ -75,6 +76,13 @@ export const HomeScreenView = ({
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedSectionIds((prev) =>
       prev.includes(sectionId) ? prev.filter((id) => id !== sectionId) : [...prev, sectionId],
+    );
+  };
+
+  const toggleGroup = (groupId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId],
     );
   };
 
@@ -202,12 +210,58 @@ export const HomeScreenView = ({
 
                     {expanded ? (
                       <View style={styles.expandedItemsWrap}>
-                        {section.data.map((item, index) => (
-                          <Fragment key={item.id}>
-                            <ProductCard item={item} onPress={() => onOpenProduct(item)} />
-                            {index < section.data.length - 1 ? <View style={styles.itemSeparator} /> : null}
-                          </Fragment>
-                        ))}
+                        {section.groups.map((group, groupIndex) => {
+                          const groupExpanded = group.title ? expandedGroupIds.includes(group.id) : true;
+
+                          return (
+                            <View key={group.id} style={styles.subgroupBlock}>
+                              {group.title ? (
+                                <Pressable
+                                  onPress={() => toggleGroup(group.id)}
+                                  testID={`subgroup-row-${group.id}`}
+                                  accessibilityRole="button"
+                                  accessibilityState={{ expanded: groupExpanded }}
+                                  accessibilityLabel={group.title}
+                                  style={({ pressed }) => [
+                                    styles.subgroupHeader,
+                                    mirroredRow(isRTL),
+                                    groupExpanded ? styles.subgroupHeaderExpanded : null,
+                                    pressed ? styles.subgroupHeaderPressed : null,
+                                  ]}>
+                                  <View style={[styles.subgroupTitleWrap, mirroredRow(isRTL)]}>
+                                    <View style={styles.subgroupAccent} />
+                                    <AppText variant="caption" color={theme.colors.primary700} align={isRTL ? 'right' : 'left'}>
+                                      {group.title}
+                                    </AppText>
+                                  </View>
+                                  <View style={[styles.subgroupMetaWrap, mirroredRow(isRTL)]}>
+                                    <View style={styles.subgroupCountWrap}>
+                                      <AppText variant="caption" color={theme.colors.primary700} align="center">
+                                        {group.data.length}
+                                      </AppText>
+                                    </View>
+                                    <Ionicons
+                                      name={groupExpanded ? 'chevron-up' : 'chevron-down'}
+                                      size={16}
+                                      color={theme.colors.primary700}
+                                    />
+                                  </View>
+                                </Pressable>
+                              ) : null}
+                              {groupExpanded ? (
+                                <View style={styles.subgroupItemsWrap}>
+                                  {group.data.map((item, index) => (
+                                    <Fragment key={item.id}>
+                                      <ProductCard item={item} onPress={() => onOpenProduct(item)} />
+                                      {index < group.data.length - 1 ? <View style={styles.itemSeparator} /> : null}
+                                    </Fragment>
+                                  ))}
+                                </View>
+                              ) : null}
+                              {groupIndex < section.groups.length - 1 ? <View style={styles.groupSeparator} /> : null}
+                            </View>
+                          );
+                        })}
                       </View>
                     ) : null}
                   </View>
@@ -427,6 +481,61 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: theme.colors.primary100,
+  },
+  subgroupBlock: {
+    gap: theme.spacing.sm,
+  },
+  subgroupHeader: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary100,
+    backgroundColor: theme.colors.surface,
+  },
+  subgroupHeaderExpanded: {
+    borderColor: theme.colors.primary200,
+    backgroundColor: theme.colors.primary50,
+  },
+  subgroupHeaderPressed: {
+    opacity: 0.9,
+  },
+  subgroupTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  subgroupAccent: {
+    width: 8,
+    height: 8,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.secondaryCaramel,
+  },
+  subgroupMetaWrap: {
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  subgroupCountWrap: {
+    minWidth: 26,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: theme.colors.primary100,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subgroupItemsWrap: {
+    gap: 0,
+  },
+  groupSeparator: {
+    height: 1,
+    backgroundColor: theme.colors.primary100,
+    marginHorizontal: theme.spacing.md,
   },
   itemSeparator: {
     height: theme.spacing.sm,

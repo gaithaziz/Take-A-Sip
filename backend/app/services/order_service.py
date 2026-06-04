@@ -349,7 +349,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
             await _ensure_no_active_customer_order(db, user_id)
             promotion_evaluation = await evaluate_promotions_for_user(
                 db,
-                user,
+                user_id,
                 [
                     PromotionEvaluationItem(
                         size_id=line.size_id,
@@ -482,7 +482,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
             'order_number': order.order_number,
             'order_type': order.order_type.value,
             'status': order.status.value,
-            'actor_user_id': str(user.id),
+            'actor_user_id': actor_user_id,
         },
     )
     created_order = await get_order_by_id_or_404(db, order.id)

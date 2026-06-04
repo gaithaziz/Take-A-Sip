@@ -784,7 +784,7 @@ def _buy_n_get_m_discount(
 
 async def evaluate_promotions_for_user(
     db: AsyncSession,
-    user: User,
+    user_id: UUID,
     items: list[PromotionEvaluationItem],
     order_type: str | None = None,
 ) -> PromotionEvaluationResponse:
@@ -795,7 +795,7 @@ async def evaluate_promotions_for_user(
     if missing_size_ids:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
 
-    completed_orders = await _completed_orders_count(db, user.id)
+    completed_orders = await _completed_orders_count(db, user_id)
     now = datetime.now(timezone.utc)
     cart_total = Decimal('0.00')
     line_rows: list[tuple[Size, list[UUID], int, Decimal]] = []
@@ -827,7 +827,7 @@ async def evaluate_promotions_for_user(
             elif promotion.type == PromotionType.LOYALTY and required_orders is not None:
                 completed_orders_since_use = await _completed_orders_count_since_last_loyalty_use(
                     db,
-                    user.id,
+                    user_id,
                     promotion.id,
                 )
                 if not eligible_for_loyalty_offer(completed_orders_since_use, required_orders):

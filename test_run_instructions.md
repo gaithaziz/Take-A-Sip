@@ -1,5 +1,9 @@
 # Take-A-Sip Wi-Fi Run Guide
 
+
+cd /Users/alex/Take-A-Sip/mobile
+npx expo start --host lan --clear
+
 This is the short version for how you actually use the project:
 
 - Frontdesk runs over Wi-Fi

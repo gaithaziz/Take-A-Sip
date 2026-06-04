@@ -35,4 +35,4 @@ async def evaluate_promotions_endpoint(
 ) -> PromotionEvaluationResponse:
     if current_user.role != UserRole.CLIENT:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Only clients can evaluate promotions')
-    return await evaluate_promotions_for_user(db, current_user, payload.items, order_type=payload.order_type)
+    return await evaluate_promotions_for_user(db, current_user.id, payload.items, order_type=payload.order_type)
