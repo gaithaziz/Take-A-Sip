@@ -11,6 +11,6 @@
     "all": "concurrently -n backend,admin,frontdesk,phone -c blue,green,magenta,cyan \"npm run backend\" \"npm run admin\" \"npm run frontdesk\" \"npm run phone\""
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^10.0.3"
   }
 }
