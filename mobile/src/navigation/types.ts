@@ -28,6 +28,7 @@ export type RootStackParamList = {
   Auth: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   AdminTabs: NavigatorScreenParams<AdminTabParamList>;
+  AdminOrders: undefined;
   AdminReviews: undefined;
   DriverTabs: NavigatorScreenParams<DriverTabParamList>;
   AdminLoyalty: undefined;

@@ -34,6 +34,7 @@ import { AdminWholeMenuPreviewScreen } from '@/screens/admin/AdminWholeMenuPrevi
 import { AdminStaffScreen } from '@/screens/admin/AdminStaffScreen';
 import { AdminUsersScreen } from '@/screens/admin/AdminUsersScreen';
 import { AdminProfileScreen } from '@/screens/admin/AdminProfileScreen';
+import { AdminOrdersScreen } from '@/screens/admin/AdminOrdersScreen';
 import { AdminReviewsScreen } from '@/screens/admin/AdminReviewsScreen';
 import { AdminUserDetailsScreen } from '@/screens/admin/AdminUserDetailsScreen';
 import { AdminDeliveryScreen } from '@/screens/admin/AdminDeliveryScreen';
@@ -224,6 +225,7 @@ export const AppNavigator = () => {
         ) : user?.role === 'ADMIN' ? (
           <>
             <Stack.Screen name="AdminTabs" component={AdminTabs} />
+            <Stack.Screen name="AdminOrders" component={AdminOrdersScreen} />
             <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
             <Stack.Screen name="AdminLoyalty" component={AdminLoyaltyRulesScreen} />
             <Stack.Screen name="AdminProfile" component={AdminProfileScreen} />

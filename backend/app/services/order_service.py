@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import Numeric, Select, and_, case, cast, func, or_, select, text
+from sqlalchemy import Numeric, Select, String, and_, case, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import set_committed_value
@@ -581,6 +581,43 @@ def _order_base_query() -> Select[tuple[Order]]:
     )
 
 
+def _apply_order_search(query: Select[tuple[Order]], search: str | None) -> Select[tuple[Order]]:
+    token = (search or '').strip()
+    if not token:
+        return query
+
+    pattern = f'%{token}%'
+    return query.where(
+        or_(
+            cast(Order.order_number, String).ilike(pattern),
+            Order.delivery_address.ilike(pattern),
+            Order.notes.ilike(pattern),
+            Order.applied_promotion_title_en.ilike(pattern),
+            Order.applied_promotion_title_ar.ilike(pattern),
+            Order.user.has(
+                or_(
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
+                    User.phone_number.ilike(pattern),
+                )
+            ),
+            Order.assigned_driver.has(
+                or_(
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
+                    User.phone_number.ilike(pattern),
+                )
+            ),
+            Order.items.any(
+                or_(
+                    OrderItem.item_name_snapshot.ilike(pattern),
+                    OrderItem.size_snapshot.ilike(pattern),
+                )
+            ),
+        )
+    )
+
+
 def _order_totals_subquery():
     addon_totals = (
         select(
@@ -1059,6 +1096,7 @@ async def list_latest_orders(
     offset: int = 0,
     statuses: list[str] | None = None,
     order_type: str | None = None,
+    search: str | None = None,
 ) -> list[Order]:
     query = _order_base_query().order_by(Order.created_at.desc())
 
@@ -1085,6 +1123,8 @@ async def list_latest_orders(
             query = query.where(Order.order_type == OrderType(order_type))
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid order_type') from exc
+
+    query = _apply_order_search(query, search)
 
     result = await db.execute(query.offset(offset).limit(limit))
     return list(result.scalars().unique().all())

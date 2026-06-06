@@ -406,6 +406,7 @@ export const adminService = {
   async listLatestOrders(params?: {
     status?: string[];
     order_type?: 'pickup' | 'delivery';
+    search?: string;
     limit?: number;
     offset?: number;
   }): Promise<OrderListResponse> {

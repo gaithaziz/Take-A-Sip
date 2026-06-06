@@ -5,7 +5,7 @@ from uuid import UUID
 from app.models.delivery import DeliveryDistanceBand
 from app.core.security import create_access_token
 from app.models.menu import Addon, Item, ItemType, Section, Size
-from app.models.order import Order, OrderStatus, OrderType
+from app.models.order import Order, OrderItem, OrderStatus, OrderType
 from app.models.promotion import LoyaltyRule, Promotion, PromotionType
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
@@ -68,6 +68,65 @@ async def test_create_order_and_fetch_history(client, db_session):
     assert len(history_data['orders']) == 1
     assert history_data['orders'][0]['id'] == created['id']
     assert history_data['orders'][0]['customer_name'] == 'Sara Client'
+
+
+async def test_admin_latest_orders_supports_search(client, db_session):
+    admin = User(
+        first_name='Admin',
+        last_name='User',
+        phone_number='+962790000900',
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_banned=False,
+    )
+    match_user = User(
+        first_name='Needle',
+        last_name='Customer',
+        phone_number='+962790000901',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    other_user = User(
+        first_name='Other',
+        last_name='Customer',
+        phone_number='+962790000902',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    matching_order = Order(
+        order_number=7001,
+        user=match_user,
+        status=OrderStatus.NEW,
+        order_type=OrderType.PICKUP,
+        notes='extra hot',
+    )
+    matching_order.items = [
+        OrderItem(
+            item_name_snapshot='Cardamom Latte',
+            size_snapshot='Large',
+            price_snapshot=Decimal('3.50'),
+            quantity=1,
+        )
+    ]
+    other_order = Order(
+        order_number=7002,
+        user=other_user,
+        status=OrderStatus.NEW,
+        order_type=OrderType.PICKUP,
+        notes='plain',
+    )
+    db_session.add_all([admin, match_user, other_user, matching_order, other_order])
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(admin.id), admin.role.value)}"}
+    response = await client.get('/orders/latest?search=Cardamom', headers=headers)
+
+    assert response.status_code == 200
+    orders = response.json()['orders']
+    assert [order['order_number'] for order in orders] == [7001]
+    assert orders[0]['customer_name'] == 'Needle Customer'
 
 
 async def test_create_order_snapshots_first_time_discount_once(client, db_session):

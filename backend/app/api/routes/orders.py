@@ -96,6 +96,7 @@ async def list_latest_orders_endpoint(
     offset: int = Query(default=0, ge=0),
     status_filter: list[str] | None = Query(default=None, alias='status'),
     order_type: str | None = Query(default=None, pattern='^(pickup|delivery)$'),
+    search: str | None = Query(default=None, min_length=1, max_length=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> OrderListResponse:
@@ -108,6 +109,7 @@ async def list_latest_orders_endpoint(
         offset=offset,
         statuses=status_filter,
         order_type=order_type,
+        search=search,
     )
     return _serialize_orders(orders)
 

@@ -132,8 +132,12 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
     void load();
   }, [load]);
 
-  const navigateToAdminStackScreen = (screen: 'AdminLoyalty' | 'AdminProfile') => {
+  const navigateToAdminStackScreen = (screen: 'AdminLoyalty' | 'AdminProfile' | 'AdminOrders') => {
     navigation.getParent()?.navigate(screen as never);
+  };
+
+  const openAllOrders = () => {
+    navigateToAdminStackScreen('AdminOrders');
   };
 
   const openAllReviews = () => {
@@ -365,13 +369,17 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
 
       <AdminPageSection title={t('admin.latestOrdersTitle')}>
         {latestOrdersPreview.length === 0 ? (
-          <AppCard>
-            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-              {t('admin.noLatestOrders')}
-            </AppText>
-          </AppCard>
+          <View style={styles.stack}>
+            <AppButton title={t('admin.viewAllOrders')} variant="secondary" onPress={openAllOrders} />
+            <AppCard>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('admin.noLatestOrders')}
+              </AppText>
+            </AppCard>
+          </View>
         ) : (
           <View style={styles.stack}>
+            <AppButton title={t('admin.viewAllOrders')} variant="secondary" onPress={openAllOrders} />
             {latestOrdersPreview.map((order) => (
               <AppCard key={order.id} style={styles.listCard}>
                 <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
