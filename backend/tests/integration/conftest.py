@@ -30,11 +30,25 @@ async def db_engine():
         await conn.execute(
             text(
                 """
+                CREATE SEQUENCE IF NOT EXISTS order_number_seq
+                AS integer
+                START WITH 1
+                INCREMENT BY 1
+                OWNED BY orders.order_number
+                """
+            )
+        )
+        await conn.execute(text("ALTER TABLE orders ALTER COLUMN order_number SET DEFAULT nextval('order_number_seq')"))
+        await conn.execute(text("SELECT setval('order_number_seq', 1, false)"))
+        await conn.execute(
+            text(
+                """
                 DO $$
                 BEGIN
                     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'take_a_sip_app') THEN
                         GRANT USAGE ON SCHEMA public TO take_a_sip_app;
                         GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO take_a_sip_app;
+                        GRANT USAGE, SELECT ON SEQUENCE order_number_seq TO take_a_sip_app;
                     END IF;
                 END
                 $$;
