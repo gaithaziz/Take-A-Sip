@@ -15,6 +15,7 @@
       "**/*"
     ],
     "ios": {
+      "icon": "./assets/ios-app-icon.png",
       "bundleIdentifier": "com.takeasip.mobile",
       "supportsTablet": true,
       "infoPlist": {

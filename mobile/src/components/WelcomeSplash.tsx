@@ -17,21 +17,22 @@ export const WelcomeSplash = ({
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const compact = width < 390;
-  const creditLift = Math.max(theme.spacing.huge, height * 0.16);
+  const short = height < 760;
+  const footerOffset = Math.max(theme.spacing.xxl, height * 0.08);
 
   return (
     <View
       style={[
         styles.container,
         {
-          paddingTop: insets.top + theme.spacing.xxxl,
-          paddingBottom: insets.bottom + theme.spacing.xxl,
+          paddingTop: insets.top + (short ? theme.spacing.xl : theme.spacing.xxxl),
+          paddingBottom: insets.bottom + theme.spacing.xxxl,
         },
       ]}>
-      <View style={styles.mainContent}>
+      <View style={[styles.mainContent, short ? styles.mainContentShort : null]}>
         <Image
           source={require('../../assets/welcome-logo.png')}
-          style={[styles.mainLogo, compact ? styles.mainLogoCompact : null]}
+          style={[styles.mainLogo, compact || short ? styles.mainLogoCompact : null]}
           resizeMode="contain"
           testID="welcome-main-logo"
         />
@@ -49,14 +50,14 @@ export const WelcomeSplash = ({
             align="center"
             allowFontScaling={false}
             color={theme.colors.primary700}
-            style={[styles.englishGreeting, compact ? styles.englishGreetingCompact : null]}
+            style={[styles.englishGreeting, compact || short ? styles.englishGreetingCompact : null]}
             testID="welcome-english-greeting">
             {englishGreeting}
           </AppText>
         </View>
       </View>
 
-      <View style={[styles.creditSection, { paddingBottom: creditLift }]}>
+      <View style={[styles.creditSection, { paddingBottom: footerOffset }]}>
         <View style={styles.creditRow}>
           <AppText
             variant="bodySmall"
@@ -90,20 +91,24 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
     alignItems: 'center',
-    gap: theme.spacing.xl,
-    paddingTop: theme.spacing.xxl,
+    gap: theme.spacing.lg,
+    paddingTop: theme.spacing.huge + theme.spacing.xxl,
+  },
+  mainContentShort: {
+    paddingTop: theme.spacing.xxxl,
+    gap: theme.spacing.md,
   },
   mainLogo: {
-    width: 196,
-    height: 196,
+    width: 184,
+    height: 184,
   },
   mainLogoCompact: {
-    width: 174,
-    height: 174,
+    width: 164,
+    height: 164,
   },
   copyBlock: {
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
     width: '100%',
     maxWidth: 340,
   },
@@ -111,42 +116,42 @@ const styles = StyleSheet.create({
     width: '100%',
     writingDirection: 'rtl',
     fontFamily: 'IBMPlexSansArabic_700Bold',
-    fontSize: 25,
-    lineHeight: 33,
+    fontSize: 24,
+    lineHeight: 32,
   },
   arabicGreetingCompact: {
-    fontSize: 23,
-    lineHeight: 31,
+    fontSize: 22,
+    lineHeight: 30,
   },
   englishGreeting: {
     width: '100%',
-    fontSize: 21,
-    lineHeight: 27,
-  },
-  englishGreetingCompact: {
     fontSize: 18,
     lineHeight: 24,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  englishGreetingCompact: {
+    fontSize: 16,
+    lineHeight: 22,
   },
   creditSection: {
     alignItems: 'center',
-    gap: theme.spacing.sm,
   },
   creditRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    minHeight: 56,
+    gap: theme.spacing.sm,
+    minHeight: 38,
   },
   creditText: {
-    minWidth: 124,
+    minWidth: 76,
     flexShrink: 0,
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 14,
+    lineHeight: 20,
   },
   codevexLogo: {
-    width: 166,
-    height: 54,
+    width: 108,
+    height: 35,
     transform: [{ translateY: -1 }],
   },
 });
