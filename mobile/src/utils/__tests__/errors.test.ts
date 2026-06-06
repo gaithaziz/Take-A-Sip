@@ -21,4 +21,28 @@ describe('getApiErrorMessage', () => {
     };
     expect(getApiErrorMessage(error, t)).toBe('errors.userBanned');
   });
+
+  it('translates backend target-not-found details instead of showing raw text', () => {
+    jest.spyOn(axios, 'isAxiosError').mockReturnValue(true);
+    const error = {
+      response: { status: 404, data: { detail: 'size target not found' } },
+    };
+    expect(getApiErrorMessage(error, t)).toBe('errors.menuTargetMissing');
+  });
+
+  it('maps validation arrays to a friendly validation message', () => {
+    jest.spyOn(axios, 'isAxiosError').mockReturnValue(true);
+    const error = {
+      response: { status: 422, data: { detail: [{ msg: 'Input should be a valid UUID', loc: ['body', 'entity_id'] }] } },
+    };
+    expect(getApiErrorMessage(error, t)).toBe('validation.requiredFields');
+  });
+
+  it('does not leak unknown backend details into the UI', () => {
+    jest.spyOn(axios, 'isAxiosError').mockReturnValue(true);
+    const error = {
+      response: { status: 400, data: { detail: 'raw_internal_backend_detail_abc123' } },
+    };
+    expect(getApiErrorMessage(error, t)).toBe('errors.generic');
+  });
 });

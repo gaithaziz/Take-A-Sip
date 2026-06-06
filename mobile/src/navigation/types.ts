@@ -1,6 +1,6 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 
-import { Item, UserSummary } from '@/types/api';
+import { Item, LanguageCode, MenuSchedule, Promotion, Section, UserSummary } from '@/types/api';
 
 export type MainTabParamList = {
   Home: undefined;
@@ -32,6 +32,18 @@ export type RootStackParamList = {
   DriverTabs: NavigatorScreenParams<DriverTabParamList>;
   AdminLoyalty: undefined;
   AdminProfile: undefined;
+  AdminMenuCategoryEditor: { section?: Section } | undefined;
+  AdminMenuProductEditor: { item?: Item; sectionId?: string } | undefined;
+  AdminMenuCustomerPreview: { item: Item; initialLanguage?: LanguageCode };
+  AdminPromotionEditor: { promotion?: Promotion } | undefined;
+  AdminScheduleEditor: { schedule?: MenuSchedule } | undefined;
+  AdminWholeMenuPreview:
+    | {
+        draftPromotion?: Promotion;
+        draftSchedules?: MenuSchedule[];
+        initialLanguage?: LanguageCode;
+      }
+    | undefined;
   AdminUserDetails: { user: UserSummary };
   DriverOrderDetails: { orderId: string };
   ClientOrderDetails: { orderId: string };

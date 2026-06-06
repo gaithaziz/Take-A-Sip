@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { Item } from '@/types/api';
+import { Item, LanguageCode } from '@/types/api';
 import { formatCurrency, toNumber } from '@/utils/format';
 import { getLocalizedValue } from '@/utils/i18n';
 import { mirroredRow } from '@/utils/layout';
@@ -15,6 +15,8 @@ import { AppText } from './AppText';
 type ProductCardProps = {
   item: Item;
   onPress: () => void;
+  languageOverride?: LanguageCode;
+  isRTLOverride?: boolean;
 };
 
 const getLowestPrice = (item: Item): number => {
@@ -22,22 +24,24 @@ const getLowestPrice = (item: Item): number => {
   return prices.length ? Math.min(...prices) : 0;
 };
 
-export const ProductCard = ({ item, onPress }: ProductCardProps) => {
+export const ProductCard = ({ item, onPress, languageOverride, isRTLOverride }: ProductCardProps) => {
   const { language } = useAppTranslation();
   const { isRTL } = useLanguage();
-  const title = getLocalizedValue(item, language, 'name');
-  const description = getLocalizedValue(item, language, 'description');
+  const displayLanguage = languageOverride ?? language;
+  const displayIsRTL = isRTLOverride ?? isRTL;
+  const title = getLocalizedValue(item, displayLanguage, 'name');
+  const description = getLocalizedValue(item, displayLanguage, 'description');
   const lowestPrice = getLowestPrice(item);
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${formatCurrency(lowestPrice, language)}`}
+      accessibilityLabel={`${title}, ${formatCurrency(lowestPrice, displayLanguage)}`}
       hitSlop={6}
       style={({ pressed }) => [styles.pressable, pressed ? styles.pressed : null]}>
       <AppCard style={styles.card}>
-        <View style={[styles.row, mirroredRow(isRTL)]}>
+        <View style={[styles.row, mirroredRow(displayIsRTL)]}>
           <View style={styles.imageFrame}>
             {item.image_url ? (
               <Image source={{ uri: item.image_url }} style={styles.image} resizeMode="cover" />
@@ -56,13 +60,13 @@ export const ProductCard = ({ item, onPress }: ProductCardProps) => {
                 {description}
               </AppText>
             ) : null}
-            <View style={[styles.actionRow, mirroredRow(isRTL)]}>
+            <View style={[styles.actionRow, mirroredRow(displayIsRTL)]}>
               <AppText variant="price" color={theme.colors.primary600}>
-                {formatCurrency(lowestPrice, language)}
+                {formatCurrency(lowestPrice, displayLanguage)}
               </AppText>
               <View style={styles.actionIconWrap}>
                 <Ionicons
-                  name={isRTL ? 'arrow-back' : 'arrow-forward'}
+                  name={displayIsRTL ? 'arrow-back' : 'arrow-forward'}
                   size={theme.iconSizes.sm}
                   color={theme.colors.primary700}
                 />

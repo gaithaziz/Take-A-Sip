@@ -112,4 +112,6 @@ Before production mobile release:
 - confirm privacy-policy and store metadata match current app behavior
 - verify account deletion still works
 - verify permission prompts still match `mobile/app.json`
+- confirm Android release builds include `EXPO_ANDROID_GOOGLE_SERVICES_FILE` pointing to Firebase `google-services.json`
+- confirm backend push env passes `scripts/validate_push_readiness.py` with FCM and APNs secrets loaded
 - test login, checkout, notifications, and profile flows on device

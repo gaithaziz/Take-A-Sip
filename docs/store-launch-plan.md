@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Use this plan to prepare the `Take A Sip` customer app for Apple App Store and Google Play submission. This covers what remains besides screenshots and the privacy policy.
+Use this plan to prepare the `خذلك شفة` customer app for Apple App Store and Google Play submission. This covers what remains besides screenshots and the privacy policy.
 
 ## Scope
 
@@ -13,14 +13,14 @@ Use this plan to prepare the `Take A Sip` customer app for Apple App Store and G
 
 ## Phase 1: App Identity And Assets
 
-- [ ] Confirm public app name: `Take A Sip`.
-- [ ] Confirm Android package: `com.takeasip.mobile`.
-- [ ] Confirm iOS bundle ID: `com.takeasip.mobile`.
-- [ ] Confirm app version and build numbers are incremented.
-- [ ] Confirm app icon is final.
-- [ ] Confirm Android adaptive icon is final.
-- [ ] Confirm splash screen is final.
-- [ ] Confirm app category. Recommended: `Food & Drink`.
+- [x] Confirm public app name: `خذلك شفة`.
+- [x] Confirm Android package: `com.takeasip.mobile`.
+- [x] Confirm iOS bundle ID: `com.takeasip.mobile`.
+- [x] Confirm app version and build numbers are incremented.
+- [x] Confirm app icon is final.
+- [x] Confirm Android adaptive icon is final.
+- [x] Confirm splash screen is final.
+- [x] Confirm app category. Recommended: `Food & Drink`.
 
 ## Phase 2: Store Metadata Draft
 
@@ -88,6 +88,8 @@ Use this plan to prepare the `Take A Sip` customer app for Apple App Store and G
 
 ## Phase 8: Release Build Smoke Test
 
+- [ ] Run the staging 150-concurrent checkout load test using `docs/load-test-150-concurrent-checkout.md`.
+- [ ] Run the controlled production 50-user proof only after staging passes and production approval is explicit.
 - [ ] Install the exact Android release build on a real Samsung device.
 - [ ] Install the exact iOS release/TestFlight build on a real iPhone if available.
 - [ ] Test OTP login.

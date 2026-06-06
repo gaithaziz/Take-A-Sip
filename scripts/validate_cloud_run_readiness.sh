@@ -44,4 +44,26 @@ for name in STORAGE_BACKEND S3_ENDPOINT_URL S3_BUCKET_NAME STORAGE_PUBLIC_BASE_U
   fi
 done
 
+for name in \
+  PUSH_ENABLED \
+  FCM_SERVICE_ACCOUNT_JSON \
+  APNS_KEY_ID \
+  APNS_TEAM_ID \
+  APNS_BUNDLE_ID; do
+  if printf '%s' "$service_json" | grep -q "\"$name\""; then
+    echo "Found $name on runtime service."
+  else
+    echo "Runtime service is missing $name." >&2
+    exit 1
+  fi
+done
+
+if printf '%s' "$service_json" | grep -q '"APNS_PRIVATE_KEY"' || \
+  printf '%s' "$service_json" | grep -q '"APNS_PRIVATE_KEY_PATH"'; then
+  echo "Found APNs private key configuration on runtime service."
+else
+  echo "Runtime service is missing APNS_PRIVATE_KEY or APNS_PRIVATE_KEY_PATH." >&2
+  exit 1
+fi
+
 echo "Cloud Run readiness shape checks passed. Confirm secret values point to Neon pooled/direct URLs in Secret Manager."

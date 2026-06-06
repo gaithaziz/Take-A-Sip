@@ -22,9 +22,15 @@ import { ProfileScreen } from '@/screens/ProfileScreen';
 import { WelcomeScreen } from '@/screens/WelcomeScreen';
 import { AdminDashboardScreen } from '@/screens/admin/AdminDashboardScreen';
 import { AdminMenuEditorScreen } from '@/screens/admin/AdminMenuEditorScreen';
+import { AdminMenuCategoryEditorScreen } from '@/screens/admin/AdminMenuCategoryEditorScreen';
+import { AdminMenuCustomerPreviewScreen } from '@/screens/admin/AdminMenuCustomerPreviewScreen';
+import { AdminMenuProductEditorScreen } from '@/screens/admin/AdminMenuProductEditorScreen';
 import { AdminPromotionsScreen } from '@/screens/admin/AdminPromotionsScreen';
+import { AdminPromotionEditorScreen } from '@/screens/admin/AdminPromotionEditorScreen';
 import { AdminLoyaltyRulesScreen } from '@/screens/admin/AdminLoyaltyRulesScreen';
 import { AdminSchedulingScreen } from '@/screens/admin/AdminSchedulingScreen';
+import { AdminScheduleEditorScreen } from '@/screens/admin/AdminScheduleEditorScreen';
+import { AdminWholeMenuPreviewScreen } from '@/screens/admin/AdminWholeMenuPreviewScreen';
 import { AdminStaffScreen } from '@/screens/admin/AdminStaffScreen';
 import { AdminUsersScreen } from '@/screens/admin/AdminUsersScreen';
 import { AdminProfileScreen } from '@/screens/admin/AdminProfileScreen';
@@ -221,6 +227,12 @@ export const AppNavigator = () => {
             <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
             <Stack.Screen name="AdminLoyalty" component={AdminLoyaltyRulesScreen} />
             <Stack.Screen name="AdminProfile" component={AdminProfileScreen} />
+            <Stack.Screen name="AdminMenuCategoryEditor" component={AdminMenuCategoryEditorScreen} />
+            <Stack.Screen name="AdminMenuProductEditor" component={AdminMenuProductEditorScreen} />
+            <Stack.Screen name="AdminMenuCustomerPreview" component={AdminMenuCustomerPreviewScreen} />
+            <Stack.Screen name="AdminPromotionEditor" component={AdminPromotionEditorScreen} />
+            <Stack.Screen name="AdminScheduleEditor" component={AdminScheduleEditorScreen} />
+            <Stack.Screen name="AdminWholeMenuPreview" component={AdminWholeMenuPreviewScreen} />
             <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
           </>
         ) : user?.role === 'DRIVER' ? (

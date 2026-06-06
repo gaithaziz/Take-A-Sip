@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
+import { AdminPromotionEditorScreen } from '@/screens/admin/AdminPromotionEditorScreen';
 import { AdminPromotionsScreen } from '@/screens/admin/AdminPromotionsScreen';
 
 const mockListPromotions = jest.fn();
@@ -8,6 +9,9 @@ const mockGetMenuTree = jest.fn();
 const mockCreatePromotion = jest.fn();
 const mockUpdatePromotion = jest.fn();
 const mockTogglePromotion = jest.fn();
+const mockNavigate = jest.fn();
+const mockGoBack = jest.fn();
+let mockRouteParams: Record<string, unknown> | undefined;
 
 const translationMap: Record<string, string> = {
   'common.loading': 'Loading...',
@@ -15,17 +19,28 @@ const translationMap: Record<string, string> = {
   'common.retry': 'Retry',
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
+  'common.back': 'Back',
   'common.add': 'Add',
   'common.remove': 'Remove',
   'validation.requiredFields': 'Required fields',
   'admin.promotionsTitle': 'Promotions',
+  'admin.promotionsBrowseSubtitle': 'See what is live, upcoming, expired, or paused.',
+  'admin.addPromotion': 'Add promotion',
+  'admin.allPromotions': 'All promotions',
+  'admin.upcoming': 'Upcoming',
+  'admin.searchPromotions': 'Search promotions',
+  'admin.searchPromotionsPlaceholder': 'Search title, scope, or eligibility',
+  'admin.previewWholeMenu': 'Preview whole menu',
+  'admin.previewReadOnly': 'Read-only customer preview. Ordering is disabled.',
   'admin.createPromotion': 'Create promotion',
   'admin.editPromotion': 'Edit promotion',
+  'admin.promotionEditorSubtitle': 'Build the offer, check the customer preview, then publish.',
+  'admin.customerOfferPreview': 'Customer offer preview',
   'admin.offerIdentity': 'Offer identity',
   'admin.offerRules': 'Offer rules',
   'admin.offerBehavior': 'What should this offer do?',
-  'admin.offerBehaviorDiscount': 'Take a fixed amount off',
-  'admin.offerBehaviorDiscountHelp': 'Fixed discount help',
+  'admin.offerBehaviorDiscount': 'Apply a discount percent',
+  'admin.offerBehaviorDiscountHelp': 'Percentage discount help',
   'admin.offerBehaviorBuyGet': 'Buy some, get some free',
   'admin.offerBehaviorBuyGetHelp': 'Buy/get help',
   'admin.offerBehaviorFreeDelivery': 'Free delivery above an amount',
@@ -51,7 +66,7 @@ const translationMap: Record<string, string> = {
   'admin.buyQuantity': 'Buy quantity',
   'admin.freeQuantity': 'Free quantity',
   'admin.buyGetRule': 'Buy/Get rule',
-  'admin.discountAmount': 'Discount amount',
+  'admin.discountAmount': 'Discount percent',
   'admin.minimumOrderAmount': 'Minimum order amount',
   'admin.percentageDiscount': 'Percentage discount',
   'admin.startDate': 'Start date',
@@ -62,6 +77,8 @@ const translationMap: Record<string, string> = {
   'admin.targetSearch': 'Search menu targets',
   'admin.targetSearchPlaceholder': 'Search sections, items, sizes, or add-ons',
   'admin.targetType': 'Target type',
+  'admin.targetNoLongerAvailable': 'One or more selected menu targets no longer exist. Refresh the menu targets and choose them again.',
+  'admin.deletedMenuTarget': 'Unavailable menu target',
   'admin.matchingTargets': 'Matching targets',
   'admin.noMatchingTargets': 'No matching targets found. Try another search or target type.',
   'admin.specificTargets': 'Specific targets',
@@ -89,6 +106,7 @@ const translationMap: Record<string, string> = {
   'admin.enable': 'Enable',
   'admin.liveOfferToggleConfirm': 'This offer is live for customers right now. Are you sure you want to change its status?',
   'admin.liveNow': 'Live now',
+  'admin.expired': 'Expired',
   'admin.dateRange': 'Date range',
   'admin.edit': 'Edit',
   'admin.missingTranslation': 'Missing translation',
@@ -97,11 +115,14 @@ const translationMap: Record<string, string> = {
   'admin.active': 'Active',
   'admin.inactive': 'Inactive',
   'admin.section': 'Section',
+  'admin.subgroup': 'Subgroup',
   'admin.item': 'Item',
   'admin.type': 'Type',
   'admin.size': 'Size',
   'admin.addon': 'Add-on',
   'admin.invalidDateRange': 'Invalid date range',
+  'admin.invalidRequiredOrders': 'Required orders must be at least 1.',
+  'home.offers': 'Offers',
 };
 
 const mockTranslate = (key: string) => translationMap[key] ?? key;
@@ -113,6 +134,15 @@ jest.mock('@/hooks/useAppTranslation', () => ({
 jest.mock('@/state/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', isRTL: false, toggleLanguage: jest.fn() }),
 }));
+
+jest.mock('@react-navigation/native', () => {
+  const React = require('react');
+  return {
+    useNavigation: () => ({ navigate: mockNavigate, goBack: mockGoBack, canGoBack: () => true }),
+    useRoute: () => ({ params: mockRouteParams }),
+    useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(() => callback(), [callback]),
+  };
+});
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -161,6 +191,7 @@ jest.mock('@/services/adminService', () => ({
 describe('AdminPromotionsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouteParams = undefined;
     jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     const now = Date.now();
     mockListPromotions.mockResolvedValue({
@@ -204,11 +235,46 @@ describe('AdminPromotionsScreen', () => {
               name_en: 'Latte',
               name_ar: 'لاتيه',
               image_url: null,
-              description_en: null,
-              description_ar: null,
+              description_en: 'Hot drinks',
+              description_ar: 'مشروبات ساخنة',
               sort_order: 1,
               is_active: true,
-              item_types: [{ id: 'type-1', item_id: 'item-1', name_en: 'Hot', name_ar: 'ساخن', image_url: null, sort_order: 1, is_active: true, sizes: [] }],
+              item_types: [
+                {
+                  id: 'type-1',
+                  item_id: 'item-1',
+                  name_en: 'Hot',
+                  name_ar: 'ساخن',
+                  image_url: null,
+                  sort_order: 1,
+                  is_active: true,
+                  sizes: [
+                    {
+                      id: 'size-1',
+                      type_id: 'type-1',
+                      name_en: 'Large',
+                      name_ar: 'كبير',
+                      image_url: null,
+                      price: '4.00',
+                      order_limit: null,
+                      sort_order: 1,
+                      is_active: true,
+                      addons: [
+                        {
+                          id: 'addon-1',
+                          size_id: 'size-1',
+                          name_en: 'Shot',
+                          name_ar: 'شوت',
+                          image_url: null,
+                          price: '1.00',
+                          sort_order: 1,
+                          is_active: true,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             {
               id: 'item-2',
@@ -216,11 +282,35 @@ describe('AdminPromotionsScreen', () => {
               name_en: 'Muffin',
               name_ar: 'مافن',
               image_url: null,
-              description_en: null,
-              description_ar: null,
+              description_en: 'Hot drinks',
+              description_ar: 'مشروبات ساخنة',
               sort_order: 2,
               is_active: true,
-              item_types: [{ id: 'type-2', item_id: 'item-2', name_en: 'Fresh', name_ar: 'طازج', image_url: null, sort_order: 1, is_active: true, sizes: [] }],
+              item_types: [
+                {
+                  id: 'type-2',
+                  item_id: 'item-2',
+                  name_en: 'Fresh',
+                  name_ar: 'طازج',
+                  image_url: null,
+                  sort_order: 1,
+                  is_active: true,
+                  sizes: [
+                    {
+                      id: 'size-2',
+                      type_id: 'type-2',
+                      name_en: 'One size',
+                      name_ar: 'حجم واحد',
+                      image_url: null,
+                      price: '2.50',
+                      order_limit: null,
+                      sort_order: 1,
+                      is_active: true,
+                      addons: [],
+                    },
+                  ],
+                },
+              ],
             },
           ],
         },
@@ -241,8 +331,8 @@ describe('AdminPromotionsScreen', () => {
     await waitFor(() => {
       expect(getByText('Promotions')).toBeTruthy();
       expect(getByText('Latte + Muffin')).toBeTruthy();
-      expect(getByText('Buy from Latte; free item from Muffin')).toBeTruthy();
-      expect(getByText('Available after 4 completed orders')).toBeTruthy();
+      expect(getByText(/Buy from Latte; free item from Muffin/)).toBeTruthy();
+      expect(getByText(/Available after 4 completed orders/)).toBeTruthy();
     });
 
     expect(queryByText('All sections')).toBeNull();
@@ -251,10 +341,10 @@ describe('AdminPromotionsScreen', () => {
   });
 
   it('creates a buy-get offer with separate buy and free targets', async () => {
-    const { getAllByLabelText, getAllByPlaceholderText, getAllByText, getByLabelText, getByText } = render(<AdminPromotionsScreen />);
+    const { getAllByLabelText, getAllByPlaceholderText, getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
 
     await waitFor(() => {
-      expect(getByText('Promotions')).toBeTruthy();
+      expect(getByText('Offer identity')).toBeTruthy();
     });
 
     fireEvent.changeText(getByLabelText('Title (English)'), 'Buy latte get muffin');
@@ -296,15 +386,15 @@ describe('AdminPromotionsScreen', () => {
   });
 
   it('creates a fixed discount for new customers on the whole menu', async () => {
-    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionsScreen />);
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
 
     await waitFor(() => {
-      expect(getByText('Promotions')).toBeTruthy();
+      expect(getByText('Offer identity')).toBeTruthy();
     });
 
     fireEvent.changeText(getByLabelText('Title (English)'), 'Welcome offer');
     fireEvent.changeText(getByLabelText('Title (Arabic)'), 'عرض الترحيب');
-    fireEvent.changeText(getByLabelText('Discount amount'), '2');
+    fireEvent.changeText(getByLabelText('Discount percent'), '2');
     fireEvent.press(getByLabelText('Who can use this offer?: New customers only'));
     fireEvent.press(getAllByText('Create promotion').at(-1)!);
 
@@ -319,13 +409,254 @@ describe('AdminPromotionsScreen', () => {
         }),
       );
     });
+    expect(mockGetMenuTree).not.toHaveBeenCalledWith({ force: true });
+  });
+
+  it('does not create a fixed discount above 100 percent', async () => {
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Offer identity')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Too much discount');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'خصم كبير جدا');
+    fireEvent.changeText(getByLabelText('Discount percent'), '120');
+    fireEvent.press(getAllByText('Create promotion').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockCreatePromotion).not.toHaveBeenCalled();
+    });
+  });
+
+  it('expands a whole section target into item targets before creating a discount', async () => {
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Offer identity')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Coffee section discount');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'خصم قسم القهوة');
+    fireEvent.changeText(getByLabelText('Discount percent'), '15');
+    fireEvent.press(getByLabelText('Eligible menu items: Specific targets'));
+    fireEvent.press(getByLabelText('Target type: Section'));
+    fireEvent.press(getByLabelText('Coffee'));
+    fireEvent.press(getAllByText('Create promotion').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockCreatePromotion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'TEMPORARY',
+          value: 15,
+          targets: [
+            { entity_type: 'item', entity_id: 'item-1' },
+            { entity_type: 'item', entity_id: 'item-2' },
+          ],
+          buy_targets: [],
+          free_targets: [],
+        }),
+      );
+    });
+  });
+
+  it('creates a concrete size-targeted discount when the size exists in the refreshed menu', async () => {
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Offer identity')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Large latte discount');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'خصم اللاتيه الكبير');
+    fireEvent.changeText(getByLabelText('Discount percent'), '12');
+    fireEvent.press(getByLabelText('Eligible menu items: Specific targets'));
+    fireEvent.press(getByLabelText('Target type: Size'));
+    fireEvent.press(getByLabelText('Coffee > Latte > Hot > Large'));
+    fireEvent.press(getAllByText('Create promotion').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockGetMenuTree).toHaveBeenCalledWith({ force: true });
+      expect(mockCreatePromotion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'TEMPORARY',
+          value: 12,
+          targets: [{ entity_type: 'size', entity_id: 'size-1' }],
+        }),
+      );
+    });
+  });
+
+  it('blocks a stale size target after refreshing the menu before save', async () => {
+    mockGetMenuTree
+      .mockResolvedValueOnce({
+        sections: [
+          {
+            id: 'section-1',
+            name_en: 'Coffee',
+            name_ar: 'قهوة',
+            image_url: null,
+            is_active: true,
+            sort_order: 1,
+            items: [
+              {
+                id: 'item-1',
+                section_id: 'section-1',
+                name_en: 'Latte',
+                name_ar: 'لاتيه',
+                image_url: null,
+                description_en: 'Hot drinks',
+                description_ar: 'مشروبات ساخنة',
+                sort_order: 1,
+                is_active: true,
+                item_types: [
+                  {
+                    id: 'type-1',
+                    item_id: 'item-1',
+                    name_en: 'Hot',
+                    name_ar: 'ساخن',
+                    image_url: null,
+                    sort_order: 1,
+                    is_active: true,
+                    sizes: [
+                      {
+                        id: 'stale-size',
+                        type_id: 'type-1',
+                        name_en: 'Large',
+                        name_ar: 'كبير',
+                        image_url: null,
+                        price: '4.00',
+                        order_limit: null,
+                        sort_order: 1,
+                        is_active: true,
+                        addons: [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        sections: [
+          {
+            id: 'section-1',
+            name_en: 'Coffee',
+            name_ar: 'قهوة',
+            image_url: null,
+            is_active: true,
+            sort_order: 1,
+            items: [
+              {
+                id: 'item-1',
+                section_id: 'section-1',
+                name_en: 'Latte',
+                name_ar: 'لاتيه',
+                image_url: null,
+                description_en: 'Hot drinks',
+                description_ar: 'مشروبات ساخنة',
+                sort_order: 1,
+                is_active: true,
+                item_types: [{ id: 'type-1', item_id: 'item-1', name_en: 'Hot', name_ar: 'ساخن', image_url: null, sort_order: 1, is_active: true, sizes: [] }],
+              },
+            ],
+          },
+        ],
+      });
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Offer identity')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Stale size discount');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'خصم حجم قديم');
+    fireEvent.changeText(getByLabelText('Discount percent'), '12');
+    fireEvent.press(getByLabelText('Eligible menu items: Specific targets'));
+    fireEvent.press(getByLabelText('Target type: Size'));
+    fireEvent.press(getByLabelText('Coffee > Latte > Hot > Large'));
+    fireEvent.press(getAllByText('Create promotion').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockGetMenuTree).toHaveBeenCalledWith({ force: true });
+      expect(mockCreatePromotion).not.toHaveBeenCalled();
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Error',
+        'One or more selected menu targets no longer exist. Refresh the menu targets and choose them again.',
+      );
+    });
+  });
+
+  it('does not submit a raw section target when a selected section has no products loaded', async () => {
+    mockGetMenuTree.mockResolvedValueOnce({
+      sections: [
+        {
+          id: 'section-empty',
+          name_en: 'Empty Section',
+          name_ar: 'قسم فارغ',
+          image_url: null,
+          is_active: true,
+          sort_order: 1,
+          items: [],
+        },
+      ],
+    });
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Offer identity')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Empty section discount');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'خصم قسم فارغ');
+    fireEvent.changeText(getByLabelText('Discount percent'), '15');
+    fireEvent.press(getByLabelText('Eligible menu items: Specific targets'));
+    fireEvent.press(getByLabelText('Target type: Section'));
+    fireEvent.press(getByLabelText('Empty Section'));
+    fireEvent.press(getAllByText('Create promotion').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockCreatePromotion).not.toHaveBeenCalled();
+      expect(getByText('Required fields')).toBeTruthy();
+    });
+  });
+
+  it('expands a subgroup target into item targets before creating a discount', async () => {
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Offer identity')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByLabelText('Title (English)'), 'Hot drinks discount');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'خصم المشروبات الساخنة');
+    fireEvent.changeText(getByLabelText('Discount percent'), '10');
+    fireEvent.press(getByLabelText('Eligible menu items: Specific targets'));
+    fireEvent.press(getByLabelText('Target type: Subgroup'));
+    fireEvent.press(getByLabelText('Coffee > Hot drinks'));
+    fireEvent.press(getAllByText('Create promotion').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockCreatePromotion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'TEMPORARY',
+          value: 10,
+          targets: [
+            { entity_type: 'item', entity_id: 'item-1' },
+            { entity_type: 'item', entity_id: 'item-2' },
+          ],
+        }),
+      );
+    });
   });
 
   it('creates a free delivery threshold offer', async () => {
-    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionsScreen />);
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
 
     await waitFor(() => {
-      expect(getByText('Promotions')).toBeTruthy();
+      expect(getByText('Offer identity')).toBeTruthy();
     });
 
     fireEvent.changeText(getByLabelText('Title (English)'), 'Free delivery over 20');
@@ -353,10 +684,10 @@ describe('AdminPromotionsScreen', () => {
   });
 
   it('creates a percentage discount offer above a minimum order amount', async () => {
-    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionsScreen />);
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
 
     await waitFor(() => {
-      expect(getByText('Promotions')).toBeTruthy();
+      expect(getByText('Offer identity')).toBeTruthy();
     });
 
     fireEvent.changeText(getByLabelText('Title (English)'), '20% off over 20');

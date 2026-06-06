@@ -37,7 +37,7 @@ OTP for all test accounts:
 - `FRONTDESK`: `+962790070001`
 - `DRIVER`: `+962790099992`
 - `CLIENT`: `0790000101`
-- `ADMIN`: `+962790099981`
+- `ADMIN`: `0781503346`
 
 ## Install Day: Frontdesk on Sunmi
 

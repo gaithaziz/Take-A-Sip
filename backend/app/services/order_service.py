@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import Numeric, Select, and_, case, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.core.config import get_settings
 from app.core.logging import log_structured
@@ -184,9 +185,7 @@ def _ensure_order_limits(payload: OrderCreateRequest, sizes_by_id: dict[UUID, Si
 
 
 async def _next_order_number(db: AsyncSession) -> int:
-    # Serialize order-number allocation to avoid race collisions under concurrent creates.
-    await db.execute(text('SELECT pg_advisory_xact_lock(91234567)'))
-    result = await db.execute(select(func.coalesce(func.max(Order.order_number), 0) + 1))
+    result = await db.execute(text("SELECT nextval('order_number_seq')"))
     return int(result.scalar_one())
 
 
@@ -293,6 +292,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
 
     max_retries = 3
     order: Order | None = None
+    created_order: Order | None = None
     for attempt in range(max_retries):
         try:
             now = current_store_datetime()
@@ -359,6 +359,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                     for line in payload.items
                 ],
                 order_type=order_type.value,
+                sizes_by_id=sizes_by_id,
             )
             subtotal_amount = _calculate_order_subtotal(payload, sizes_by_id)
             discount_amount = _quantize(
@@ -401,6 +402,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
             db.add(order)
             await db.flush()
 
+            created_items: list[OrderItem] = []
             for line in payload.items:
                 size = sizes_by_id[line.size_id]
                 item_type = size.item_type
@@ -433,6 +435,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                 db.add(order_item)
                 await db.flush()
 
+                created_addons: list[OrderItemAddon] = []
                 available_addons = {addon.id: addon for addon in size.addons if addon.is_active}
                 for addon_id in line.addon_ids:
                     addon = available_addons.get(addon_id)
@@ -446,20 +449,29 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail='Addon not available for selected size',
                         )
-                    db.add(
-                        OrderItemAddon(
-                            order_item_id=order_item.id,
-                            addon_id_snapshot=addon.id,
-                            addon_name_snapshot=addon.name_en,
-                            price_snapshot=Decimal(addon.price),
-                        )
+                    order_item_addon = OrderItemAddon(
+                        order_item_id=order_item.id,
+                        addon_id_snapshot=addon.id,
+                        addon_name_snapshot=addon.name_en,
+                        price_snapshot=Decimal(addon.price),
                     )
+                    db.add(order_item_addon)
+                    created_addons.append(order_item_addon)
+
+                set_committed_value(order_item, 'addons', created_addons)
+                created_items.append(order_item)
 
             await _log_event(db, order.id, 'order.created', user_id)
+            set_committed_value(order, 'user', user)
+            set_committed_value(order, 'assigned_driver', None)
+            set_committed_value(order, 'items', created_items)
+            set_committed_value(order, 'rating', None)
+            created_order = order
             await db.commit()
             break
         except IntegrityError as exc:
             await db.rollback()
+            created_order = None
             if _is_order_number_unique_violation(exc) and attempt < (max_retries - 1):
                 log_structured(
                     logger,
@@ -472,6 +484,8 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
 
     if order is None:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to create order')
+    if created_order is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to load created order')
 
     log_structured(
         logger,
@@ -485,7 +499,6 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
             'actor_user_id': actor_user_id,
         },
     )
-    created_order = await get_order_by_id_or_404(db, order.id)
     await emit_post_commit_order_notifications(db, event='order.created', order=created_order)
     return created_order
 
@@ -520,6 +533,7 @@ async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> 
     db.add(order)
     await db.flush()
 
+    created_items: list[OrderItem] = []
     for source_item in source_order.items:
         order_item = OrderItem(
             order_id=order.id,
@@ -533,20 +547,29 @@ async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> 
         db.add(order_item)
         await db.flush()
 
+        created_addons: list[OrderItemAddon] = []
         for source_addon in source_item.addons:
-            db.add(
-                OrderItemAddon(
-                    order_item_id=order_item.id,
-                    addon_id_snapshot=source_addon.addon_id_snapshot,
-                    addon_name_snapshot=source_addon.addon_name_snapshot,
-                    price_snapshot=Decimal(source_addon.price_snapshot),
-                )
+            order_item_addon = OrderItemAddon(
+                order_item_id=order_item.id,
+                addon_id_snapshot=source_addon.addon_id_snapshot,
+                addon_name_snapshot=source_addon.addon_name_snapshot,
+                price_snapshot=Decimal(source_addon.price_snapshot),
             )
+            db.add(order_item_addon)
+            created_addons.append(order_item_addon)
+
+        set_committed_value(order_item, 'addons', created_addons)
+        created_items.append(order_item)
 
     await _log_event(db, order.id, 'order.created', user.id)
     await _log_event(db, order.id, 'order.reordered', user.id)
+    set_committed_value(order, 'user', user)
+    set_committed_value(order, 'assigned_driver', None)
+    set_committed_value(order, 'items', created_items)
+    set_committed_value(order, 'rating', None)
+    created_order = order
     await db.commit()
-    return await get_order_by_id_or_404(db, order.id)
+    return created_order
 
 
 def _order_base_query() -> Select[tuple[Order]]:

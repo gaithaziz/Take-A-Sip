@@ -16,6 +16,7 @@ backend/.venv/
 backend/.pytest_cache/
 backend/uploads/
 logs/
+scripts/load/checkout-users*.json
 
 # Non-backend apps are not needed for backend image builds
 admin/

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Take A Sip",
+    "name": "خذلك شفة",
     "slug": "take-a-sip-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -18,9 +18,9 @@
       "bundleIdentifier": "com.takeasip.mobile",
       "supportsTablet": true,
       "infoPlist": {
-        "NSUserNotificationsUsageDescription": "Take A Sip uses notifications to send order updates and operational alerts.",
-        "NSLocationWhenInUseUsageDescription": "Take A Sip uses your location during checkout to help select your delivery address and estimate delivery fees.",
-        "NSPhotoLibraryUsageDescription": "Take A Sip allows admin users to choose menu images from the photo library.",
+        "NSUserNotificationsUsageDescription": "يستخدم تطبيق خذلك شفة الإشعارات لإرسال تحديثات الطلب والتنبيهات التشغيلية.",
+        "NSLocationWhenInUseUsageDescription": "يستخدم تطبيق خذلك شفة موقعك أثناء الدفع للمساعدة في اختيار عنوان التوصيل وتقدير رسوم التوصيل.",
+        "NSPhotoLibraryUsageDescription": "يسمح تطبيق خذلك شفة لمستخدمي الإدارة باختيار صور القائمة من مكتبة الصور.",
         "LSApplicationQueriesSchemes": [
           "comgooglemaps"
         ]
@@ -32,6 +32,7 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "POST_NOTIFICATIONS",
+        "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"
       ],
       "adaptiveIcon": {
@@ -42,6 +43,14 @@
     "plugins": [
       "expo-font",
       "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "يسمح تطبيق خذلك شفة لمستخدمي الإدارة باختيار صور القائمة من مكتبة الصور.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-notifications",
       "expo-secure-store"
     ]

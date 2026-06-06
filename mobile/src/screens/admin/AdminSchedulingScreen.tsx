@@ -1,100 +1,55 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
+import { AppInput } from '@/components/AppInput';
 import { AppShell } from '@/components/AppShell';
 import { AppText } from '@/components/AppText';
 import { BadgeChip } from '@/components/BadgeChip';
-import { DateTimeField } from '@/components/DateTimeField';
 import { EmptyState } from '@/components/EmptyState';
 import { ActionRow } from '@/components/admin/ActionRow';
-import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { ExpandableText } from '@/components/admin/ExpandableText';
 import { InfoLine } from '@/components/admin/InfoLine';
-import { SelectDropdownField } from '@/components/admin/SelectDropdownField';
 import { ListPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
+import { RootStackParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { MenuEntityType, MenuSchedule, Section } from '@/types/api';
+import { MenuEntityType, MenuSchedule } from '@/types/api';
+import { buildAdminTargetOptions, targetKey } from '@/utils/adminMenuPreview';
 import { getApiErrorMessage } from '@/utils/errors';
-import { getLocalizedValue } from '@/utils/i18n';
-import { mirroredRow } from '@/utils/layout';
 import { getStoreTimeZone } from '@/utils/format';
+import { mirroredRow } from '@/utils/layout';
 
-type EntityOption = {
-  id: string;
-  type: MenuEntityType;
-  label: string;
-};
+type AdminSchedulingNavigation = NativeStackNavigationProp<RootStackParamList>;
+type ScheduleFilter = 'all' | 'active' | 'inactive';
 
-type ScheduleForm = {
-  entity_type: MenuEntityType;
-  entity_id: string;
-  start_time: string;
-  end_time: string;
-  days_of_week: number[];
-  is_active: boolean;
-};
-
-const defaultForm: ScheduleForm = {
-  entity_type: 'section',
-  entity_id: '',
-  start_time: '07:00',
-  end_time: '11:00',
-  days_of_week: [0, 1, 2, 3, 4, 5, 6],
-  is_active: true,
-};
-
-const buildEntityOptions = (sections: Section[], language: 'en' | 'ar'): EntityOption[] => {
-  const options: EntityOption[] = [];
-  sections.forEach((section) => {
-    const sectionName = getLocalizedValue(section, language, 'name');
-    options.push({ id: section.id, type: 'section', label: sectionName });
-
-    section.items.forEach((item) => {
-      const itemName = getLocalizedValue(item, language, 'name');
-      options.push({ id: item.id, type: 'item', label: `${sectionName} > ${itemName}` });
-
-      item.item_types.forEach((itemType) => {
-        const typeName = getLocalizedValue(itemType, language, 'name');
-        options.push({ id: itemType.id, type: 'type', label: `${sectionName} > ${itemName} > ${typeName}` });
-
-        itemType.sizes.forEach((size) => {
-          const sizeName = getLocalizedValue(size, language, 'name');
-          options.push({ id: size.id, type: 'size', label: `${sectionName} > ${itemName} > ${typeName} > ${sizeName}` });
-
-          size.addons.forEach((addon) => {
-            const addonName = getLocalizedValue(addon, language, 'name');
-            options.push({ id: addon.id, type: 'addon', label: `${sectionName} > ${itemName} > ${typeName} > ${sizeName} > ${addonName}` });
-          });
-        });
-      });
-    });
-  });
-  return options;
-};
+const entityTypes: Array<MenuEntityType | 'all'> = ['all', 'section', 'item', 'type', 'size', 'addon'];
 
 export const AdminSchedulingScreen = () => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
+  const navigation = useNavigation<AdminSchedulingNavigation>();
   const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const isCompact = width < 390;
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [labelsLoading, setLabelsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<MenuSchedule[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
-  const [form, setForm] = useState<ScheduleForm>(defaultForm);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [labelByEntity, setLabelByEntity] = useState<Map<string, string>>(new Map());
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ScheduleFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<MenuEntityType | 'all'>('all');
+  const [dayFilter, setDayFilter] = useState<number | 'all'>('all');
   const [mutatingScheduleId, setMutatingScheduleId] = useState<string | null>(null);
+  const timezone = getStoreTimeZone();
 
-  const options = useMemo(() => buildEntityOptions(sections, language), [sections, language]);
   const dayLabelByValue = useMemo<Record<number, string>>(
     () => ({
       0: t('admin.dayMon'),
@@ -107,89 +62,69 @@ export const AdminSchedulingScreen = () => {
     }),
     [t],
   );
-  const filteredOptions = useMemo(() => options.filter((option) => option.type === form.entity_type), [form.entity_type, options]);
-  const entityTypeOptions = useMemo(
-    () =>
-      (['section', 'item', 'type', 'size', 'addon'] as MenuEntityType[]).map((entityType) => ({
-        value: entityType,
-        label: t(`admin.${entityType}`),
-      })),
-    [t],
+
+  const loadLabels = useCallback(async () => {
+    try {
+      setLabelsLoading(true);
+      const menu = await adminService.getMenuTree();
+      const labels = new Map<string, string>();
+      buildAdminTargetOptions(menu.sections, language).forEach((option) => {
+        labels.set(targetKey(option), option.label);
+      });
+      setLabelByEntity(labels);
+    } catch {
+      setLabelByEntity(new Map());
+    } finally {
+      setLabelsLoading(false);
+    }
+  }, [language]);
+
+  const load = useCallback(
+    async (asRefresh = false) => {
+      try {
+        asRefresh ? setRefreshing(true) : setLoading(true);
+        setError(null);
+        const scheduleResponse = await adminService.listSchedules();
+        setSchedules(scheduleResponse.schedules);
+        void loadLabels();
+      } catch (e) {
+        setError(getApiErrorMessage(e, t));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [loadLabels, t],
   );
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [scheduleResponse, menu] = await Promise.all([adminService.listSchedules(), adminService.getMenuTree()]);
-      setSchedules(scheduleResponse.schedules);
-      setSections(menu.sections);
-    } catch (e) {
-      setError(getApiErrorMessage(e, t));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const resetForm = () => {
-    setEditingScheduleId(null);
-    setFormError(null);
-    setForm((prev) => ({
-      ...defaultForm,
-      entity_type: prev.entity_type,
-      entity_id: '',
-    }));
-  };
-
-  const startEdit = (schedule: MenuSchedule) => {
-    setEditingScheduleId(schedule.id);
-    setFormError(null);
-    setForm({
-      entity_type: schedule.entity_type,
-      entity_id: schedule.entity_id,
-      start_time: schedule.start_time,
-      end_time: schedule.end_time,
-      days_of_week: schedule.days_of_week,
-      is_active: schedule.is_active,
+  const filteredSchedules = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return schedules.filter((schedule) => {
+      if (statusFilter === 'active' && !schedule.is_active) return false;
+      if (statusFilter === 'inactive' && schedule.is_active) return false;
+      if (typeFilter !== 'all' && schedule.entity_type !== typeFilter) return false;
+      if (dayFilter !== 'all' && !schedule.days_of_week.includes(dayFilter)) return false;
+      if (!normalized) return true;
+      const label = labelByEntity.get(targetKey(schedule)) ?? t('admin.deletedMenuTarget');
+      return label.toLowerCase().includes(normalized);
     });
-  };
+  }, [dayFilter, labelByEntity, query, schedules, statusFilter, typeFilter]);
 
-  const save = async () => {
-    if (!form.entity_id || !form.start_time || !form.end_time || form.days_of_week.length === 0) {
-      setFormError(t('validation.requiredFields'));
-      return;
-    }
-
+  const toggleSchedule = async (schedule: MenuSchedule) => {
     try {
-      setSaving(true);
-      setFormError(null);
-      if (editingScheduleId) {
-        await adminService.updateSchedule(editingScheduleId, {
-          start_time: form.start_time,
-          end_time: form.end_time,
-          days_of_week: form.days_of_week,
-          is_active: form.is_active,
-        });
-      } else {
-        await adminService.createSchedule({
-          entity_type: form.entity_type,
-          entity_id: form.entity_id,
-          start_time: form.start_time,
-          end_time: form.end_time,
-          days_of_week: form.days_of_week,
-        });
-      }
-
-      resetForm();
-      await load();
+      setMutatingScheduleId(schedule.id);
+      await adminService.updateSchedule(schedule.id, { is_active: !schedule.is_active });
+      await load(true);
     } catch (e) {
       Alert.alert(t('common.error'), getApiErrorMessage(e, t));
     } finally {
-      setSaving(false);
+      setMutatingScheduleId(null);
     }
   };
 
@@ -204,7 +139,7 @@ export const AdminSchedulingScreen = () => {
             try {
               setMutatingScheduleId(scheduleId);
               await adminService.deleteSchedule(scheduleId);
-              await load();
+              await load(true);
             } catch (e) {
               Alert.alert(t('common.error'), getApiErrorMessage(e, t));
             } finally {
@@ -216,329 +151,232 @@ export const AdminSchedulingScreen = () => {
     ]);
   };
 
-  const toggleSchedule = async (schedule: MenuSchedule) => {
-    try {
-      setMutatingScheduleId(schedule.id);
-      await adminService.updateSchedule(schedule.id, { is_active: !schedule.is_active });
-      await load();
-    } catch (e) {
-      Alert.alert(t('common.error'), getApiErrorMessage(e, t));
-    } finally {
-      setMutatingScheduleId(null);
-    }
-  };
+  const statusOptions: Array<{ value: ScheduleFilter; label: string }> = [
+    { value: 'all', label: t('admin.allSchedules') },
+    { value: 'active', label: t('admin.active') },
+    { value: 'inactive', label: t('admin.inactive') },
+  ];
 
-  const labelByEntity = useMemo(() => {
-    const index = new Map<string, string>();
-    options.forEach((option) => index.set(`${option.type}:${option.id}`, option.label));
-    return index;
-  }, [options]);
-
-  const toggleDay = (day: number) => {
-    setForm((prev) => {
-      if (prev.days_of_week.includes(day)) {
-        return { ...prev, days_of_week: prev.days_of_week.filter((value) => value !== day) };
-      }
-      return { ...prev, days_of_week: [...prev.days_of_week, day].sort((a, b) => a - b) };
-    });
-  };
-
-  const setDayPreset = (days: number[]) => {
-    setFormError(null);
-    setForm((prev) => ({ ...prev, days_of_week: days }));
-  };
-
-  const timeToDate = (value: string): Date => {
-    const [h, m] = value.split(':').map(Number);
-    const next = new Date();
-    next.setHours(Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0, 0, 0);
-    return next;
-  };
-
-  const dateToTime = (value: Date): string =>
-    `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
-
-  const timezone = getStoreTimeZone();
-  const canSave = !saving && Boolean(form.entity_id) && Boolean(form.start_time) && Boolean(form.end_time) && form.days_of_week.length > 0;
-
-  const renderSchedule = ({ item: schedule }: { item: MenuSchedule }) => (
-    <AppCard style={styles.itemCard}>
-      <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
-        <View style={styles.grow}>
-          <ExpandableText
-            value={labelByEntity.get(`${schedule.entity_type}:${schedule.entity_id}`) ?? `${schedule.entity_type}:${schedule.entity_id}`}
-            variant="h3"
-            numberOfLines={2}
-          />
-        </View>
-        <BadgeChip label={schedule.is_active ? t('admin.active') : t('admin.inactive')} tone={schedule.is_active ? 'success' : 'default'} />
-      </View>
-      <View style={styles.infoBox}>
-        <InfoLine label={`${t('admin.timeRange')} (${t('admin.storeTimezone')}: ${timezone})`} value={`${schedule.start_time} - ${schedule.end_time}`} />
-        <InfoLine
-          label={t('admin.daysOfWeek')}
-          value={schedule.days_of_week.map((day) => dayLabelByValue[day]).join(', ')}
-          numberOfLines={2}
-        />
-      </View>
-      <ActionRow compact={isCompact}>
-        <AppButton title={t('admin.edit')} variant="secondary" onPress={() => startEdit(schedule)} style={styles.flexButton} disabled={mutatingScheduleId === schedule.id} />
-        <AppButton
-          title={schedule.is_active ? t('admin.disable') : t('admin.enable')}
-          variant="ghost"
-          onPress={() => void toggleSchedule(schedule)}
-          fullWidth={false}
-          loading={mutatingScheduleId === schedule.id}
-          disabled={Boolean(mutatingScheduleId && mutatingScheduleId !== schedule.id)}
-        />
-      </ActionRow>
-      <AppButton
-        title={t('admin.delete')}
-        variant="destructive"
-        onPress={() => void removeSchedule(schedule.id)}
-        loading={mutatingScheduleId === schedule.id}
-        disabled={Boolean(mutatingScheduleId && mutatingScheduleId !== schedule.id)}
-      />
-    </AppCard>
-  );
+  if (loading && schedules.length === 0) return <ListPageSkeleton isRTL={isRTL} showFilters cards={4} />;
+  if (error && schedules.length === 0) return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={() => void load()} />;
 
   return (
-    <FlatList
-      data={loading || error ? [] : schedules}
-      keyExtractor={(schedule) => schedule.id}
-      renderItem={renderSchedule}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListHeaderComponent={
-        <View style={styles.headerBlock}>
-          <AppText variant="h1">{t('admin.schedulingTitle')}</AppText>
-
-          <AdminPageSection
-            title={editingScheduleId ? t('admin.editSchedule') : t('admin.createSchedule')}
-            subtitle={t('admin.schedulingWhatWhenDays')}>
-            <View style={styles.formStack}>
-              <View style={styles.formGroup}>
-                <SelectDropdownField
-                  label={t('admin.entityType')}
-                  value={form.entity_type}
-                  options={entityTypeOptions}
-                  onChange={(value) => {
-                    setFormError(null);
-                    setForm((prev) => ({
-                      ...prev,
-                      entity_type: value as MenuEntityType,
-                      entity_id: '',
-                    }));
-                  }}
-                />
-
-                <SelectDropdownField
-                  label={t('admin.availableTargets')}
-                  value={form.entity_id}
-                  options={filteredOptions.map((option) => ({ value: option.id, label: option.label }))}
-                  onChange={(value) => {
-                    setFormError(null);
-                    setForm((prev) => ({ ...prev, entity_id: value }));
-                  }}
-                  emptyLabel={t('admin.noTargets')}
-                  searchable
-                  searchPlaceholder={t('admin.targetSearchPlaceholder')}
-                  noMatchesLabel={t('admin.noMatchingTargets')}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <View style={[styles.halfRow, mirroredRow(isRTL), isCompact ? styles.halfRowCompact : null]}>
-                  <DateTimeField
-                    label={t('admin.startTime')}
-                    mode="time"
-                    value={timeToDate(form.start_time)}
-                    onChange={(value) => {
-                      setFormError(null);
-                      setForm((prev) => ({ ...prev, start_time: dateToTime(value) }));
-                    }}
-                  />
-                  <DateTimeField
-                    label={t('admin.endTime')}
-                    mode="time"
-                    value={timeToDate(form.end_time)}
-                    onChange={(value) => {
-                      setFormError(null);
-                      setForm((prev) => ({ ...prev, end_time: dateToTime(value) }));
-                    }}
-                  />
-                </View>
-                <AppText variant="caption" color={theme.colors.textSecondary}>
-                  {`${t('admin.storeTimezone')}: ${timezone}`}
-                </AppText>
-                <AppText variant="caption" color={theme.colors.textSecondary}>
-                  {t('admin.scheduleAvailabilityHint')}
-                </AppText>
-              </View>
-
-              <View style={styles.formGroup}>
-                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.daysOfWeek')}</AppText>
-                <View style={[styles.presetRow, mirroredRow(isRTL)]}>
-                  <Pressable style={styles.presetChip} onPress={() => setDayPreset([0, 1, 2, 3, 4, 5, 6])}>
-                    <AppText variant="caption">{t('admin.everyDay')}</AppText>
-                  </Pressable>
-                  <Pressable style={styles.presetChip} onPress={() => setDayPreset([0, 1, 2, 3, 4])}>
-                    <AppText variant="caption">{t('admin.weekdays')}</AppText>
-                  </Pressable>
-                  <Pressable style={styles.presetChip} onPress={() => setDayPreset([5, 6])}>
-                    <AppText variant="caption">{t('admin.weekend')}</AppText>
-                  </Pressable>
-                </View>
-                <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
-                  {Object.entries(dayLabelByValue).map(([value, label]) => {
-                    const day = Number(value);
-                    const selected = form.days_of_week.includes(day);
-                    return (
-                      <Pressable
-                        key={value}
-                        style={[styles.optionChip, selected ? styles.optionChipActive : null]}
-                        onPress={() => toggleDay(day)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        accessibilityLabel={label}>
-                        <AppText variant="caption" color={selected ? theme.colors.primary700 : theme.colors.textSecondary}>{label}</AppText>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {editingScheduleId ? <View style={styles.formGroup}>
-                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.status')}</AppText>
-                <View style={[styles.optionsWrap, mirroredRow(isRTL)]}>
-                  <Pressable
-                    style={[styles.optionChip, form.is_active ? styles.optionChipActive : null]}
-                    onPress={() => setForm((prev) => ({ ...prev, is_active: true }))}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: form.is_active }}
-                    accessibilityLabel={t('admin.active')}>
-                    <AppText variant="caption">{t('admin.active')}</AppText>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.optionChip, !form.is_active ? styles.optionChipActive : null]}
-                    onPress={() => setForm((prev) => ({ ...prev, is_active: false }))}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: !form.is_active }}
-                    accessibilityLabel={t('admin.inactive')}>
-                    <AppText variant="caption">{t('admin.inactive')}</AppText>
-                  </Pressable>
-                </View>
-              </View> : null}
-
-              {formError ? <AppText variant="caption" color={theme.colors.error}>{formError}</AppText> : null}
-
-              <ActionRow compact={isCompact}>
-                <AppButton
-                  title={editingScheduleId ? t('admin.saveChanges') : t('admin.createSchedule')}
-                  loading={saving}
-                  onPress={() => void save()}
-                  style={styles.flexButton}
-                  disabled={!canSave}
-                />
-                {editingScheduleId ? <AppButton title={t('common.cancel')} variant="ghost" onPress={resetForm} fullWidth={false} /> : null}
-              </ActionRow>
-            </View>
-          </AdminPageSection>
+    <AppShell refreshing={refreshing} onRefresh={() => void load(true)}>
+      <View style={styles.heading}>
+        <View style={[styles.titleRow, mirroredRow(isRTL)]}>
+          <View style={styles.titleText}>
+            <AppText variant="h1" align={isRTL ? 'right' : 'left'}>{t('admin.schedulingTitle')}</AppText>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary} align={isRTL ? 'right' : 'left'}>
+              {t('admin.schedulingBrowseSubtitle')}
+            </AppText>
+          </View>
+          <AppButton
+            title={t('admin.addSchedule')}
+            fullWidth={false}
+            onPress={() => navigation.navigate('AdminScheduleEditor')}
+            style={styles.addButton}
+          />
         </View>
-      }
-      ListEmptyComponent={
-        loading ? (
-          <ListPageSkeleton isRTL={isRTL} shell={false} cards={3} />
-        ) : error ? (
-          <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />
-        ) : (
-          <EmptyState title={t('admin.noSchedulesTitle')} subtitle={t('admin.noSchedulesSubtitle')} />
-        )
-      }
-      refreshing={loading}
-      onRefresh={load}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: insets.top + theme.spacing.md,
-          paddingBottom: insets.bottom + theme.spacing.xl,
-        },
-      ]}
-    />
+        <AppButton
+          title={t('admin.previewWholeMenu')}
+          variant="secondary"
+          onPress={() => navigation.navigate('AdminWholeMenuPreview', { initialLanguage: language })}
+        />
+      </View>
+
+      <View style={styles.controls}>
+        <AppInput
+          label={t('admin.searchSchedules')}
+          value={query}
+          onChangeText={setQuery}
+          placeholder={labelsLoading ? t('admin.loadingMenuLabels') : t('admin.searchSchedulesPlaceholder')}
+        />
+
+        <View style={[styles.filterRow, mirroredRow(isRTL)]}>
+          {statusOptions.map((option) => (
+            <Pressable
+              key={option.value}
+              style={[styles.filterChip, statusFilter === option.value ? styles.filterChipActive : null]}
+              onPress={() => setStatusFilter(option.value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: statusFilter === option.value }}
+              accessibilityLabel={option.label}>
+              <AppText variant="caption" color={statusFilter === option.value ? theme.colors.primary700 : theme.colors.textSecondary}>
+                {option.label}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={[styles.filterRow, mirroredRow(isRTL)]}>
+          {entityTypes.map((entityType) => (
+            <Pressable
+              key={entityType}
+              style={[styles.filterChip, typeFilter === entityType ? styles.filterChipActive : null]}
+              onPress={() => setTypeFilter(entityType)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: typeFilter === entityType }}
+              accessibilityLabel={entityType === 'all' ? t('admin.allTargets') : t(`admin.${entityType}`)}>
+              <AppText variant="caption" color={typeFilter === entityType ? theme.colors.primary700 : theme.colors.textSecondary}>
+                {entityType === 'all' ? t('admin.allTargets') : t(`admin.${entityType}`)}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={[styles.filterRow, mirroredRow(isRTL)]}>
+          <Pressable
+            style={[styles.filterChip, dayFilter === 'all' ? styles.filterChipActive : null]}
+            onPress={() => setDayFilter('all')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: dayFilter === 'all' }}
+            accessibilityLabel={t('admin.allDays')}>
+            <AppText variant="caption" color={dayFilter === 'all' ? theme.colors.primary700 : theme.colors.textSecondary}>
+              {t('admin.allDays')}
+            </AppText>
+          </Pressable>
+          {Object.entries(dayLabelByValue).map(([value, label]) => {
+            const day = Number(value);
+            return (
+              <Pressable
+                key={value}
+                style={[styles.filterChip, dayFilter === day ? styles.filterChipActive : null]}
+                onPress={() => setDayFilter(day)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: dayFilter === day }}
+                accessibilityLabel={label}>
+                <AppText variant="caption" color={dayFilter === day ? theme.colors.primary700 : theme.colors.textSecondary}>
+                  {label}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {filteredSchedules.length === 0 ? (
+        <EmptyState title={t('admin.noSchedulesTitle')} subtitle={t('admin.noSchedulesSubtitle')} />
+      ) : (
+        <View style={styles.stack}>
+          {filteredSchedules.map((schedule) => {
+            const label = labelByEntity.get(targetKey(schedule)) ?? t('admin.deletedMenuTarget');
+            return (
+              <AppCard key={schedule.id} style={styles.card}>
+                <View style={[styles.cardHeader, mirroredRow(isRTL)]}>
+                  <View style={styles.cardTitle}>
+                    <ExpandableText value={label} variant="h3" numberOfLines={2} />
+                  </View>
+                  <View style={styles.badges}>
+                    <BadgeChip label={schedule.is_active ? t('admin.active') : t('admin.inactive')} tone={schedule.is_active ? 'success' : 'default'} />
+                    <BadgeChip label={t(`admin.${schedule.entity_type}`)} tone="info" />
+                  </View>
+                </View>
+                <View style={styles.infoBox}>
+                  <InfoLine label={`${t('admin.timeRange')} (${t('admin.storeTimezone')}: ${timezone})`} value={`${schedule.start_time} - ${schedule.end_time}`} />
+                  <InfoLine
+                    label={t('admin.daysOfWeek')}
+                    value={schedule.days_of_week.map((day) => dayLabelByValue[day]).join(', ')}
+                    numberOfLines={2}
+                  />
+                </View>
+                <ActionRow compact={isCompact}>
+                  <AppButton
+                    title={t('admin.edit')}
+                    variant="secondary"
+                    onPress={() => navigation.navigate('AdminScheduleEditor', { schedule })}
+                    style={styles.flexButton}
+                    disabled={mutatingScheduleId === schedule.id}
+                  />
+                  <AppButton
+                    title={schedule.is_active ? t('admin.disable') : t('admin.enable')}
+                    variant="ghost"
+                    fullWidth={false}
+                    loading={mutatingScheduleId === schedule.id}
+                    disabled={Boolean(mutatingScheduleId && mutatingScheduleId !== schedule.id)}
+                    onPress={() => void toggleSchedule(schedule)}
+                  />
+                  <Pressable
+                    style={styles.iconButton}
+                    onPress={() => navigation.navigate('AdminWholeMenuPreview', { initialLanguage: language })}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('admin.previewWholeMenu')}>
+                    <Ionicons name="phone-portrait-outline" size={theme.iconSizes.md} color={theme.colors.primary700} />
+                  </Pressable>
+                  <Pressable
+                    style={[styles.iconButton, styles.deleteIconButton]}
+                    onPress={() => void removeSchedule(schedule.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('admin.delete')}>
+                    <Ionicons name="trash-outline" size={theme.iconSizes.md} color={theme.colors.error} />
+                  </Pressable>
+                </ActionRow>
+              </AppCard>
+            );
+          })}
+        </View>
+      )}
+    </AppShell>
   );
 };
 
 const styles = StyleSheet.create({
-  content: {
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  headerBlock: {
-    marginBottom: theme.spacing.md,
-    gap: theme.spacing.lg,
-  },
-  formStack: {
-    gap: theme.spacing.lg,
-  },
-  formGroup: {
-    gap: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.secondaryCream,
-    padding: theme.spacing.md,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-  },
-  optionsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  heading: {
     gap: theme.spacing.md,
   },
-  presetRow: {
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  titleText: {
+    flex: 1,
+    gap: theme.spacing.xs,
+  },
+  addButton: {
+    minWidth: 132,
+  },
+  controls: {
+    gap: theme.spacing.md,
+  },
+  filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.sm,
   },
-  presetChip: {
-    borderWidth: 1,
-    borderColor: theme.colors.primary200,
-    backgroundColor: theme.colors.surface,
+  filterChip: {
+    minHeight: 36,
     borderRadius: theme.radius.pill,
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    minHeight: 34,
-    justifyContent: 'center',
-  },
-  optionChip: {
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.pill,
-    paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
-    minHeight: 36,
     justifyContent: 'center',
-    maxWidth: '48%',
   },
-  optionChipActive: {
+  filterChipActive: {
     borderColor: theme.colors.primary300,
     backgroundColor: theme.colors.secondaryCream,
   },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-    gap: theme.spacing.sm,
+  stack: {
+    gap: theme.spacing.md,
   },
-  itemCard: {
+  card: {
     gap: theme.spacing.sm,
     backgroundColor: theme.colors.secondaryCream,
     borderColor: theme.colors.primary200,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  cardTitle: {
+    flex: 1,
+  },
+  badges: {
+    gap: theme.spacing.xs,
+    alignItems: 'flex-end',
   },
   infoBox: {
     gap: theme.spacing.sm,
@@ -551,18 +389,18 @@ const styles = StyleSheet.create({
   flexButton: {
     flex: 1,
   },
-  halfRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
+  iconButton: {
+    width: 54,
+    height: 54,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary200,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  halfRowCompact: {
-    flexDirection: 'column',
-    gap: theme.spacing.sm,
-  },
-  grow: {
-    flex: 1,
-  },
-  separator: {
-    height: theme.spacing.md,
+  deleteIconButton: {
+    borderColor: '#e7c2bb',
+    backgroundColor: theme.colors.errorSurface,
   },
 });

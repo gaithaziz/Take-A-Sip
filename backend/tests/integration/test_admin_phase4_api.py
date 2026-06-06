@@ -195,6 +195,47 @@ async def test_admin_can_create_targeted_loyalty_promotion_with_summaries(client
     assert saved['targets'][0]['entity_name_en'] in {'Latte', 'Large'}
 
 
+async def test_admin_can_create_section_targeted_promotion(client, db_session):
+    admin = User(
+        first_name='Admin',
+        last_name='Owner',
+        phone_number='+962790001232',
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Coffee', name_ar='قهوة', sort_order=1, is_active=True)
+    item = Item(section=section, name_en='Latte', name_ar='لاتيه', sort_order=1, is_active=True)
+    item_type = ItemType(item=item, name_en='Hot', name_ar='ساخن', sort_order=1, is_active=True)
+    size = Size(item_type=item_type, name_en='Large', name_ar='كبير', price=Decimal('4.50'), sort_order=1, is_active=True)
+    db_session.add_all([admin, section, item, item_type, size])
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(admin.id), admin.role.value)}"}
+
+    response = await client.post(
+        '/admin/promotions',
+        headers=headers,
+        json={
+            'title_en': 'Coffee Discount',
+            'title_ar': 'خصم القهوة',
+            'type': 'TEMPORARY',
+            'value': '10.00',
+            'starts_at': (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+            'ends_at': (datetime.now(timezone.utc) + timedelta(days=3)).isoformat(),
+            'is_active': True,
+            'targets': [{'entity_type': 'section', 'entity_id': str(section.id)}],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['targets'][0]['entity_type'] == 'section'
+    assert payload['targets'][0]['entity_id'] == str(section.id)
+    assert payload['targets'][0]['entity_name_en'] == 'Coffee'
+    assert payload['scope_summary_en'] == 'Applies to Coffee'
+
+
 async def test_client_promotion_evaluation_applies_best_targeted_offer(client, db_session):
     client_user = User(
         first_name='Lina',

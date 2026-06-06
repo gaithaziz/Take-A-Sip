@@ -1,6 +1,14 @@
 import axios from 'axios';
 import { NativeModules } from 'react-native';
 
+declare module 'axios' {
+  export interface InternalAxiosRequestConfig {
+    metadata?: {
+      startedAt?: number;
+    };
+  }
+}
+
 const DEV_FALLBACK_API_BASE_URL = 'http://localhost:8000';
 
 const isDevelopmentBuild =
@@ -40,6 +48,42 @@ export const http = axios.create({
   baseURL,
   timeout: 20000,
 });
+
+const timedEndpoints = [
+  '/admin/menu/tree',
+  '/admin/promotions',
+  '/admin/menu/schedule',
+  '/menu',
+  '/promotions/active',
+];
+
+http.interceptors.request.use((config) => {
+  const url = `${config.url ?? ''}`;
+  if (isDevelopmentBuild && timedEndpoints.some((endpoint) => url.startsWith(endpoint))) {
+    config.metadata = { ...(config.metadata ?? {}), startedAt: Date.now() };
+  }
+  return config;
+});
+
+http.interceptors.response.use(
+  (response) => {
+    const startedAt = response.config.metadata?.startedAt;
+    if (isDevelopmentBuild && typeof startedAt === 'number') {
+      const elapsedMs = Date.now() - startedAt;
+      // Keep this dev-only so production builds do not log request timing.
+      console.info(`[api-timing] ${response.config.method?.toUpperCase() ?? 'GET'} ${response.config.url} ${elapsedMs}ms`);
+    }
+    return response;
+  },
+  (error) => {
+    const startedAt = error?.config?.metadata?.startedAt;
+    if (isDevelopmentBuild && typeof startedAt === 'number') {
+      const elapsedMs = Date.now() - startedAt;
+      console.info(`[api-timing] ${error.config?.method?.toUpperCase() ?? 'GET'} ${error.config?.url} failed ${elapsedMs}ms`);
+    }
+    return Promise.reject(error);
+  },
+);
 
 export const setAuthToken = (token: string | null) => {
   if (token) {

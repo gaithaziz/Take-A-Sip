@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from app.models.user import UserRole
 from app.schemas.order import OrderCreateRequest
-from app.services.order_service import _ensure_order_limits, create_order
+from app.services.order_service import _ensure_order_limits, _next_order_number, create_order
 
 
 @pytest.mark.asyncio
@@ -53,3 +53,23 @@ def test_order_limit_counts_all_lines_for_same_size() -> None:
 
     assert exc.value.status_code == 400
     assert exc.value.detail == 'Order quantity exceeds product limit'
+
+
+@pytest.mark.asyncio
+async def test_next_order_number_uses_sequence() -> None:
+    class Result:
+        def scalar_one(self) -> int:
+            return 42
+
+    class Session:
+        def __init__(self) -> None:
+            self.statements: list[str] = []
+
+        async def execute(self, statement):  # type: ignore[no-untyped-def]
+            self.statements.append(str(statement))
+            return Result()
+
+    session = Session()
+
+    assert await _next_order_number(session) == 42  # type: ignore[arg-type]
+    assert session.statements == ["SELECT nextval('order_number_seq')"]

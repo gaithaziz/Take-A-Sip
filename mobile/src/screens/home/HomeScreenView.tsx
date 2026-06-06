@@ -21,7 +21,7 @@ import { OfferRibbon } from '@/components/OfferRibbon';
 import { ProductCard } from '@/components/ProductCard';
 import { HomeProductListSkeleton } from '@/components/skeleton/HomeProductListSkeleton';
 import { theme } from '@/theme';
-import { Item, Promotion } from '@/types/api';
+import { Item, LanguageCode, Promotion } from '@/types/api';
 import { mirroredRow } from '@/utils/layout';
 
 import { HomeMenuSection } from './types';
@@ -40,6 +40,8 @@ type HomeScreenViewProps = {
   onReload: () => void;
   onOpenCart: () => void;
   onOpenProduct: (item: Item) => void;
+  previewLanguage?: LanguageCode;
+  previewIsRTL?: boolean;
 };
 
 export const HomeScreenView = ({
@@ -56,6 +58,8 @@ export const HomeScreenView = ({
   onReload,
   onOpenCart,
   onOpenProduct,
+  previewLanguage,
+  previewIsRTL,
 }: HomeScreenViewProps) => {
   const { width } = useWindowDimensions();
   const [expandedSectionIds, setExpandedSectionIds] = useState<string[]>([]);
@@ -142,7 +146,7 @@ export const HomeScreenView = ({
 
           {offers.length > 0 ? (
             <View style={styles.ribbonWrap}>
-              <OfferRibbon offers={offers} />
+              <OfferRibbon offers={offers} languageOverride={previewLanguage} isRTLOverride={previewIsRTL} />
             </View>
           ) : null}
 
@@ -252,7 +256,12 @@ export const HomeScreenView = ({
                                 <View style={styles.subgroupItemsWrap}>
                                   {group.data.map((item, index) => (
                                     <Fragment key={item.id}>
-                                      <ProductCard item={item} onPress={() => onOpenProduct(item)} />
+                                      <ProductCard
+                                        item={item}
+                                        onPress={() => onOpenProduct(item)}
+                                        languageOverride={previewLanguage}
+                                        isRTLOverride={previewIsRTL}
+                                      />
                                       {index < group.data.length - 1 ? <View style={styles.itemSeparator} /> : null}
                                     </Fragment>
                                   ))}

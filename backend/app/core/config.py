@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     apns_key_id: str | None = None
     apns_team_id: str | None = None
     apns_bundle_id: str | None = None
+    apns_private_key: str | None = None
     apns_private_key_path: str | None = None
     apns_use_sandbox: bool = True
     storage_backend: str = 'local'
@@ -231,6 +232,30 @@ class Settings(BaseSettings):
             missing = [name for name, value in required.items() if not value]
             if missing:
                 raise ValueError(f'missing storage settings: {", ".join(missing)}')
+        return self
+
+    @model_validator(mode='after')
+    def validate_push_settings(self):
+        if self.push_android_provider != 'fcm':
+            raise ValueError('push_android_provider must be "fcm"')
+        if self.push_ios_provider != 'apns':
+            raise ValueError('push_ios_provider must be "apns"')
+        if not self.push_enabled:
+            return self
+
+        missing = []
+        if not self.fcm_service_account_json:
+            missing.append('fcm_service_account_json')
+        if not self.apns_key_id:
+            missing.append('apns_key_id')
+        if not self.apns_team_id:
+            missing.append('apns_team_id')
+        if not self.apns_bundle_id:
+            missing.append('apns_bundle_id')
+        if not (self.apns_private_key or self.apns_private_key_path):
+            missing.append('apns_private_key or apns_private_key_path')
+        if missing:
+            raise ValueError(f'missing push settings: {", ".join(missing)}')
         return self
 
     @property

@@ -787,10 +787,12 @@ async def evaluate_promotions_for_user(
     user_id: UUID,
     items: list[PromotionEvaluationItem],
     order_type: str | None = None,
+    sizes_by_id: dict[UUID, Size] | None = None,
 ) -> PromotionEvaluationResponse:
     promotions = await list_promotions(db)
     target_lookup = await _load_target_lookup(db, promotions)
-    sizes_by_id = await _load_sizes_for_evaluation(db, [item.size_id for item in items])
+    if sizes_by_id is None:
+        sizes_by_id = await _load_sizes_for_evaluation(db, [item.size_id for item in items])
     missing_size_ids = [item.size_id for item in items if item.size_id not in sizes_by_id]
     if missing_size_ids:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')

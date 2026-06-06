@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { Promotion } from '@/types/api';
+import { LanguageCode, Promotion } from '@/types/api';
 import { getLocalizedValue } from '@/utils/i18n';
 import { mirroredRow } from '@/utils/layout';
 
@@ -13,11 +13,15 @@ import { AppText } from './AppText';
 
 type OfferRibbonProps = {
   offers: Promotion[];
+  languageOverride?: LanguageCode;
+  isRTLOverride?: boolean;
 };
 
-export const OfferRibbon = ({ offers }: OfferRibbonProps) => {
+export const OfferRibbon = ({ offers, languageOverride, isRTLOverride }: OfferRibbonProps) => {
   const { language, t } = useAppTranslation();
   const { isRTL } = useLanguage();
+  const displayLanguage = languageOverride ?? language;
+  const displayIsRTL = isRTLOverride ?? isRTL;
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -41,15 +45,15 @@ export const OfferRibbon = ({ offers }: OfferRibbonProps) => {
 
   return (
     <AppCard style={styles.card}>
-      <View style={[styles.row, mirroredRow(isRTL)]}>
+      <View style={[styles.row, mirroredRow(displayIsRTL)]}>
         <View style={styles.badge}>
           <AppText variant="caption" color={theme.colors.primary700} align="center">
             {t('home.offers')}
           </AppText>
         </View>
       </View>
-      <AppText variant="h3" color={theme.colors.white} align={isRTL ? 'right' : 'left'}>
-        {getLocalizedValue(active, language, 'title')}
+      <AppText variant="h3" color={theme.colors.white} align={displayIsRTL ? 'right' : 'left'}>
+        {getLocalizedValue(active, displayLanguage, 'title')}
       </AppText>
       {offers.length > 1 ? (
         <View style={styles.dots}>

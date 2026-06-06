@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,7 +11,7 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException, status
 from jose import jwt
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +28,7 @@ settings = get_settings()
 
 _FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging'
 _GOOGLE_TOKEN_GRANT = 'urn:ietf:params:oauth:grant-type:jwt-bearer'
+_SERVICE_RLS_USER_ID = '00000000-0000-0000-0000-000000000000'
 _sender_override = None
 
 
@@ -43,6 +45,34 @@ class NotificationSendAttempt:
 def set_notification_sender_override(sender) -> None:
     global _sender_override
     _sender_override = sender
+
+
+async def _current_rls_setting(db: AsyncSession, setting_name: str) -> str:
+    result = await db.execute(text('select current_setting(:setting_name, true)'), {'setting_name': setting_name})
+    return result.scalar_one() or ''
+
+
+@asynccontextmanager
+async def _privileged_notification_context(db: AsyncSession):
+    previous_user_id = await _current_rls_setting(db, 'app.current_user_id')
+    previous_user_role = await _current_rls_setting(db, 'app.current_user_role')
+    await db.execute(
+        text(
+            "select set_config('app.current_user_id', :user_id, false), "
+            "set_config('app.current_user_role', 'ADMIN', false)"
+        ),
+        {'user_id': _SERVICE_RLS_USER_ID},
+    )
+    try:
+        yield
+    finally:
+        await db.execute(
+            text(
+                "select set_config('app.current_user_id', :user_id, false), "
+                "set_config('app.current_user_role', :user_role, false)"
+            ),
+            {'user_id': previous_user_id, 'user_role': previous_user_role},
+        )
 
 
 async def register_push_token(db: AsyncSession, user: User, payload: PushTokenRegisterRequest) -> UserPushToken:
@@ -194,16 +224,18 @@ def _notification_payload(notification_type: str, order: Order, language: str) -
 
 
 async def _resolve_admin_user_ids(db: AsyncSession) -> list[UUID]:
-    result = await db.execute(
-        select(User.id).where(User.role == UserRole.ADMIN, User.is_active.is_(True), User.is_banned.is_(False))
-    )
+    async with _privileged_notification_context(db):
+        result = await db.execute(
+            select(User.id).where(User.role == UserRole.ADMIN, User.is_active.is_(True), User.is_banned.is_(False))
+        )
     return [row[0] for row in result.all()]
 
 
 async def _resolve_client_user_ids(db: AsyncSession) -> list[UUID]:
-    result = await db.execute(
-        select(User.id).where(User.role == UserRole.CLIENT, User.is_active.is_(True), User.is_banned.is_(False))
-    )
+    async with _privileged_notification_context(db):
+        result = await db.execute(
+            select(User.id).where(User.role == UserRole.CLIENT, User.is_active.is_(True), User.is_banned.is_(False))
+        )
     return [row[0] for row in result.all()]
 
 
@@ -284,51 +316,70 @@ async def _dispatch_payload_to_users(
         )
         return []
 
-    result = await db.execute(
-        select(UserPushToken).where(UserPushToken.user_id.in_(user_ids), UserPushToken.is_active.is_(True))
-    )
-    tokens = list(result.scalars().all())
-    if not tokens:
-        return []
-
-    attempts: list[NotificationSendAttempt] = []
-    for token in tokens:
-        payload = _notification_payload(notification_type, order, token.language)
-        try:
-            attempt = await _deliver_push_token(token, payload)
-        except Exception as exc:
+    async with _privileged_notification_context(db):
+        result = await db.execute(
+            select(UserPushToken).where(UserPushToken.user_id.in_(user_ids), UserPushToken.is_active.is_(True))
+        )
+        tokens = list(result.scalars().all())
+        if not tokens:
             log_structured(
                 logger,
-                logging.WARNING,
-                'notifications.send_failed',
-                {
-                    'push_token_id': str(token.id),
-                    'user_id': str(token.user_id),
-                    'provider': token.push_provider,
-                    'type': notification_type,
-                    'error': str(exc),
-                },
+                logging.INFO,
+                'notifications.no_tokens',
+                {'type': notification_type, 'recipient_count': len(user_ids)},
             )
-            attempts.append(
-                NotificationSendAttempt(
-                    push_token_id=token.id,
-                    push_token=token.push_token,
-                    success=False,
-                    deactivate=False,
-                    provider=token.push_provider,
-                    error_code='send_failed',
+            return []
+
+        attempts: list[NotificationSendAttempt] = []
+        for token in tokens:
+            payload = _notification_payload(notification_type, order, token.language)
+            try:
+                attempt = await _deliver_push_token(token, payload)
+            except Exception as exc:
+                log_structured(
+                    logger,
+                    logging.WARNING,
+                    'notifications.send_failed',
+                    {
+                        'push_token_id': str(token.id),
+                        'user_id': str(token.user_id),
+                        'provider': token.push_provider,
+                        'type': notification_type,
+                        'error': str(exc),
+                    },
                 )
-            )
-            continue
+                attempts.append(
+                    NotificationSendAttempt(
+                        push_token_id=token.id,
+                        push_token=token.push_token,
+                        success=False,
+                        deactivate=False,
+                        provider=token.push_provider,
+                        error_code='send_failed',
+                    )
+                )
+                continue
 
-        attempts.append(attempt)
-        if attempt.deactivate:
-            token.is_active = False
-            token.last_seen_at = datetime.now(timezone.utc)
+            attempts.append(attempt)
+            if attempt.deactivate:
+                token.is_active = False
+                token.last_seen_at = datetime.now(timezone.utc)
 
-    if any(attempt.deactivate for attempt in attempts):
-        await db.commit()
+        if any(attempt.deactivate for attempt in attempts):
+            await db.commit()
 
+    log_structured(
+        logger,
+        logging.INFO,
+        'notifications.dispatch_complete',
+        {
+            'type': notification_type,
+            'recipient_count': len(user_ids),
+            'token_count': len(attempts),
+            'success_count': sum(1 for attempt in attempts if attempt.success),
+            'deactivate_count': sum(1 for attempt in attempts if attempt.deactivate),
+        },
+    )
     return attempts
 
 
@@ -351,51 +402,70 @@ async def _dispatch_promotion_payload_to_users(
         )
         return []
 
-    result = await db.execute(
-        select(UserPushToken).where(UserPushToken.user_id.in_(user_ids), UserPushToken.is_active.is_(True))
-    )
-    tokens = list(result.scalars().all())
-    if not tokens:
-        return []
-
-    attempts: list[NotificationSendAttempt] = []
-    for token in tokens:
-        payload = _promotion_notification_payload(promotion, token.language)
-        try:
-            attempt = await _deliver_push_token(token, payload)
-        except Exception as exc:
+    async with _privileged_notification_context(db):
+        result = await db.execute(
+            select(UserPushToken).where(UserPushToken.user_id.in_(user_ids), UserPushToken.is_active.is_(True))
+        )
+        tokens = list(result.scalars().all())
+        if not tokens:
             log_structured(
                 logger,
-                logging.WARNING,
-                'notifications.send_failed',
-                {
-                    'push_token_id': str(token.id),
-                    'user_id': str(token.user_id),
-                    'provider': token.push_provider,
-                    'type': notification_type,
-                    'error': str(exc),
-                },
+                logging.INFO,
+                'notifications.no_tokens',
+                {'type': notification_type, 'recipient_count': len(user_ids)},
             )
-            attempts.append(
-                NotificationSendAttempt(
-                    push_token_id=token.id,
-                    push_token=token.push_token,
-                    success=False,
-                    deactivate=False,
-                    provider=token.push_provider,
-                    error_code='send_failed',
+            return []
+
+        attempts: list[NotificationSendAttempt] = []
+        for token in tokens:
+            payload = _promotion_notification_payload(promotion, token.language)
+            try:
+                attempt = await _deliver_push_token(token, payload)
+            except Exception as exc:
+                log_structured(
+                    logger,
+                    logging.WARNING,
+                    'notifications.send_failed',
+                    {
+                        'push_token_id': str(token.id),
+                        'user_id': str(token.user_id),
+                        'provider': token.push_provider,
+                        'type': notification_type,
+                        'error': str(exc),
+                    },
                 )
-            )
-            continue
+                attempts.append(
+                    NotificationSendAttempt(
+                        push_token_id=token.id,
+                        push_token=token.push_token,
+                        success=False,
+                        deactivate=False,
+                        provider=token.push_provider,
+                        error_code='send_failed',
+                    )
+                )
+                continue
 
-        attempts.append(attempt)
-        if attempt.deactivate:
-            token.is_active = False
-            token.last_seen_at = datetime.now(timezone.utc)
+            attempts.append(attempt)
+            if attempt.deactivate:
+                token.is_active = False
+                token.last_seen_at = datetime.now(timezone.utc)
 
-    if any(attempt.deactivate for attempt in attempts):
-        await db.commit()
+        if any(attempt.deactivate for attempt in attempts):
+            await db.commit()
 
+    log_structured(
+        logger,
+        logging.INFO,
+        'notifications.dispatch_complete',
+        {
+            'type': notification_type,
+            'recipient_count': len(user_ids),
+            'token_count': len(attempts),
+            'success_count': sum(1 for attempt in attempts if attempt.success),
+            'deactivate_count': sum(1 for attempt in attempts if attempt.deactivate),
+        },
+    )
     return attempts
 
 
@@ -449,8 +519,14 @@ async def _create_google_access_token() -> str:
     return response.json()['access_token']
 
 
+def _resolve_fcm_project_id(service_account: dict[str, Any]) -> str | None:
+    return settings.fcm_project_id or service_account.get('project_id')
+
+
 async def _send_via_fcm(token: UserPushToken, payload: dict[str, str]) -> NotificationSendAttempt:
-    if not settings.fcm_project_id:
+    service_account = _load_fcm_service_account()
+    project_id = _resolve_fcm_project_id(service_account)
+    if not project_id:
         raise RuntimeError('FCM project id is not configured')
 
     access_token = await _create_google_access_token()
@@ -463,7 +539,7 @@ async def _send_via_fcm(token: UserPushToken, payload: dict[str, str]) -> Notifi
     }
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
-            f'https://fcm.googleapis.com/v1/projects/{settings.fcm_project_id}/messages:send',
+            f'https://fcm.googleapis.com/v1/projects/{project_id}/messages:send',
             headers={'Authorization': f'Bearer {access_token}'},
             json=message,
         )
@@ -484,6 +560,8 @@ async def _send_via_fcm(token: UserPushToken, payload: dict[str, str]) -> Notifi
 
 
 def _load_apns_private_key() -> str:
+    if settings.apns_private_key:
+        return settings.apns_private_key.replace('\\n', '\n')
     if not settings.apns_private_key_path:
         raise RuntimeError('APNs private key path is not configured')
     return Path(settings.apns_private_key_path).read_text(encoding='utf-8')
@@ -551,7 +629,22 @@ async def emit_post_commit_order_notifications(
     event: str,
     order: Order,
 ) -> None:
+    if not settings.push_enabled:
+        log_structured(
+            logger,
+            logging.INFO,
+            'notifications.push_disabled',
+            {'event': event, 'order_id': str(order.id)},
+        )
+        return
+
     try:
+        log_structured(
+            logger,
+            logging.INFO,
+            'notifications.order_dispatch_started',
+            {'event': event, 'order_id': str(order.id)},
+        )
         if event == 'order.created':
             await send_order_notification_to_admins(db, notification_type='admin_new_order', order=order)
             if order.order_type == OrderType.DELIVERY:

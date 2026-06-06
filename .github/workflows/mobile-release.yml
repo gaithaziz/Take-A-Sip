@@ -57,12 +57,25 @@ jobs:
       - name: Run typecheck
         run: npm run typecheck
 
+      - name: Prepare Android Firebase config
+        if: ${{ inputs.platform == 'android' || inputs.platform == 'all' }}
+        env:
+          EXPO_ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.EXPO_ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$EXPO_ANDROID_GOOGLE_SERVICES_JSON" ]; then
+            echo "EXPO_ANDROID_GOOGLE_SERVICES_JSON is required for Android push notifications." >&2
+            exit 1
+          fi
+          mkdir -p secrets/push
+          printf '%s' "$EXPO_ANDROID_GOOGLE_SERVICES_JSON" > secrets/push/google-services.json
+
       - name: Install EAS CLI
         run: npm install --global eas-cli
 
       - name: Run EAS build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_ANDROID_GOOGLE_SERVICES_FILE: ./secrets/push/google-services.json
         run: |
           eas build \
             --non-interactive \
