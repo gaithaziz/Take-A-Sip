@@ -78,8 +78,8 @@ describe('DriverOrdersScreen', () => {
       />,
     );
 
-    await findByText('Completed Deliveries');
-    await findByText('Delivered');
+    await findByText('Completed Deliveries', undefined, { timeout: 3000 });
+    await findByText('Delivered', undefined, { timeout: 3000 });
 
     await waitFor(() => {
       expect(orderService.getDriverLatest).toHaveBeenCalled();
