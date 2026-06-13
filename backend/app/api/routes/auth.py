@@ -9,12 +9,13 @@ from app.schemas.auth import (
     AuthUserResponse,
     KioskLoginRequest,
     OTPMessageResponse,
+    RefreshTokenRequest,
     SendOTPRequest,
     TokenResponse,
     UpdateProfileRequest,
     VerifyOTPRequest,
 )
-from app.services.auth_service import delete_account, kiosk_login, send_otp, update_profile, verify_otp
+from app.services.auth_service import delete_account, kiosk_login, refresh_session, send_otp, update_profile, verify_otp
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -42,6 +43,14 @@ async def kiosk_login_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     return await kiosk_login(payload, db)
+
+
+@router.post('/refresh', response_model=TokenResponse)
+async def refresh_session_endpoint(
+    payload: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    return await refresh_session(payload, db)
 
 
 @router.get('/me', response_model=AuthUserResponse)

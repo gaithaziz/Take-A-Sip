@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useContext, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { authService } from '@/services/authService';
 import { addressBook } from '@/services/addressBook';
-import { setAuthToken } from '@/services/http';
+import { setAuthExpiredHandler, setAuthToken } from '@/services/http';
 import { notificationService } from '@/services/notificationService';
 import { sessionTokenStore } from '@/services/sessionTokenStore';
 import { useLanguage } from '@/state/LanguageContext';
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     const run = async () => {
       const [savedToken, legacyToken, savedUser] = await Promise.all([
-        sessionTokenStore.get(),
+        sessionTokenStore.getAccessToken(),
         AsyncStorage.getItem(TOKEN_KEY),
         AsyncStorage.getItem(USER_KEY),
       ]);
@@ -51,7 +51,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         setAuthToken(restoredToken);
         try {
           const profile = await authService.me();
-          setToken(restoredToken);
+          const currentToken = (await sessionTokenStore.getAccessToken()) ?? restoredToken;
+          setToken(currentToken);
           setUser(profile);
           await AsyncStorage.setItem(USER_KEY, JSON.stringify(profile));
         } catch {
@@ -94,7 +95,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setUser(response.user);
     setAuthToken(response.access_token);
     await Promise.all([
-      sessionTokenStore.set(response.access_token),
+      sessionTokenStore.setTokens(response.access_token, response.refresh_token),
       AsyncStorage.removeItem(TOKEN_KEY),
       AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user)),
     ]);
@@ -106,7 +107,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
   };
 
-  const clearLocalSession = async (options?: { userId?: string | null; unregisterPush?: boolean }) => {
+  const clearLocalSession = useCallback(async (options?: { userId?: string | null; unregisterPush?: boolean }) => {
     if (options?.unregisterPush) {
       try {
         await notificationService.unregisterCurrentPushToken();
@@ -121,7 +122,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setUser(null);
     setAuthToken(null);
     await Promise.all([sessionTokenStore.remove(), AsyncStorage.removeItem(TOKEN_KEY), AsyncStorage.removeItem(USER_KEY)]);
-  };
+  }, []);
+
+  useEffect(() => {
+    setAuthExpiredHandler(() => {
+      void clearLocalSession();
+    });
+    return () => setAuthExpiredHandler(null);
+  }, [clearLocalSession]);
 
   const deleteAccount = async () => {
     const currentUserId = user?.id ?? null;

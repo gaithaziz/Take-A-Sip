@@ -31,3 +31,4 @@ class User(UUIDPrimaryKeyMixin, TimestampCreatedMixin, Base):
     orders = relationship('Order', back_populates='user', foreign_keys='Order.user_id')
     order_ratings = relationship('OrderRating', back_populates='user', foreign_keys='OrderRating.user_id')
     push_tokens = relationship('UserPushToken', back_populates='user', cascade='all, delete-orphan')
+    refresh_tokens = relationship('UserRefreshToken', back_populates='user', cascade='all, delete-orphan')

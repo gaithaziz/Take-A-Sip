@@ -8,6 +8,7 @@ from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 from app.models.user_event import UserEvent
 from app.models.user_push_token import UserPushToken
+from app.models.user_refresh_token import UserRefreshToken
 
 __all__ = [
     'Addon',
@@ -34,5 +35,6 @@ __all__ = [
     'User',
     'UserEvent',
     'UserPushToken',
+    'UserRefreshToken',
     'UserRole',
 ]

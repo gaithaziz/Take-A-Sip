@@ -56,6 +56,10 @@ class KioskLoginRequest(AppBaseModel):
     secret: str = Field(min_length=1)
 
 
+class RefreshTokenRequest(AppBaseModel):
+    refresh_token: str = Field(min_length=32, max_length=512)
+
+
 class OTPMessageResponse(AppBaseModel):
     message: str
 
@@ -84,5 +88,6 @@ class UpdateProfileRequest(AppBaseModel):
 
 class TokenResponse(AppBaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = 'bearer'
     user: AuthUserResponse

@@ -1,5 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import hashlib
 import logging
+import secrets
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, select, text
@@ -12,10 +14,12 @@ from app.core.security import create_access_token
 from app.models.user import User, UserRole
 from app.models.user_event import UserEvent
 from app.models.user_push_token import UserPushToken
+from app.models.user_refresh_token import UserRefreshToken
 from app.schemas.auth import (
     AccountDeletionResponse,
     AuthUserResponse,
     KioskLoginRequest,
+    RefreshTokenRequest,
     SendOTPRequest,
     TokenResponse,
     UpdateProfileRequest,
@@ -27,6 +31,22 @@ from app.services.sms_service import SMSProviderError, build_sms_provider
 logger = logging.getLogger(__name__)
 settings = get_settings()
 AUTH_RLS_USER_ID = '00000000-0000-0000-0000-000000000000'
+
+
+def _hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+async def _create_refresh_token(db: AsyncSession, user: User) -> tuple[str, UserRefreshToken]:
+    raw_token = secrets.token_urlsafe(48)
+    token = UserRefreshToken(
+        user_id=user.id,
+        token_hash=_hash_refresh_token(raw_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days),
+    )
+    db.add(token)
+    await db.flush()
+    return raw_token, token
 
 
 def _ensure_secure_otp_configuration() -> None:
@@ -181,11 +201,13 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User inactive')
 
-    return _build_token_response(user, event='auth.login_success')
+    return await _build_token_response(user, db, event='auth.login_success')
 
 
-def _build_token_response(user: User, *, event: str) -> TokenResponse:
+async def _build_token_response(user: User, db: AsyncSession, *, event: str) -> TokenResponse:
     token = create_access_token(str(user.id), user.role.value)
+    refresh_token, _ = await _create_refresh_token(db, user)
+    await db.commit()
     log_structured(
         logger,
         logging.INFO,
@@ -194,6 +216,53 @@ def _build_token_response(user: User, *, event: str) -> TokenResponse:
     )
     return TokenResponse(
         access_token=token,
+        refresh_token=refresh_token,
+        user={
+            'id': user.id,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone_number': user.phone_number,
+            'role': user.role.value,
+        },
+    )
+
+
+async def refresh_session(payload: RefreshTokenRequest, db: AsyncSession) -> TokenResponse:
+    await _activate_auth_rls_context(db)
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(UserRefreshToken).where(UserRefreshToken.token_hash == _hash_refresh_token(payload.refresh_token))
+    )
+    stored_token = result.scalar_one_or_none()
+    if stored_token is None or stored_token.revoked_at is not None or stored_token.expires_at <= now:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token')
+
+    user = await db.get(User, stored_token.user_id)
+    if user is None:
+        stored_token.revoked_at = now
+        await db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found')
+    if user.is_banned:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is banned')
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User inactive')
+
+    stored_token.revoked_at = now
+    stored_token.last_used_at = now
+    access_token = create_access_token(str(user.id), user.role.value)
+    refresh_token, replacement = await _create_refresh_token(db, user)
+    stored_token.replaced_by_token_id = replacement.id
+    await db.commit()
+
+    log_structured(
+        logger,
+        logging.INFO,
+        'auth.refresh_success',
+        {'user_id': str(user.id), 'role': user.role.value},
+    )
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
         user={
             'id': user.id,
             'first_name': user.first_name,
@@ -230,7 +299,7 @@ async def kiosk_login(payload: KioskLoginRequest, db: AsyncSession) -> TokenResp
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User inactive')
 
-    return _build_token_response(user, event='auth.kiosk_login_success')
+    return await _build_token_response(user, db, event='auth.kiosk_login_success')
 
 
 async def update_profile(current_user: User, payload: UpdateProfileRequest, db: AsyncSession) -> AuthUserResponse:
@@ -258,6 +327,7 @@ async def delete_account(current_user: User, db: AsyncSession) -> AccountDeletio
     original_role = current_user.role.value
 
     await db.execute(delete(UserPushToken).where(UserPushToken.user_id == current_user.id))
+    await db.execute(delete(UserRefreshToken).where(UserRefreshToken.user_id == current_user.id))
     current_user.first_name = 'Deleted'
     current_user.last_name = 'User'
     current_user.phone_number = _deleted_phone_number(str(current_user.id))

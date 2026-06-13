@@ -58,6 +58,9 @@ async def test_kiosk_login_returns_frontdesk_token() -> None:
     db_result = MagicMock()
     db_result.scalar_one_or_none.return_value = user
     db.execute = AsyncMock(return_value=db_result)
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
     settings = Settings(
         kiosk_login_secret='sunmi-secret',
         kiosk_frontdesk_phone_number='0790000001',
@@ -69,6 +72,7 @@ async def test_kiosk_login_returns_frontdesk_token() -> None:
     assert response.user.phone_number == '0790000001'
     assert response.user.role == 'FRONTDESK'
     assert response.access_token
+    assert response.refresh_token
     assert db.execute.await_count == 3
 
 
