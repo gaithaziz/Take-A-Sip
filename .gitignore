@@ -30,6 +30,8 @@ logs/
 secrets/
 **/google-services.json
 **/GoogleService-Info.plist
+menu-photos-raw/
+menu-photos-optimized/
 
 # Load-test secrets/fixtures
 scripts/load/checkout-users*.json
