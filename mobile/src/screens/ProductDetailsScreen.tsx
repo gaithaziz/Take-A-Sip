@@ -1,7 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
@@ -14,12 +13,77 @@ import { RootStackParamList } from '@/navigation/types';
 import { useCart } from '@/state/CartContext';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { Addon } from '@/types/api';
+import { Addon, Item, ItemType, Size } from '@/types/api';
 import { formatCurrency, toNumber } from '@/utils/format';
 import { getLocalizedValue } from '@/utils/i18n';
 import { mirroredRow } from '@/utils/layout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetails'>;
+
+type ProductPhoto = {
+  id: string;
+  imageUrl: string;
+  label: string;
+};
+
+const addUniquePhoto = (photos: ProductPhoto[], seenUrls: Set<string>, photo: ProductPhoto) => {
+  if (seenUrls.has(photo.imageUrl)) {
+    return;
+  }
+  seenUrls.add(photo.imageUrl);
+  photos.push(photo);
+};
+
+const collectProductPhotos = (item: Item, language: 'en' | 'ar'): ProductPhoto[] => {
+  const photos: ProductPhoto[] = [];
+  const seenUrls = new Set<string>();
+
+  if (item.image_url) {
+    addUniquePhoto(photos, seenUrls, {
+      id: `item-${item.id}`,
+      imageUrl: item.image_url,
+      label: getLocalizedValue(item, language, 'name'),
+    });
+  }
+
+  item.item_types
+    .filter((itemType) => itemType.is_active)
+    .forEach((itemType) => {
+      if (itemType.image_url) {
+        addUniquePhoto(photos, seenUrls, {
+          id: `type-${itemType.id}`,
+          imageUrl: itemType.image_url,
+          label: getLocalizedValue(itemType, language, 'name'),
+        });
+      }
+
+      itemType.sizes
+        .filter((size) => size.is_active)
+        .forEach((size) => {
+          if (size.image_url) {
+            addUniquePhoto(photos, seenUrls, {
+              id: `size-${size.id}`,
+              imageUrl: size.image_url,
+              label: getLocalizedValue(size, language, 'name'),
+            });
+          }
+
+          size.addons
+            .filter((addon) => addon.is_active)
+            .forEach((addon) => {
+              if (addon.image_url) {
+                addUniquePhoto(photos, seenUrls, {
+                  id: `addon-${addon.id}`,
+                  imageUrl: addon.image_url,
+                  label: getLocalizedValue(addon, language, 'name'),
+                });
+              }
+            });
+        });
+    });
+
+  return photos;
+};
 
 export const ProductDetailsScreen = ({ route, navigation }: Props) => {
   const { item } = route.params;
@@ -42,6 +106,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
   );
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
+  const productPhotos = useMemo(() => collectProductPhotos(item, language), [item, language]);
   const selectedSizeOrderLimit = selectedSize?.order_limit ?? null;
   const quantityAlreadyInCart = useMemo(
     () => (selectedSize ? cartItems.filter((cartItem) => cartItem.size.id === selectedSize.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0) : 0),
@@ -99,6 +164,17 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
     setQuantity(1);
   };
 
+  const renderChoiceImage = (entity: ItemType | Size | Addon) =>
+    entity.image_url ? (
+      <Image
+        source={{ uri: entity.image_url }}
+        style={styles.choiceImage}
+        resizeMode="cover"
+        accessibilityLabel={getLocalizedValue(entity, language, 'name')}
+        testID={`choice-image-${entity.id}`}
+      />
+    ) : null;
+
   const addToCart = () => {
     if (!selectedType || !selectedSize) {
       return;
@@ -127,15 +203,26 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
           contentInsetAdjustmentBehavior="never"
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled">
-          {item.image_url ? (
-            <View style={styles.imageWrap}>
-              <Image source={{ uri: item.image_url }} style={styles.image} resizeMode="cover" />
-            </View>
-          ) : (
-            <View style={[styles.imageWrap, styles.imagePlaceholder]}>
-              <Ionicons name="image-outline" size={theme.iconSizes.xl} color={theme.colors.textMuted} />
-            </View>
-          )}
+          {productPhotos.length ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.photoGalleryContent}
+              style={styles.photoGallery}
+              testID="product-photo-gallery">
+              {productPhotos.map((photo) => (
+                <View key={photo.id} style={styles.imageWrap}>
+                  <Image
+                    source={{ uri: photo.imageUrl }}
+                    style={styles.image}
+                    resizeMode="cover"
+                    accessibilityLabel={photo.label}
+                    testID="product-gallery-image"
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          ) : null}
           <View style={styles.header}>
             <AppText variant="bodySmall" color={theme.colors.textSecondary}>
               {getLocalizedValue(item, language, 'description')}
@@ -154,7 +241,12 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                     accessibilityState={{ selected: itemType.id === selectedType?.id }}
                     accessibilityLabel={getLocalizedValue(itemType, language, 'name')}
                     hitSlop={6}>
-                    <AppText align={isRTL ? 'right' : 'left'}>{getLocalizedValue(itemType, language, 'name')}</AppText>
+                    <View style={[styles.choiceMeta, mirroredRow(isRTL)]}>
+                      {renderChoiceImage(itemType)}
+                      <AppText style={styles.choiceLabel} align={isRTL ? 'right' : 'left'}>
+                        {getLocalizedValue(itemType, language, 'name')}
+                      </AppText>
+                    </View>
                   </Pressable>
                 ))}
             </View>
@@ -173,6 +265,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                     accessibilityLabel={`${getLocalizedValue(size, language, 'name')} ${formatCurrency(toNumber(size.price), language)}`}
                     hitSlop={6}>
                     <View style={[styles.choiceMeta, mirroredRow(isRTL)]}>
+                      {renderChoiceImage(size)}
                       <AppText style={styles.choiceLabel} align={isRTL ? 'right' : 'left'}>
                         {getLocalizedValue(size, language, 'name')}
                       </AppText>
@@ -200,6 +293,7 @@ export const ProductDetailsScreen = ({ route, navigation }: Props) => {
                     accessibilityLabel={`${getLocalizedValue(addon, language, 'name')} +${formatCurrency(toNumber(addon.price), language)}`}
                     hitSlop={6}>
                     <View style={[styles.choiceMeta, mirroredRow(isRTL)]}>
+                      {renderChoiceImage(addon)}
                       <AppText style={styles.choiceLabel} align={isRTL ? 'right' : 'left'}>
                         {getLocalizedValue(addon, language, 'name')}
                       </AppText>
@@ -247,7 +341,15 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.xxxl,
   },
+  photoGallery: {
+    marginHorizontal: -theme.spacing.lg,
+  },
+  photoGalleryContent: {
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+  },
   imageWrap: {
+    width: 260,
     height: 220,
     borderRadius: theme.radius.lg,
     overflow: 'hidden',
@@ -259,10 +361,6 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-  },
-  imagePlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   header: {
     gap: theme.spacing.sm,
@@ -291,6 +389,12 @@ const styles = StyleSheet.create({
   },
   choiceLabel: {
     flex: 1,
+  },
+  choiceImage: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.sectionBackground,
   },
   choiceActive: {
     borderColor: theme.colors.primary500,

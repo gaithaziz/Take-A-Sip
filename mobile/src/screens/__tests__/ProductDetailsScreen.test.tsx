@@ -112,4 +112,59 @@ describe('ProductDetailsScreen', () => {
     expect(goBack).toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalledWith('Cart');
   });
+
+  it('does not render the photo gallery when no product photos are available', () => {
+    const { queryByTestId } = render(
+      <ProductDetailsScreen
+        navigation={{ navigate: mockNavigate, goBack: jest.fn() } as never}
+        route={{ params: { item } } as never}
+      />,
+    );
+
+    expect(queryByTestId('product-photo-gallery')).toBeNull();
+  });
+
+  it('renders product, option, size, and add-on photos when available', () => {
+    const itemWithPhotos = {
+      ...item,
+      image_url: 'https://example.com/latte.jpg',
+      item_types: [
+        {
+          ...item.item_types[0],
+          image_url: 'https://example.com/hot.jpg',
+          sizes: [
+            {
+              ...item.item_types[0].sizes[0],
+              image_url: 'https://example.com/regular.jpg',
+              addons: [
+                {
+                  id: 'addon-1',
+                  size_id: 'size-1',
+                  name_en: 'Vanilla',
+                  name_ar: 'Vanilla',
+                  image_url: 'https://example.com/vanilla.jpg',
+                  price: '0.50',
+                  sort_order: 1,
+                  is_active: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const { getAllByTestId, getByTestId } = render(
+      <ProductDetailsScreen
+        navigation={{ navigate: mockNavigate, goBack: jest.fn() } as never}
+        route={{ params: { item: itemWithPhotos } } as never}
+      />,
+    );
+
+    expect(getByTestId('product-photo-gallery')).toBeTruthy();
+    expect(getAllByTestId('product-gallery-image')).toHaveLength(4);
+    expect(getByTestId('choice-image-type-1')).toBeTruthy();
+    expect(getByTestId('choice-image-size-1')).toBeTruthy();
+    expect(getByTestId('choice-image-addon-1')).toBeTruthy();
+  });
 });
