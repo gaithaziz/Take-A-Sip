@@ -21,6 +21,8 @@ const DEFAULT_STORE_LOCATION = {
 };
 
 const HAS_GOOGLE_MAPS_API_KEY = Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim());
+const CAN_USE_EMBEDDED_MAP = Platform.OS === 'ios' || HAS_GOOGLE_MAPS_API_KEY;
+const MAP_PROVIDER = Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined;
 
 type CheckoutScreenViewProps = {
   title: string;
@@ -156,7 +158,7 @@ export const CheckoutScreenView = ({
   }, []);
 
   useEffect(() => {
-    if (!HAS_GOOGLE_MAPS_API_KEY || selectedLat === null || selectedLng === null) {
+    if (!CAN_USE_EMBEDDED_MAP || selectedLat === null || selectedLng === null) {
       return;
     }
     mapRef.current?.animateToRegion(
@@ -333,10 +335,10 @@ export const CheckoutScreenView = ({
                   <AppText variant="caption" color={theme.colors.textSecondary}>
                     {mapHintLabel}
                   </AppText>
-                  {HAS_GOOGLE_MAPS_API_KEY ? (
+                  {CAN_USE_EMBEDDED_MAP ? (
                     <MapView
                       ref={mapRef}
-                      provider={PROVIDER_GOOGLE}
+                      provider={MAP_PROVIDER}
                       style={styles.map}
                       initialRegion={{
                         ...mapCenter,
