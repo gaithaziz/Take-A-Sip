@@ -22,7 +22,7 @@ const DEFAULT_STORE_LOCATION = {
 
 const HAS_GOOGLE_MAPS_API_KEY = Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim());
 const CAN_USE_EMBEDDED_MAP = Platform.OS === 'ios' || HAS_GOOGLE_MAPS_API_KEY;
-const MAP_PROVIDER = Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined;
+const MAP_PROVIDER = HAS_GOOGLE_MAPS_API_KEY ? PROVIDER_GOOGLE : undefined;
 
 type CheckoutScreenViewProps = {
   title: string;
