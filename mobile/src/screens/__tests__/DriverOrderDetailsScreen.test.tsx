@@ -3,6 +3,22 @@ import { render } from '@testing-library/react-native';
 import { DriverOrderDetailsScreen } from '@/screens/driver/DriverOrderDetailsScreen';
 import { orderService } from '@/services/orderService';
 
+const mockT = (key: string) => {
+  const map: Record<string, string> = {
+    'common.loading': 'Loading...',
+    'common.error': 'Error',
+    'common.retry': 'Retry',
+    'common.appName': 'Take A Sip',
+    'errors.generic': 'Something went wrong.',
+    'driver.items': 'Items',
+    'driver.openMaps': 'Open in Google Maps',
+    'driver.markOutForDelivery': 'Mark Out For Delivery',
+    'driver.markDelivered': 'Mark Delivered',
+    'driver.noDestination': 'No destination',
+  };
+  return map[key] ?? key;
+};
+
 const mockOrder = {
   id: 'order-1',
   order_number: 401,
@@ -21,6 +37,8 @@ const mockOrder = {
   items: [
     {
       id: 'line-1',
+      item_id_snapshot: 'item-1',
+      size_id_snapshot: 'size-1',
       item_name_snapshot: 'Latte',
       size_snapshot: 'Large',
       price_snapshot: '3.50',
@@ -34,21 +52,7 @@ jest.mock('@/hooks/useAppTranslation', () => ({
   useAppTranslation: () => ({
     language: 'en',
     isRTL: false,
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        'common.loading': 'Loading...',
-        'common.error': 'Error',
-        'common.retry': 'Retry',
-        'common.appName': 'Take A Sip',
-        'errors.generic': 'Something went wrong.',
-        'driver.items': 'Items',
-        'driver.openMaps': 'Open in Google Maps',
-        'driver.markOutForDelivery': 'Mark Out For Delivery',
-        'driver.markDelivered': 'Mark Delivered',
-        'driver.noDestination': 'No destination',
-      };
-      return map[key] ?? key;
-    },
+    t: mockT,
   }),
 }));
 
@@ -68,6 +72,12 @@ jest.mock('@/services/orderService', () => ({
   orderService: {
     getById: jest.fn(),
     updateStatus: jest.fn(),
+  },
+}));
+
+jest.mock('@/services/menuService', () => ({
+  menuService: {
+    getMenu: jest.fn(async () => ({ sections: [] })),
   },
 }));
 

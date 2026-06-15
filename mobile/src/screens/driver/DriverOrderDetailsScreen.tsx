@@ -10,26 +10,42 @@ import { EmptyState } from '@/components/EmptyState';
 import { DetailPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
+import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
 import { theme } from '@/theme';
-import { OrderRead } from '@/types/api';
+import { MenuResponse, OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
+import {
+  buildMenuSnapshotLookup,
+  getLocalizedOrderLineLabel,
+} from '@/utils/orderLocalization';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverOrderDetails'>;
 
 export const DriverOrderDetailsScreen = ({ route, navigation }: Props) => {
-  const { t } = useAppTranslation();
+  const { t, language, isRTL } = useAppTranslation();
   const [order, setOrder] = useState<OrderRead | null>(null);
+  const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
+  const menuSnapshotLookup = useMemo(() => buildMenuSnapshotLookup(menu), [menu]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await orderService.getById(route.params.orderId);
-      setOrder(data);
+      const [orderResult, menuResult] = await Promise.allSettled([
+        orderService.getById(route.params.orderId),
+        menuService.getMenu(),
+      ]);
+      if (orderResult.status === 'rejected') {
+        throw orderResult.reason;
+      }
+      setOrder(orderResult.value);
+      if (menuResult.status === 'fulfilled') {
+        setMenu(menuResult.value);
+      }
     } catch (e) {
       setError(getApiErrorMessage(e, t));
     } finally {
@@ -119,7 +135,7 @@ export const DriverOrderDetailsScreen = ({ route, navigation }: Props) => {
   }, [mapsUrl, order, t]);
 
   if (loading) {
-    return <DetailPageSkeleton isRTL={false} />;
+    return <DetailPageSkeleton isRTL={isRTL} />;
   }
 
   if (error || !order) {
@@ -141,7 +157,7 @@ export const DriverOrderDetailsScreen = ({ route, navigation }: Props) => {
         </AppText>
         {order.items.map((item) => (
           <AppText key={item.id}>
-            {item.quantity}x {item.item_name_snapshot} ({item.size_snapshot})
+            {getLocalizedOrderLineLabel(item, menuSnapshotLookup, language)}
           </AppText>
         ))}
       </AppCard>

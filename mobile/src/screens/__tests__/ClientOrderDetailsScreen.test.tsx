@@ -4,6 +4,35 @@ import { Alert } from 'react-native';
 import { ClientOrderDetailsScreen } from '@/screens/ClientOrderDetailsScreen';
 import { orderService } from '@/services/orderService';
 
+const mockT = (key: string) => {
+  const map: Record<string, string> = {
+    'common.loading': 'Loading...',
+    'common.error': 'Error',
+    'common.retry': 'Retry',
+    'common.goBack': 'Go back',
+    'common.appName': 'Take A Sip',
+    'common.cancel': 'Cancel',
+    'errors.generic': 'Something went wrong.',
+    'orders.detailsTitle': 'Order details',
+    'orders.rateOrder': 'Rate order',
+    'orders.submitRating': 'Submit rating',
+    'orders.cancelOrder': 'Cancel order',
+    'orders.cancelOrderConfirm': 'Cancel this order?',
+    'orders.cancelOrderAvailable': 'You can cancel while the order is still new.',
+    'orders.cancelled': 'Order cancelled',
+    'orders.ratingNotePlaceholder': 'Optional review note',
+    'orders.ratingStarsRequired': 'Please select a star rating',
+    'orders.ratingSubmitted': 'Thanks for your feedback',
+    'orders.ratingAvailableAfterAcceptance': 'Rating will be available as soon as the shop accepts this pickup order.',
+    'orders.ratingAvailableAfterDelivery': 'Rating will be available as soon as this delivery is marked delivered.',
+    'status.ACCEPTED': 'Accepted',
+    'status.COMPLETED': 'Completed',
+    'status.NEW': 'New',
+    'status.CANCELLED': 'Cancelled',
+  };
+  return map[key] ?? key;
+};
+
 const mockOrder = {
   id: 'order-1',
   order_number: 101,
@@ -15,6 +44,8 @@ const mockOrder = {
   items: [
     {
       id: 'line-1',
+      item_id_snapshot: 'item-1',
+      size_id_snapshot: 'size-1',
       item_name_snapshot: 'Latte',
       size_snapshot: 'Large',
       price_snapshot: '3.50',
@@ -29,34 +60,7 @@ jest.mock('@/hooks/useAppTranslation', () => ({
   useAppTranslation: () => ({
     language: 'en',
     isRTL: false,
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        'common.loading': 'Loading...',
-        'common.error': 'Error',
-        'common.retry': 'Retry',
-        'common.goBack': 'Go back',
-        'common.appName': 'Take A Sip',
-        'common.cancel': 'Cancel',
-        'errors.generic': 'Something went wrong.',
-        'orders.detailsTitle': 'Order details',
-        'orders.rateOrder': 'Rate order',
-        'orders.submitRating': 'Submit rating',
-        'orders.cancelOrder': 'Cancel order',
-        'orders.cancelOrderConfirm': 'Cancel this order?',
-        'orders.cancelOrderAvailable': 'You can cancel while the order is still new.',
-        'orders.cancelled': 'Order cancelled',
-        'orders.ratingNotePlaceholder': 'Optional review note',
-        'orders.ratingStarsRequired': 'Please select a star rating',
-        'orders.ratingSubmitted': 'Thanks for your feedback',
-        'orders.ratingAvailableAfterAcceptance': 'Rating will be available as soon as the shop accepts this pickup order.',
-        'orders.ratingAvailableAfterDelivery': 'Rating will be available as soon as this delivery is marked delivered.',
-        'status.ACCEPTED': 'Accepted',
-        'status.COMPLETED': 'Completed',
-        'status.NEW': 'New',
-        'status.CANCELLED': 'Cancelled',
-      };
-      return map[key] ?? key;
-    },
+    t: mockT,
   }),
 }));
 
@@ -92,6 +96,60 @@ jest.mock('@/services/orderService', () => ({
     getById: jest.fn(),
     submitRating: jest.fn(),
     updateStatus: jest.fn(),
+  },
+}));
+
+jest.mock('@/services/menuService', () => ({
+  menuService: {
+    getMenu: jest.fn(async () => ({
+      sections: [
+        {
+          id: 'section-1',
+          name_en: 'Coffee',
+          name_ar: 'قهوة',
+          image_url: null,
+          is_active: true,
+          sort_order: 0,
+          items: [
+            {
+              id: 'item-1',
+              section_id: 'section-1',
+              name_en: 'Latte',
+              name_ar: 'لاتيه',
+              image_url: null,
+              description_en: null,
+              description_ar: null,
+              sort_order: 0,
+              is_active: true,
+              item_types: [
+                {
+                  id: 'type-1',
+                  item_id: 'item-1',
+                  name_en: 'Hot',
+                  name_ar: 'ساخن',
+                  image_url: null,
+                  sort_order: 0,
+                  is_active: true,
+                  sizes: [
+                    {
+                      id: 'size-1',
+                      type_id: 'type-1',
+                      name_en: 'Large',
+                      name_ar: 'كبير',
+                      image_url: null,
+                      price: '3.50',
+                      sort_order: 0,
+                      is_active: true,
+                      addons: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })),
   },
 }));
 

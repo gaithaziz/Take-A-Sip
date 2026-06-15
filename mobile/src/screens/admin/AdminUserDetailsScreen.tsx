@@ -13,13 +13,18 @@ import { ExpandableText } from '@/components/admin/ExpandableText';
 import { InfoLine } from '@/components/admin/InfoLine';
 import { RootStackParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
+import { menuService } from '@/services/menuService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { OrderRead } from '@/types/api';
+import { MenuResponse, OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDateTimeWithZone, getCurrentTimeZone, toNumber } from '@/utils/format';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { mirroredRow } from '@/utils/layout';
+import {
+  buildMenuSnapshotLookup,
+  getLocalizedOrderLineLabel,
+} from '@/utils/orderLocalization';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminUserDetails'>;
 
@@ -51,13 +56,24 @@ export const AdminUserDetailsScreen = ({ route, navigation }: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orders, setOrders] = useState<OrderRead[]>([]);
+  const [menu, setMenu] = useState<MenuResponse | null>(null);
+  const menuSnapshotLookup = useMemo(() => buildMenuSnapshotLookup(menu), [menu]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminService.listUserOrders(user.id);
-      setOrders(response.orders);
+      const [ordersResult, menuResult] = await Promise.allSettled([
+        adminService.listUserOrders(user.id),
+        menuService.getMenu(),
+      ]);
+      if (ordersResult.status === 'rejected') {
+        throw ordersResult.reason;
+      }
+      setOrders(ordersResult.value.orders);
+      if (menuResult.status === 'fulfilled') {
+        setMenu(menuResult.value);
+      }
     } catch (e) {
       setError(getApiErrorMessage(e, t));
     } finally {
@@ -89,7 +105,7 @@ export const AdminUserDetailsScreen = ({ route, navigation }: Props) => {
         {order.items.map((item) => (
           <ExpandableText
             key={item.id}
-            value={`${item.quantity}x ${item.item_name_snapshot} (${item.size_snapshot})`}
+            value={getLocalizedOrderLineLabel(item, menuSnapshotLookup, language)}
             variant="caption"
             numberOfLines={1}
             color={theme.colors.textSecondary}

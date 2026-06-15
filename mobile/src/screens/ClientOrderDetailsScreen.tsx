@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
@@ -14,13 +14,19 @@ import { DetailPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { TopAppBar } from '@/components/TopAppBar';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
+import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { OrderRead } from '@/types/api';
+import { MenuResponse, OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDateTime, toNumber } from '@/utils/format';
 import { mirroredRow } from '@/utils/layout';
+import {
+  buildMenuSnapshotLookup,
+  getLocalizedOrderItemName,
+  getLocalizedOrderSizeName,
+} from '@/utils/orderLocalization';
 import { getOrderRatingAvailabilityKey, isOrderRateable } from '@/utils/orderStatus';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClientOrderDetails'>;
@@ -48,17 +54,28 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderRead | null>(null);
+  const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [ratingStars, setRatingStars] = useState(0);
   const [ratingNote, setRatingNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const menuSnapshotLookup = useMemo(() => buildMenuSnapshotLookup(menu), [menu]);
 
   const loadOrder = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await orderService.getById(orderId);
-      setOrder(data);
+      const [orderResult, menuResult] = await Promise.allSettled([
+        orderService.getById(orderId),
+        menuService.getMenu(),
+      ]);
+      if (orderResult.status === 'rejected') {
+        throw orderResult.reason;
+      }
+      setOrder(orderResult.value);
+      if (menuResult.status === 'fulfilled') {
+        setMenu(menuResult.value);
+      }
     } catch (e) {
       setError(getApiErrorMessage(e, t));
     } finally {
@@ -311,13 +328,13 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
           {order.items.map((line) => (
             <View key={line.id} style={styles.lineWrap}>
               <View style={[styles.lineTop, mirroredRow(isRTL)]}>
-                <AppText variant="h3">{line.item_name_snapshot}</AppText>
+                <AppText variant="h3">{getLocalizedOrderItemName(line, menuSnapshotLookup, language)}</AppText>
                 <AppText variant="caption" color={theme.colors.textSecondary}>
                   {line.quantity}x
                 </AppText>
               </View>
               <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                {line.size_snapshot}
+                {getLocalizedOrderSizeName(line, menuSnapshotLookup, language)}
               </AppText>
               <AppText variant="caption" color={theme.colors.primary700}>
                 {formatCurrency(

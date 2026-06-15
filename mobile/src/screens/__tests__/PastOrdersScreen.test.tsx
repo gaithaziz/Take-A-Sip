@@ -48,6 +48,12 @@ jest.mock('@/services/orderService', () => ({
   },
 }));
 
+jest.mock('@/services/menuService', () => ({
+  menuService: {
+    getMenu: jest.fn(async () => ({ sections: [] })),
+  },
+}));
+
 describe('PastOrdersScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();

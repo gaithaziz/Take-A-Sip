@@ -10,6 +10,11 @@ import { theme } from '@/theme';
 import { OrderRead } from '@/types/api';
 import { formatCurrency, formatDateTime, toNumber } from '@/utils/format';
 import { mirroredRow } from '@/utils/layout';
+import {
+  MenuSnapshotLookup,
+  getLocalizedOrderItemName,
+  getLocalizedOrderSizeName,
+} from '@/utils/orderLocalization';
 import { isOrderRateable } from '@/utils/orderStatus';
 
 const statusToneMap = {
@@ -40,7 +45,8 @@ type PastOrdersScreenViewProps = {
   onReload: () => void;
   onReorder: (order: OrderRead) => void;
   onOpenDetails: (orderId: string) => void;
-  t: (key: string) => string;
+  menuSnapshotLookup: MenuSnapshotLookup;
+  t: (key: string, options?: Record<string, string | number>) => string;
 };
 
 export const PastOrdersScreenView = ({
@@ -61,6 +67,7 @@ export const PastOrdersScreenView = ({
   onReload,
   onReorder,
   onOpenDetails,
+  menuSnapshotLookup,
   t,
 }: PastOrdersScreenViewProps) => {
   const data = orders;
@@ -102,10 +109,10 @@ export const PastOrdersScreenView = ({
             {order.items.slice(0, 3).map((orderItem) => (
               <View key={orderItem.id} style={[styles.itemLine, mirroredRow(isRTL)]}>
                 <AppText variant="bodySmall" numberOfLines={1} style={styles.itemName}>
-                  {orderItem.item_name_snapshot}
+                  {getLocalizedOrderItemName(orderItem, menuSnapshotLookup, language)}
                 </AppText>
                 <AppText variant="caption" color={theme.colors.textSecondary}>
-                  {orderItem.quantity}x {orderItem.size_snapshot}
+                  {orderItem.quantity}x {getLocalizedOrderSizeName(orderItem, menuSnapshotLookup, language)}
                 </AppText>
               </View>
             ))}
@@ -119,7 +126,7 @@ export const PastOrdersScreenView = ({
                     {t('orders.ratingComplete')}
                   </AppText>
                   <AppText variant="bodySmall" color={theme.colors.textPrimary}>
-                    {`${t('orders.rated')} - ${order.rating.stars}/5`}
+                    {t('orders.ratedSummary', { stars: order.rating.stars })}
                   </AppText>
                 </View>
               ) : (

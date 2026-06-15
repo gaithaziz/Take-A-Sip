@@ -1,5 +1,5 @@
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,8 +9,10 @@ import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
 import { useCart } from '@/state/CartContext';
 import { useLanguage } from '@/state/LanguageContext';
+import { MenuResponse } from '@/types/api';
 import { OrderRead } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
+import { buildMenuSnapshotLookup } from '@/utils/orderLocalization';
 
 import { PastOrdersScreenView } from './orders/PastOrdersScreenView';
 
@@ -23,8 +25,10 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<OrderRead[]>([]);
+  const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const menuSnapshotLookup = useMemo(() => buildMenuSnapshotLookup(menu), [menu]);
 
   const normalizeSnapshot = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
   const matchesSnapshotName = (snapshot: string, candidates: Array<string | null | undefined>) => {
@@ -39,8 +43,17 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await orderService.getMyLatest();
-      setOrders(data.orders);
+      const [ordersResult, menuResult] = await Promise.allSettled([
+        orderService.getMyLatest(),
+        menuService.getMenu(),
+      ]);
+      if (ordersResult.status === 'rejected') {
+        throw ordersResult.reason;
+      }
+      setOrders(ordersResult.value.orders);
+      if (menuResult.status === 'fulfilled') {
+        setMenu(menuResult.value);
+      }
     } catch (e) {
       setError(getApiErrorMessage(e, t));
     } finally {
@@ -162,6 +175,7 @@ export const PastOrdersScreen = ({ navigation }: Props) => {
       onReload={loadOrders}
       onReorder={(order) => void onReorder(order)}
       onOpenDetails={onOpenDetails}
+      menuSnapshotLookup={menuSnapshotLookup}
       t={t}
     />
   );

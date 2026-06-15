@@ -18,6 +18,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { WelcomeSplash } from './components/WelcomeSplash';
 import { AppNavigator } from './navigation/AppNavigator';
 import { AppProviders } from './state/AppProviders';
+import { configureAppLayoutDirection } from './utils/layoutDirection';
+
+configureAppLayoutDirection();
 
 export const AppRoot = () => {
   const [fontsLoaded] = useFonts({
