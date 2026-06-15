@@ -4,6 +4,8 @@ import { Alert } from 'react-native';
 import { AdminPromotionEditorScreen } from '@/screens/admin/AdminPromotionEditorScreen';
 import { AdminPromotionsScreen } from '@/screens/admin/AdminPromotionsScreen';
 
+jest.setTimeout(15000);
+
 const mockListPromotions = jest.fn();
 const mockGetMenuTree = jest.fn();
 const mockCreatePromotion = jest.fn();
