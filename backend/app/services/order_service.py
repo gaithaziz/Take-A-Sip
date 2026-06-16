@@ -657,6 +657,34 @@ async def get_order_by_id(db: AsyncSession, order_id: UUID) -> Order | None:
     return result.scalar_one_or_none()
 
 
+async def attach_driver_order_customers(db: AsyncSession, orders: Iterable[Order], driver_id: UUID) -> None:
+    driver_orders = [order for order in orders if order.assigned_driver_id == driver_id]
+    user_ids = {order.user_id for order in driver_orders if order.user is None}
+    if not user_ids:
+        return
+
+    await db.execute(
+        text("select set_config('app.current_user_id', :user_id, true), set_config('app.current_user_role', :user_role, true)"),
+        {'user_id': str(driver_id), 'user_role': UserRole.ADMIN.value},
+    )
+    try:
+        result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        users_by_id = {user.id: user for user in result.scalars().all()}
+    finally:
+        await db.execute(
+            text(
+                "select set_config('app.current_user_id', :user_id, true), "
+                "set_config('app.current_user_role', :user_role, true)"
+            ),
+            {'user_id': str(driver_id), 'user_role': UserRole.DRIVER.value},
+        )
+
+    for order in driver_orders:
+        user = users_by_id.get(order.user_id)
+        if user is not None:
+            set_committed_value(order, 'user', user)
+
+
 async def get_order_by_id_or_404(db: AsyncSession, order_id: UUID) -> Order:
     order = await get_order_by_id(db, order_id)
     if order is None:

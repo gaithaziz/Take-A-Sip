@@ -21,6 +21,7 @@ from app.schemas.order import (
 )
 from app.services.order_service import (
     accept_order,
+    attach_driver_order_customers,
     assign_driver,
     create_order,
     enforce_order_access,
@@ -158,6 +159,8 @@ async def get_order_endpoint(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Order not found')
     enforce_order_access(order, current_user)
+    if current_user.role == UserRole.DRIVER:
+        await attach_driver_order_customers(db, [order], current_user.id)
     return OrderRead.model_validate(order_to_read_dict(order))
 
 
@@ -251,6 +254,7 @@ async def driver_assigned_orders_endpoint(
     orders = await list_driver_assigned_orders(
         db=db, driver_id=current_user.id, status_filter=status, limit=limit, offset=offset
     )
+    await attach_driver_order_customers(db, orders, current_user.id)
     return _serialize_orders(orders)
 
 
@@ -264,4 +268,5 @@ async def driver_latest_orders_endpoint(
     if current_user.role != UserRole.DRIVER:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Insufficient role')
     orders = await list_driver_latest_orders(db=db, driver_id=current_user.id, limit=limit, offset=offset)
+    await attach_driver_order_customers(db, orders, current_user.id)
     return _serialize_orders(orders)

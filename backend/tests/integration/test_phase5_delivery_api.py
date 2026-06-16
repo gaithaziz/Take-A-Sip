@@ -122,7 +122,15 @@ async def test_delivery_order_full_lifecycle(client, db_session):
 
     driver_assigned_response = await client.get('/driver/orders/assigned', headers=driver_headers)
     assert driver_assigned_response.status_code == 200
-    assert any(order['id'] == order_id for order in driver_assigned_response.json()['orders'])
+    driver_assigned_order = next(order for order in driver_assigned_response.json()['orders'] if order['id'] == order_id)
+    assert driver_assigned_order['customer_name'] == 'Lina Client'
+    assert driver_assigned_order['customer_phone'] == '+962790010001'
+
+    driver_detail_response = await client.get(f'/orders/{order_id}', headers=driver_headers)
+    assert driver_detail_response.status_code == 200
+    driver_detail = driver_detail_response.json()
+    assert driver_detail['customer_name'] == 'Lina Client'
+    assert driver_detail['customer_phone'] == '+962790010001'
 
     out_response = await client.post(
         f'/orders/{order_id}/status',

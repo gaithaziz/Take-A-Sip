@@ -4,9 +4,10 @@ from uuid import UUID
 import pytest
 from fastapi import HTTPException
 
-from app.models.user import UserRole
+from app.models.order import Order, OrderStatus, OrderType
+from app.models.user import User, UserRole
 from app.schemas.order import OrderCreateRequest
-from app.services.order_service import _ensure_order_limits, _next_order_number, create_order
+from app.services.order_service import _ensure_order_limits, _next_order_number, attach_driver_order_customers, create_order
 
 
 @pytest.mark.asyncio
@@ -73,3 +74,50 @@ async def test_next_order_number_uses_sequence() -> None:
 
     assert await _next_order_number(session) == 42  # type: ignore[arg-type]
     assert session.statements == ["SELECT nextval('order_number_seq')"]
+
+
+@pytest.mark.asyncio
+async def test_attach_driver_order_customers_loads_assigned_customer_and_restores_driver_context() -> None:
+    driver_id = UUID('00000000-0000-0000-0000-000000000111')
+    customer_id = UUID('00000000-0000-0000-0000-000000000222')
+    customer = User(
+        id=customer_id,
+        first_name='Lina',
+        last_name='Client',
+        phone_number='+962790000222',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    order = Order(
+        id=UUID('00000000-0000-0000-0000-000000000333'),
+        order_number=42,
+        user_id=customer_id,
+        assigned_driver_id=driver_id,
+        status=OrderStatus.ASSIGNED,
+        order_type=OrderType.DELIVERY,
+    )
+
+    class Result:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return [customer]
+
+    class Session:
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def execute(self, statement, params=None):  # type: ignore[no-untyped-def]
+            self.calls.append((str(statement), params))
+            return Result()
+
+    session = Session()
+
+    await attach_driver_order_customers(session, [order], driver_id)  # type: ignore[arg-type]
+
+    assert order.customer_name == 'Lina Client'
+    assert order.customer_phone == '+962790000222'
+    assert session.calls[0][1]['user_role'] == UserRole.ADMIN.value
+    assert session.calls[-1][1]['user_role'] == UserRole.DRIVER.value
