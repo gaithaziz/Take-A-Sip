@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     otp_lock_minutes: int = 15
     otp_test_code: str = ''
     otp_provider: str = 'mock'
+    otp_bypass_enabled: bool = False
+    otp_bypass_code: str = ''
+    otp_bypass_accounts: dict[str, str] = Field(default_factory=dict)
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_from_number: str | None = None
@@ -161,7 +164,7 @@ class Settings(BaseSettings):
                 return False
         return False
 
-    @field_validator('push_enabled', 'apns_use_sandbox', mode='before')
+    @field_validator('push_enabled', 'apns_use_sandbox', 'otp_bypass_enabled', mode='before')
     @classmethod
     def coerce_bool_flags(cls, value):
         if isinstance(value, bool):
@@ -202,6 +205,40 @@ class Settings(BaseSettings):
     @classmethod
     def parse_string_lists(cls, value):
         return cls._parse_string_list(value)
+
+    @field_validator('otp_bypass_accounts', mode='before')
+    @classmethod
+    def parse_otp_bypass_accounts(cls, value):
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return {str(phone).strip(): str(role).strip().upper() for phone, role in value.items() if str(phone).strip()}
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return {}
+            if raw.startswith('{'):
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    parsed = None
+                if isinstance(parsed, dict):
+                    return {
+                        str(phone).strip(): str(role).strip().upper()
+                        for phone, role in parsed.items()
+                        if str(phone).strip()
+                    }
+            accounts = {}
+            for item in raw.split(','):
+                if ':' not in item:
+                    continue
+                phone, role = item.split(':', 1)
+                phone = phone.strip()
+                role = role.strip().upper()
+                if phone:
+                    accounts[phone] = role
+            return accounts
+        return {}
 
     @field_validator('storage_backend', mode='before')
     @classmethod

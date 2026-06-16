@@ -5,6 +5,7 @@ from uuid import UUID
 import pytest
 from fastapi import HTTPException
 
+from app.core.config import Settings
 from app.models.user import UserRole
 from app.schemas.auth import VerifyOTPRequest
 from app.services.auth_service import verify_otp
@@ -96,3 +97,69 @@ async def test_verify_otp_uses_privileged_rls_context_for_self_signup() -> None:
     first_execute = db.execute.await_args_list[0]
     assert 'app.current_user_role' in str(first_execute.args[0])
     assert first_execute.args[1]['user_role'] == UserRole.ADMIN.value
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_bypass_returns_configured_driver_without_otp_check() -> None:
+    driver_user = SimpleNamespace(
+        id=UUID('00000000-0000-0000-0000-000000000222'),
+        first_name='Test',
+        last_name='Driver',
+        phone_number='+962790000222',
+        role=UserRole.DRIVER,
+        is_banned=False,
+        is_active=True,
+    )
+
+    class FakeResult:
+        def scalar_one_or_none(self):
+            return driver_user
+
+    db = AsyncMock()
+    db.execute.side_effect = [MagicMock(), FakeResult()]
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    settings = Settings(
+        otp_bypass_enabled=True,
+        otp_bypass_code='000000',
+        otp_bypass_accounts={'+962790000222': 'DRIVER'},
+    )
+    payload = VerifyOTPRequest(phone_number='+962790000222', otp_code='000000')
+
+    with patch('app.services.auth_service.settings', settings):
+        with patch('app.services.auth_service.otp_service.verify', new=AsyncMock()) as verify_mock:
+            response = await verify_otp(payload, db)
+
+    verify_mock.assert_not_awaited()
+    assert response.user.phone_number == '+962790000222'
+    assert response.user.role == 'DRIVER'
+    assert response.access_token
+    assert response.refresh_token
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_bypass_wrong_code_uses_normal_otp_path() -> None:
+    class FakeResult:
+        def scalar_one_or_none(self):
+            return None
+
+    class FakeDB:
+        async def execute(self, *_args, **_kwargs):
+            return FakeResult()
+
+    settings = Settings(
+        otp_bypass_enabled=True,
+        otp_bypass_code='000000',
+        otp_bypass_accounts={'+962790000222': 'DRIVER'},
+    )
+    payload = VerifyOTPRequest(phone_number='+962790000222', otp_code='111111')
+
+    with patch('app.services.auth_service.settings', settings):
+        with patch('app.services.auth_service.otp_service.verify', new=AsyncMock(return_value=OTPVerifyResult.INVALID)) as verify_mock:
+            with pytest.raises(HTTPException) as exc:
+                await verify_otp(payload, FakeDB())
+
+    verify_mock.assert_awaited_once()
+    assert exc.value.status_code == 400
+    assert exc.value.detail == 'Invalid OTP'

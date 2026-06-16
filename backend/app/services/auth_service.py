@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.logging import log_structured
-from app.core.phone import mask_phone_number
+from app.core.phone import mask_phone_number, normalize_phone_number
 from app.core.security import create_access_token
 from app.models.user import User, UserRole
 from app.models.user_event import UserEvent
@@ -31,6 +31,7 @@ from app.services.sms_service import SMSProviderError, build_sms_provider
 logger = logging.getLogger(__name__)
 settings = get_settings()
 AUTH_RLS_USER_ID = '00000000-0000-0000-0000-000000000000'
+OTP_BYPASS_ALLOWED_ROLES = {UserRole.CLIENT, UserRole.DRIVER}
 
 
 def _hash_refresh_token(token: str) -> str:
@@ -65,6 +66,40 @@ def _ensure_secure_otp_configuration() -> None:
         )
 
 
+def _get_otp_bypass_role(phone_number: str, otp_code: str | None = None) -> UserRole | None:
+    if not settings.otp_bypass_enabled:
+        return None
+    bypass_code = settings.otp_bypass_code.strip()
+    if otp_code is not None and (not bypass_code or otp_code.strip() != bypass_code):
+        return None
+
+    normalized_phone = normalize_phone_number(phone_number)
+    role_value = settings.otp_bypass_accounts.get(normalized_phone)
+    if role_value is None:
+        return None
+
+    try:
+        role = UserRole(role_value)
+    except ValueError:
+        log_structured(
+            logger,
+            logging.ERROR,
+            'auth.otp_bypass_invalid_role',
+            {'phone_number': mask_phone_number(normalized_phone), 'role': role_value},
+        )
+        return None
+
+    if role not in OTP_BYPASS_ALLOWED_ROLES:
+        log_structured(
+            logger,
+            logging.ERROR,
+            'auth.otp_bypass_forbidden_role',
+            {'phone_number': mask_phone_number(normalized_phone), 'role': role.value},
+        )
+        return None
+    return role
+
+
 async def _activate_auth_rls_context(db: AsyncSession) -> None:
     await db.execute(
         text(
@@ -76,6 +111,16 @@ async def _activate_auth_rls_context(db: AsyncSession) -> None:
 
 async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> str:
     _ensure_secure_otp_configuration()
+    bypass_role = _get_otp_bypass_role(payload.phone_number)
+    if bypass_role is not None:
+        log_structured(
+            logger,
+            logging.INFO,
+            'auth.otp_bypass_send_skipped',
+            {'phone_number': mask_phone_number(payload.phone_number), 'role': bypass_role.value},
+        )
+        return settings.otp_bypass_code
+
     try:
         sms_provider = build_sms_provider()
     except SMSProviderError as exc:
@@ -131,6 +176,10 @@ async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> str:
 
 async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenResponse:
     _ensure_secure_otp_configuration()
+    bypass_role = _get_otp_bypass_role(payload.phone_number, payload.otp_code)
+    if bypass_role is not None:
+        return await _verify_otp_bypass(payload, db, bypass_role)
+
     verify_result = await otp_service.verify(db, payload.phone_number, payload.otp_code)
     if verify_result in {OTPVerifyResult.NOT_FOUND, OTPVerifyResult.EXPIRED}:
         log_structured(
@@ -201,6 +250,52 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User inactive')
 
+    return await _build_token_response(user, db, event='auth.login_success')
+
+
+async def _verify_otp_bypass(payload: VerifyOTPRequest, db: AsyncSession, role: UserRole) -> TokenResponse:
+    await _activate_auth_rls_context(db)
+    result = await db.execute(select(User).where(User.phone_number == payload.phone_number))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            first_name=payload.first_name or ('Test' if role == UserRole.CLIENT else 'Test'),
+            last_name=payload.last_name or ('Customer' if role == UserRole.CLIENT else 'Driver'),
+            phone_number=payload.phone_number,
+            role=role,
+            is_active=True,
+            is_banned=False,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        log_structured(
+            logger,
+            logging.INFO,
+            'auth.otp_bypass_user_created',
+            {'user_id': str(user.id), 'role': user.role.value},
+        )
+    elif user.role != role:
+        log_structured(
+            logger,
+            logging.ERROR,
+            'auth.otp_bypass_role_mismatch',
+            {'user_id': str(user.id), 'configured_role': role.value, 'actual_role': user.role.value},
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Bypass account role mismatch')
+
+    if user.is_banned:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is banned')
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User inactive')
+
+    log_structured(
+        logger,
+        logging.INFO,
+        'auth.otp_bypass_login_success',
+        {'user_id': str(user.id), 'role': user.role.value},
+    )
     return await _build_token_response(user, db, event='auth.login_success')
 
 
