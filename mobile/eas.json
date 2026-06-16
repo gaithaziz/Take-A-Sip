@@ -11,6 +11,16 @@
         "buildType": "apk"
       }
     },
+    "iosProductionUsb": {
+      "distribution": "internal",
+      "channel": "production",
+      "env": {
+        "EXPO_NOTIFICATIONS_IOS_MODE": "production"
+      },
+      "ios": {
+        "simulator": false
+      }
+    },
     "production": {
       "distribution": "store",
       "channel": "production",
