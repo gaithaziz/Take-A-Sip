@@ -165,7 +165,10 @@ async def test_register_push_token_uses_idempotent_upsert() -> None:
         ),
     )
 
-    statement = db.execute.await_args.args[0]
+    statements = [str(call.args[0]) for call in db.execute.await_args_list]
+    statement = next(statement for statement in statements if 'ON CONFLICT' in statement)
     assert 'ON CONFLICT' in str(statement)
     assert response.id == token.id
     db.commit.assert_awaited_once()
+    assert any('current_setting' in statement for statement in statements)
+    assert any('set_config' in statement for statement in statements)

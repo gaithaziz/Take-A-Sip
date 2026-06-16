@@ -97,9 +97,10 @@ async def register_push_token(db: AsyncSession, user: User, payload: PushTokenRe
         .returning(UserPushToken.id)
     )
 
-    result = await db.execute(statement)
-    token_id = result.scalar_one()
-    await db.commit()
+    async with _privileged_notification_context(db):
+        result = await db.execute(statement)
+        token_id = result.scalar_one()
+        await db.commit()
     token = await db.get(UserPushToken, token_id)
     if token is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Push token not found')
