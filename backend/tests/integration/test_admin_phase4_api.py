@@ -125,9 +125,43 @@ async def test_admin_promotions_and_loyalty_crud(client, db_session):
     assert toggle_promotion.status_code == 200
     assert toggle_promotion.json()['is_active'] is False
 
+    updated_starts_at = datetime.now(timezone.utc) + timedelta(days=3)
+    updated_ends_at = datetime.now(timezone.utc) + timedelta(days=5)
+    update_promotion = await client.patch(
+        f'/admin/promotions/{promotion_id}',
+        headers=headers,
+        json={
+            'starts_at': updated_starts_at.isoformat(),
+            'ends_at': updated_ends_at.isoformat(),
+        },
+    )
+    assert update_promotion.status_code == 200
+    assert update_promotion.json()['starts_at'] == updated_starts_at.isoformat().replace('+00:00', 'Z')
+    assert update_promotion.json()['ends_at'] == updated_ends_at.isoformat().replace('+00:00', 'Z')
+
+    list_after_update = await client.get('/admin/promotions', headers=headers)
+    assert list_after_update.status_code == 200
+    updated_promotion = next(item for item in list_after_update.json()['promotions'] if item['id'] == promotion_id)
+    assert updated_promotion['starts_at'] == updated_starts_at.isoformat().replace('+00:00', 'Z')
+    assert updated_promotion['ends_at'] == updated_ends_at.isoformat().replace('+00:00', 'Z')
+
     active_after_toggle = await client.get('/promotions/active')
     assert active_after_toggle.status_code == 200
     assert len(active_after_toggle.json()['promotions']) == 1
+
+    delete_promotion = await client.delete(f'/admin/promotions/{promotion_id}', headers=headers)
+    assert delete_promotion.status_code == 204
+
+    list_after_delete = await client.get('/admin/promotions', headers=headers)
+    assert list_after_delete.status_code == 200
+    assert all(item['id'] != promotion_id for item in list_after_delete.json()['promotions'])
+
+    delete_active_promotion = await client.delete(f'/admin/promotions/{promotion.id}', headers=headers)
+    assert delete_active_promotion.status_code == 204
+
+    active_after_delete = await client.get('/promotions/active')
+    assert active_after_delete.status_code == 200
+    assert len(active_after_delete.json()['promotions']) == 0
 
     list_rules = await client.get('/admin/loyalty-rules', headers=headers)
     assert list_rules.status_code == 200
@@ -603,6 +637,120 @@ async def test_client_buy_get_offer_can_use_different_buy_and_free_targets(clien
     payload = response.json()
     assert payload['applied_promotion']['id'] == str(promo.id)
     assert payload['discount'] == '2.50'
+
+
+async def test_admin_can_create_first_time_single_free_item_promotion(client, db_session):
+    admin = User(
+        first_name='Admin',
+        last_name='Owner',
+        phone_number='+962790001227',
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Desserts', name_ar='حلويات', sort_order=1, is_active=True)
+    waffle = Item(section=section, name_en='Waffle', name_ar='وافل', sort_order=1, is_active=True)
+    waffle_type = ItemType(item=waffle, name_en='Classic', name_ar='كلاسيك', sort_order=1, is_active=True)
+    waffle_size = Size(item_type=waffle_type, name_en='Regular', name_ar='عادي', price=Decimal('3.25'), sort_order=1, is_active=True)
+    db_session.add_all([admin, section, waffle, waffle_type, waffle_size])
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(admin.id), admin.role.value)}"}
+    response = await client.post(
+        '/admin/promotions',
+        headers=headers,
+        json={
+            'title_en': 'First waffle free',
+            'title_ar': 'أول وافل مجاني',
+            'type': 'FIRST_TIME_FREE_ITEM',
+            'value': '0.00',
+            'starts_at': (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+            'ends_at': (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+            'is_active': True,
+            'targets': [{'entity_type': 'section', 'entity_id': str(section.id)}],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['type'] == 'FIRST_TIME_FREE_ITEM'
+    assert payload['value'] == '0.00'
+    assert payload['targets'][0]['entity_type'] == 'section'
+    assert payload['targets'][0]['entity_id'] == str(section.id)
+    assert payload['buy_quantity'] is None
+    assert payload['free_quantity'] is None
+    assert payload['scope_summary_en'] == 'One free item from Desserts'
+    assert payload['eligibility_summary_en'] == 'Available only before the first completed order'
+
+
+async def test_first_time_free_item_discounts_one_matching_unit_only(client, db_session):
+    client_user = User(
+        first_name='Mira',
+        last_name='Client',
+        phone_number='+962790001228',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Desserts', name_ar='حلويات', sort_order=1, is_active=True)
+    waffle = Item(section=section, name_en='Waffle', name_ar='وافل', sort_order=1, is_active=True)
+    cake = Item(section=section, name_en='Cake', name_ar='كيك', sort_order=2, is_active=True)
+    waffle_type = ItemType(item=waffle, name_en='Classic', name_ar='كلاسيك', sort_order=1, is_active=True)
+    cake_type = ItemType(item=cake, name_en='Slice', name_ar='قطعة', sort_order=1, is_active=True)
+    waffle_size = Size(item_type=waffle_type, name_en='Regular', name_ar='عادي', price=Decimal('3.25'), sort_order=1, is_active=True)
+    cake_size = Size(item_type=cake_type, name_en='Regular', name_ar='عادي', price=Decimal('4.50'), sort_order=1, is_active=True)
+    promo = Promotion(
+        title_en='First dessert free',
+        title_ar='أول حلو مجاني',
+        type=PromotionType.FIRST_TIME_FREE_ITEM,
+        value=Decimal('0.00'),
+        starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+        ends_at=datetime.now(timezone.utc) + timedelta(days=1),
+        is_active=True,
+    )
+    db_session.add_all([client_user, section, waffle, cake, waffle_type, cake_type, waffle_size, cake_size, promo])
+    await db_session.flush()
+    db_session.add(PromotionTarget(promotion_id=promo.id, target_group='scope', entity_type='section', entity_id=section.id))
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(client_user.id), client_user.role.value)}"}
+    response = await client.post(
+        '/promotions/evaluate',
+        headers=headers,
+        json={
+            'items': [
+                {'size_id': str(waffle_size.id), 'quantity': 2, 'addon_ids': []},
+                {'size_id': str(cake_size.id), 'quantity': 1, 'addon_ids': []},
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['applied_promotion']['id'] == str(promo.id)
+    assert payload['discount'] == '3.25'
+    assert payload['eligible_promotions'][0]['matched_subtotal'] == '11.00'
+
+    db_session.add(
+        Order(
+            order_number=9001,
+            user_id=client_user.id,
+            status=OrderStatus.COMPLETED,
+            order_type=OrderType.PICKUP,
+            notes=None,
+        )
+    )
+    await db_session.commit()
+
+    after_first_order = await client.post(
+        '/promotions/evaluate',
+        headers=headers,
+        json={'items': [{'size_id': str(waffle_size.id), 'quantity': 1, 'addon_ids': []}]},
+    )
+    assert after_first_order.status_code == 200
+    ineligible = {entry['promotion']['id']: entry for entry in after_first_order.json()['ineligible_promotions']}
+    assert ineligible[str(promo.id)]['reason_code'] == 'FIRST_TIME_ONLY'
+
 
 async def test_admin_users_list_includes_order_count(client, db_session):
     admin = User(

@@ -35,6 +35,7 @@ import { AdminStaffScreen } from '@/screens/admin/AdminStaffScreen';
 import { AdminUsersScreen } from '@/screens/admin/AdminUsersScreen';
 import { AdminProfileScreen } from '@/screens/admin/AdminProfileScreen';
 import { AdminOrdersScreen } from '@/screens/admin/AdminOrdersScreen';
+import { AdminOrderDetailsScreen } from '@/screens/admin/AdminOrderDetailsScreen';
 import { AdminReviewsScreen } from '@/screens/admin/AdminReviewsScreen';
 import { AdminUserDetailsScreen } from '@/screens/admin/AdminUserDetailsScreen';
 import { AdminDeliveryScreen } from '@/screens/admin/AdminDeliveryScreen';
@@ -196,7 +197,11 @@ export const AppNavigator = () => {
       }
 
       if (user.role === 'ADMIN') {
-        navigationRef.navigate('AdminTabs', { screen: 'AdminDashboard' });
+        if (payload.order_id) {
+          navigationRef.navigate('AdminOrderDetails', { orderId: payload.order_id });
+          return;
+        }
+        navigationRef.navigate('AdminOrders');
       }
     });
   }, [token, user]);
@@ -226,6 +231,7 @@ export const AppNavigator = () => {
           <>
             <Stack.Screen name="AdminTabs" component={AdminTabs} />
             <Stack.Screen name="AdminOrders" component={AdminOrdersScreen} />
+            <Stack.Screen name="AdminOrderDetails" component={AdminOrderDetailsScreen} />
             <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
             <Stack.Screen name="AdminLoyalty" component={AdminLoyaltyRulesScreen} />
             <Stack.Screen name="AdminProfile" component={AdminProfileScreen} />

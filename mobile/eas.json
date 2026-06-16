@@ -21,6 +21,16 @@
         "simulator": false
       }
     },
+    "androidProductionUsb": {
+      "distribution": "internal",
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://take-a-sip-backend-prod-dxwxxm76vq-uc.a.run.app"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "distribution": "store",
       "channel": "production",

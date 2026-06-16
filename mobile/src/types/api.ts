@@ -41,7 +41,7 @@ export type PushNotificationPayload = {
   order_id?: string;
   promotion_id?: string;
   role_target: 'CLIENT' | 'ADMIN' | 'DRIVER';
-  screen?: 'ClientOrderDetails' | 'DriverOrderDetails' | 'AdminTabs' | 'Home';
+  screen?: 'ClientOrderDetails' | 'DriverOrderDetails' | 'AdminOrderDetails' | 'AdminTabs' | 'Home';
 };
 
 export type RegisterPushTokenPayload = {

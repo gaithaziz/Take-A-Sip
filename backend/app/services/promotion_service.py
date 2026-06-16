@@ -157,6 +157,18 @@ def _scope_summary(promotion: Promotion, target_lookup: dict[tuple[str, UUID], o
             f'الشراء من {buy_summary_ar}؛ والهدية من {free_summary_ar}',
         )
 
+    if promotion.type == PromotionType.FIRST_TIME_FREE_ITEM:
+        free_item_summary_en, free_item_summary_ar = _target_collection_summary(
+            scope_targets,
+            target_lookup,
+            default_en='any menu item',
+            default_ar='أي عنصر من القائمة',
+        )
+        return (
+            f'One free item from {free_item_summary_en}',
+            f'عنصر مجاني واحد من {free_item_summary_ar}',
+        )
+
     if not scope_targets:
         return 'Applies to the whole menu', 'ينطبق على كامل القائمة'
 
@@ -220,7 +232,7 @@ def _eligibility_summary(promotion: Promotion) -> tuple[str, str]:
             f'متاح للتوصيل المجاني فوق {threshold}',
         )
 
-    if promotion.type == PromotionType.FIRST_TIME:
+    if promotion.type in {PromotionType.FIRST_TIME, PromotionType.FIRST_TIME_FREE_ITEM}:
         return (
             'Available only before the first completed order',
             'متاح فقط قبل أول طلب مكتمل',
@@ -356,7 +368,7 @@ def _normalize_order_rule(
 ) -> int | None:
     if promotion_type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT:
         return None
-    if promotion_type == PromotionType.FIRST_TIME:
+    if promotion_type in {PromotionType.FIRST_TIME, PromotionType.FIRST_TIME_FREE_ITEM}:
         return None
     if required_completed_orders is None:
         return None
@@ -504,7 +516,7 @@ async def _replace_target_groups(
 
 
 def _normalize_value(promotion_type: PromotionType, value: Decimal) -> Decimal:
-    if promotion_type == PromotionType.BUY_N_GET_M_FREE:
+    if promotion_type in {PromotionType.BUY_N_GET_M_FREE, PromotionType.FIRST_TIME_FREE_ITEM}:
         return Decimal('0.00')
     if promotion_type == PromotionType.FREE_DELIVERY_ABOVE_AMOUNT and value <= 0:
         raise HTTPException(
@@ -620,6 +632,11 @@ async def toggle_promotion_record(db: AsyncSession, promotion: Promotion) -> Pro
     if refreshed is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Promotion not found')
     return refreshed
+
+
+async def delete_promotion_record(db: AsyncSession, promotion: Promotion) -> None:
+    await db.delete(promotion)
+    await db.commit()
 
 
 async def _completed_orders_count(db: AsyncSession, user_id: UUID) -> int:
@@ -782,6 +799,13 @@ def _buy_n_get_m_discount(
     return sum(free_unit_prices[:free_units_to_discount], Decimal('0.00'))
 
 
+def _single_free_item_discount(rows: list[tuple[Size, list[UUID], int, Decimal]]) -> Decimal:
+    unit_prices = _row_unit_prices(rows)
+    if not unit_prices:
+        return Decimal('0.00')
+    return min(unit_prices).quantize(Decimal('0.01'))
+
+
 async def evaluate_promotions_for_user(
     db: AsyncSession,
     user_id: UUID,
@@ -820,7 +844,7 @@ async def evaluate_promotions_for_user(
             reason_code = 'INACTIVE'
         elif promotion.starts_at > now or promotion.ends_at < now:
             reason_code = 'OUTSIDE_WINDOW'
-        elif promotion.type == PromotionType.FIRST_TIME and not eligible_for_first_time_offer(completed_orders):
+        elif promotion.type in {PromotionType.FIRST_TIME, PromotionType.FIRST_TIME_FREE_ITEM} and not eligible_for_first_time_offer(completed_orders):
             reason_code = 'FIRST_TIME_ONLY'
         else:
             required_orders = _resolved_required_orders(promotion)
@@ -883,6 +907,19 @@ async def evaluate_promotions_for_user(
                     )
                     if discount <= 0:
                         reason_code = 'BUY_GET_QUANTITY_NOT_MET'
+            else:
+                discount = Decimal('0.00')
+        elif promotion.type == PromotionType.FIRST_TIME_FREE_ITEM:
+            scope_targets = _targets_by_group(promotion, TARGET_GROUP_SCOPE)
+            matching_rows = _matching_rows(line_rows, scope_targets)
+            matched_subtotal = _rows_subtotal(matching_rows)
+            if reason_code is None and matched_subtotal <= 0:
+                reason_code = 'TARGET_MISMATCH'
+
+            if reason_code is None:
+                discount = _single_free_item_discount(matching_rows)
+                if discount <= 0:
+                    reason_code = 'TARGET_MISMATCH'
             else:
                 discount = Decimal('0.00')
         else:

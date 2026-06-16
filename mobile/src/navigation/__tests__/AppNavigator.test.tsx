@@ -7,6 +7,11 @@ const authState = {
   user: null as { role: 'CLIENT' | 'ADMIN' | 'DRIVER' } | null,
   isLoading: true,
 };
+let mockNotificationHandler: ((payload: {
+  type: string;
+  order_id?: string;
+  role_target: 'CLIENT' | 'ADMIN' | 'DRIVER';
+}) => void) | null = null;
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -42,6 +47,15 @@ jest.mock('@/state/AuthContext', () => ({
   useAuth: () => authState,
 }));
 
+jest.mock('@/services/notificationService', () => ({
+  notificationService: {
+    subscribeToNotificationResponses: jest.fn((handler) => {
+      mockNotificationHandler = handler;
+      return jest.fn();
+    }),
+  },
+}));
+
 jest.mock('@/screens/AuthScreen', () => ({
   AuthScreen: () => {
     const { Text } = require('react-native');
@@ -74,6 +88,20 @@ jest.mock('@/screens/admin/AdminDashboardScreen', () => ({
   AdminDashboardScreen: () => {
     const { Text } = require('react-native');
     return <Text>Admin Dashboard Screen</Text>;
+  },
+}));
+
+jest.mock('@/screens/admin/AdminOrdersScreen', () => ({
+  AdminOrdersScreen: () => {
+    const { Text } = require('react-native');
+    return <Text>Admin Orders Screen</Text>;
+  },
+}));
+
+jest.mock('@/screens/admin/AdminOrderDetailsScreen', () => ({
+  AdminOrderDetailsScreen: ({ route }: { route: { params: { orderId: string } } }) => {
+    const { Text } = require('react-native');
+    return <Text>{`Admin Order Details ${route.params.orderId}`}</Text>;
   },
 }));
 
@@ -143,6 +171,7 @@ describe('AppNavigator', () => {
     authState.token = null;
     authState.user = null;
     authState.isLoading = true;
+    mockNotificationHandler = null;
     jest.useRealTimers();
   });
 
@@ -221,5 +250,30 @@ describe('AppNavigator', () => {
     });
 
     expect(getByText('Driver Orders Screen')).toBeTruthy();
+  });
+
+  it('opens admin order details when an admin taps an order notification', async () => {
+    jest.useFakeTimers();
+    authState.isLoading = false;
+    authState.token = 'token';
+    authState.user = { role: 'ADMIN' };
+
+    const { findByText, getByText } = render(<AppNavigator />);
+
+    act(() => {
+      jest.advanceTimersByTime(2500);
+    });
+
+    expect(getByText('Admin Dashboard Screen')).toBeTruthy();
+
+    await act(async () => {
+      mockNotificationHandler?.({
+        type: 'admin_new_order',
+        order_id: 'order-42',
+        role_target: 'ADMIN',
+      });
+    });
+
+    expect(await findByText('Admin Order Details order-42')).toBeTruthy();
   });
 });

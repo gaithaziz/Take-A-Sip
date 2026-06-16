@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -46,7 +46,7 @@ const getStatusTone = (status: OrderRead['status']) => {
   return 'info';
 };
 
-export const AdminOrdersScreen = (_: Props) => {
+export const AdminOrdersScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
   const [orders, setOrders] = useState<OrderRead[]>([]);
@@ -219,35 +219,46 @@ export const AdminOrdersScreen = (_: Props) => {
         ) : (
           <View style={styles.stack}>
             {orders.map((order) => (
-              <AppCard key={order.id} style={styles.orderCard}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.titleBlock}>
-                    <AppText variant="h3">#{order.order_number}</AppText>
-                    <AppText variant="caption" color={theme.colors.textSecondary}>
-                      {formatDateTime(order.created_at, language)}
+              <Pressable
+                key={order.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('admin.viewOrderDetails')} #${order.order_number}`}
+                onPress={() => navigation.navigate('AdminOrderDetails', { orderId: order.id })}>
+                {({ pressed }) => (
+                  <AppCard style={[styles.orderCard, pressed && styles.orderCardPressed]}>
+                    <View style={styles.cardHeader}>
+                      <View style={styles.titleBlock}>
+                        <AppText variant="h3">#{order.order_number}</AppText>
+                        <AppText variant="caption" color={theme.colors.textSecondary}>
+                          {formatDateTime(order.created_at, language)}
+                        </AppText>
+                      </View>
+                      <BadgeChip label={t(`status.${order.status}`)} tone={getStatusTone(order.status)} />
+                    </View>
+
+                    <View style={styles.badgeRow}>
+                      <BadgeChip
+                        label={order.order_type === 'pickup' ? t('admin.orderTypePickup') : t('admin.orderTypeDelivery')}
+                        tone="default"
+                      />
+                      <BadgeChip label={formatCurrency(toNumber(order.total_amount ?? 0), language)} tone="success" />
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <InfoLine label={t('admin.usersTitle')} value={order.customer_name || '-'} numberOfLines={1} />
+                      <InfoLine label={t('profile.phone')} value={order.customer_phone || '-'} numberOfLines={1} />
+                      <InfoLine label={t('admin.driversTitle')} value={order.assigned_driver_name || order.assigned_driver_phone || t('admin.none')} numberOfLines={1} />
+                      {order.order_type === 'delivery' ? (
+                        <InfoLine label={t('checkout.deliveryAddress')} value={order.delivery_address_text || order.delivery_address || '-'} numberOfLines={2} />
+                      ) : null}
+                      {order.notes ? <InfoLine label={t('common.notes')} value={order.notes} numberOfLines={2} /> : null}
+                    </View>
+                    <AppText variant="caption" color={theme.colors.primary700} align="right">
+                      {t('admin.viewOrderDetails')}
                     </AppText>
-                  </View>
-                  <BadgeChip label={t(`status.${order.status}`)} tone={getStatusTone(order.status)} />
-                </View>
-
-                <View style={styles.badgeRow}>
-                  <BadgeChip
-                    label={order.order_type === 'pickup' ? t('admin.orderTypePickup') : t('admin.orderTypeDelivery')}
-                    tone="default"
-                  />
-                  <BadgeChip label={formatCurrency(toNumber(order.total_amount ?? 0), language)} tone="success" />
-                </View>
-
-                <View style={styles.infoBox}>
-                  <InfoLine label={t('admin.usersTitle')} value={order.customer_name || '-'} numberOfLines={1} />
-                  <InfoLine label={t('profile.phone')} value={order.customer_phone || '-'} numberOfLines={1} />
-                  <InfoLine label={t('admin.driversTitle')} value={order.assigned_driver_name || order.assigned_driver_phone || t('admin.none')} numberOfLines={1} />
-                  {order.order_type === 'delivery' ? (
-                    <InfoLine label={t('checkout.deliveryAddress')} value={order.delivery_address_text || order.delivery_address || '-'} numberOfLines={2} />
-                  ) : null}
-                  {order.notes ? <InfoLine label={t('common.notes')} value={order.notes} numberOfLines={2} /> : null}
-                </View>
-              </AppCard>
+                  </AppCard>
+                )}
+              </Pressable>
             ))}
             {error ? (
               <AppText variant="bodySmall" color={theme.colors.error}>
@@ -296,6 +307,9 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     backgroundColor: theme.colors.secondaryCream,
     borderColor: theme.colors.primary200,
+  },
+  orderCardPressed: {
+    opacity: 0.82,
   },
   cardHeader: {
     flexDirection: 'row',

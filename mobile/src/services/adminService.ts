@@ -285,6 +285,11 @@ export const adminService = {
     return data;
   },
 
+  async deletePromotion(id: string) {
+    await http.delete(`/admin/promotions/${id}`);
+    invalidateAdminDataCache(['promotions']);
+  },
+
   async togglePromotion(id: string) {
     const { data } = await http.patch(`/admin/promotions/${id}/toggle`);
     invalidateAdminDataCache(['promotions']);

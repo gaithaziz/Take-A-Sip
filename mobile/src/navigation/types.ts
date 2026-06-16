@@ -47,6 +47,7 @@ export type RootStackParamList = {
     | undefined;
   AdminUserDetails: { user: UserSummary };
   DriverOrderDetails: { orderId: string };
+  AdminOrderDetails: { orderId: string };
   ClientOrderDetails: { orderId: string };
   ProductDetails: { item: Item };
   Cart: undefined;

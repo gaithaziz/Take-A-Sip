@@ -182,7 +182,7 @@ def _notification_spec(notification_type: str, order: Order, language: str) -> d
                 if is_arabic
                 else f'Order #{order.order_number} needs attention.'
             ),
-            'screen': 'AdminTabs',
+            'screen': 'AdminOrderDetails',
         },
         'admin_driver_assignment_needed': {
             'role_target': UserRole.ADMIN.value,
@@ -192,7 +192,7 @@ def _notification_spec(notification_type: str, order: Order, language: str) -> d
                 if is_arabic
                 else f'Assign a driver to order #{order.order_number}.'
             ),
-            'screen': 'AdminTabs',
+            'screen': 'AdminOrderDetails',
         },
         'driver_order_assigned': {
             'role_target': UserRole.DRIVER.value,

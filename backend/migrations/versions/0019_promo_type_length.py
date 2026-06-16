@@ -22,5 +22,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("UPDATE promotions SET type = 'TEMPORARY' WHERE type IN ('BUY_N_GET_M_FREE', 'FREE_DELIVERY_ABOVE_AMOUNT')")
+    op.execute("UPDATE promotions SET type = 'TEMPORARY' WHERE type IN ('BUY_N_GET_M_FREE', 'FREE_DELIVERY_ABOVE_AMOUNT', 'FIRST_TIME_FREE_ITEM')")
     op.alter_column('promotions', 'type', type_=sa.String(length=10), existing_type=sa.String(length=32), nullable=False)

@@ -85,6 +85,7 @@ from app.services.storage import get_storage_service
 from app.services.promotion_service import (
     _load_target_lookup,
     create_promotion_record,
+    delete_promotion_record,
     ensure_promotion_type,
     get_promotion_by_id,
     list_loyalty_rules,
@@ -687,6 +688,19 @@ async def toggle_promotion(
     target_lookup = await _load_target_lookup(db, [promotion])
     _invalidate_active_promotions_cache()
     return PromotionRead.model_validate(serialize_promotion(promotion, target_lookup))
+
+
+@router.delete('/promotions/{promotion_id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_promotion(
+    promotion_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> None:
+    promotion = await get_promotion_by_id(db, promotion_id)
+    if promotion is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Promotion not found')
+    await delete_promotion_record(db, promotion)
+    _invalidate_active_promotions_cache()
 
 
 @router.get('/loyalty-rules', response_model=LoyaltyRulesListResponse)

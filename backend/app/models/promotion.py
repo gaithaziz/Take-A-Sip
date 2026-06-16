@@ -14,6 +14,7 @@ from app.models.base import Base, UUIDPrimaryKeyMixin
 class PromotionType(str, enum.Enum):
     BUY_N_GET_M_FREE = 'BUY_N_GET_M_FREE'
     FIRST_TIME = 'FIRST_TIME'
+    FIRST_TIME_FREE_ITEM = 'FIRST_TIME_FREE_ITEM'
     FREE_DELIVERY_ABOVE_AMOUNT = 'FREE_DELIVERY_ABOVE_AMOUNT'
     LOYALTY = 'LOYALTY'
     TEMPORARY = 'TEMPORARY'

@@ -34,7 +34,7 @@ import { getApiErrorMessage } from '@/utils/errors';
 import { getCurrentTimeZone } from '@/utils/format';
 import { mirroredRow } from '@/utils/layout';
 
-type OfferBehavior = 'FIXED_DISCOUNT' | 'BUY_N_GET_M_FREE' | 'FREE_DELIVERY_ABOVE_AMOUNT';
+type OfferBehavior = 'FIXED_DISCOUNT' | 'BUY_N_GET_M_FREE' | 'FREE_DELIVERY_ABOVE_AMOUNT' | 'FIRST_TIME_FREE_ITEM';
 type FreeDeliveryMode = 'FREE_DELIVERY' | 'PERCENTAGE_DISCOUNT';
 type EligibilityMode = 'EVERYONE' | 'NEW_CUSTOMERS' | 'AFTER_ORDER_COUNT';
 type TargetSelectionMode = 'WHOLE_MENU' | 'SPECIFIC_TARGETS';
@@ -83,6 +83,22 @@ type NormalizedTargetResult = {
 };
 
 const emptyNormalizedTargets = (): NormalizedTargetResult => ({ targets: [], invalidTargets: [] });
+const targetTypeOptions: PromotionTargetEntityType[] = ['item', 'section', 'subgroup', 'type', 'size', 'addon'];
+const targetKey = (target: TargetKeyShape | TargetOption) => `${target.entity_type}:${target.entity_id}`;
+const targetListSignature = (targets: PromotionTargetDraftInput[]) =>
+  targets.map((target) => targetKey(target)).sort().join('|');
+const targetEditSignature = (
+  behavior: OfferBehavior,
+  modes: Record<TargetListKey, TargetSelectionMode>,
+  targets: Pick<PromotionForm, TargetListKey>,
+) =>
+  JSON.stringify({
+    behavior,
+    modes,
+    scope_targets: targetListSignature(targets.scope_targets),
+    buy_targets: targetListSignature(targets.buy_targets),
+    free_targets: targetListSignature(targets.free_targets),
+  });
 
 const defaultForm: PromotionForm = {
   title_en: '',
@@ -103,11 +119,27 @@ const defaultForm: PromotionForm = {
   free_targets: [],
 };
 
-const targetTypeOptions: PromotionTargetEntityType[] = ['item', 'section', 'subgroup', 'type', 'size', 'addon'];
-const targetKey = (target: TargetKeyShape | TargetOption) => `${target.entity_type}:${target.entity_id}`;
-
 const buildOfferSummary = (parts: Array<string | null | undefined>) => parts.filter(Boolean).join(' | ');
 const numericValue = (value: string) => Number(value);
+const promotionRouteSignature = (promotion: Promotion) =>
+  JSON.stringify({
+    id: promotion.id,
+    title_en: promotion.title_en,
+    title_ar: promotion.title_ar,
+    type: promotion.type,
+    value: promotion.value,
+    starts_at: promotion.starts_at,
+    ends_at: promotion.ends_at,
+    is_active: promotion.is_active,
+    required_completed_orders: promotion.required_completed_orders,
+    buy_quantity: promotion.buy_quantity,
+    free_quantity: promotion.free_quantity,
+    free_delivery_mode: promotion.free_delivery_mode,
+    free_delivery_discount_percent: promotion.free_delivery_discount_percent,
+    targets: promotion.targets.map((target) => `${target.target_group}:${target.entity_type}:${target.entity_id}`),
+    buy_targets: promotion.buy_targets.map((target) => `${target.target_group}:${target.entity_type}:${target.entity_id}`),
+    free_targets: promotion.free_targets.map((target) => `${target.target_group}:${target.entity_type}:${target.entity_id}`),
+  });
 const isPositiveNumber = (value: string) => {
   const parsed = numericValue(value);
   return value.trim().length > 0 && Number.isFinite(parsed) && parsed > 0;
@@ -162,11 +194,12 @@ const buildTargetOptions = (sections: Section[], language: 'en' | 'ar'): TargetO
 const inferBehavior = (promotion: Promotion): OfferBehavior => {
   if (promotion.type === 'BUY_N_GET_M_FREE') return 'BUY_N_GET_M_FREE';
   if (promotion.type === 'FREE_DELIVERY_ABOVE_AMOUNT') return 'FREE_DELIVERY_ABOVE_AMOUNT';
+  if (promotion.type === 'FIRST_TIME_FREE_ITEM') return 'FIRST_TIME_FREE_ITEM';
   return 'FIXED_DISCOUNT';
 };
 
 const inferEligibilityMode = (promotion: Promotion): EligibilityMode => {
-  if (promotion.type === 'FIRST_TIME') return 'NEW_CUSTOMERS';
+  if (promotion.type === 'FIRST_TIME' || promotion.type === 'FIRST_TIME_FREE_ITEM') return 'NEW_CUSTOMERS';
   if (promotion.required_completed_orders != null || promotion.type === 'LOYALTY') return 'AFTER_ORDER_COUNT';
   return 'EVERYONE';
 };
@@ -234,6 +267,7 @@ const hasInvalidSpecificTargets = (
 const derivePromotionType = (form: PromotionForm): Promotion['type'] => {
   if (form.behavior === 'BUY_N_GET_M_FREE') return 'BUY_N_GET_M_FREE';
   if (form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT') return 'FREE_DELIVERY_ABOVE_AMOUNT';
+  if (form.behavior === 'FIRST_TIME_FREE_ITEM') return 'FIRST_TIME_FREE_ITEM';
   if (form.eligibility_mode === 'NEW_CUSTOMERS') return 'FIRST_TIME';
   if (form.eligibility_mode === 'AFTER_ORDER_COUNT') return 'LOYALTY';
   return 'TEMPORARY';
@@ -244,6 +278,8 @@ const behaviorLabel = (behavior: OfferBehavior, t: (key: string) => string) =>
     ? t('admin.offerBehaviorBuyGet')
     : behavior === 'FREE_DELIVERY_ABOVE_AMOUNT'
       ? t('admin.offerBehaviorFreeDelivery')
+      : behavior === 'FIRST_TIME_FREE_ITEM'
+        ? t('admin.offerBehaviorFirstTimeFreeItem')
       : t('admin.offerBehaviorDiscount');
 
 const targetSummary = (
@@ -286,13 +322,15 @@ export const AdminPromotionEditorScreen = () => {
   const route = useRoute<PromotionEditorRoute>();
   const { width } = useWindowDimensions();
   const isCompact = width < 390;
+  const isFooterCompact = width < 520;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuSections, setMenuSections] = useState<Section[]>([]);
   const [editingPromotionId, setEditingPromotionId] = useState<string | null>(null);
-  const [appliedRoutePromotionId, setAppliedRoutePromotionId] = useState<string | null>(null);
+  const [appliedRoutePromotionSignature, setAppliedRoutePromotionSignature] = useState<string | null>(null);
+  const [initialTargetEditSignature, setInitialTargetEditSignature] = useState<string | null>(null);
   const [form, setForm] = useState<PromotionForm>(defaultForm);
   const [formErrors, setFormErrors] = useState<Record<string, string | undefined>>({});
   const [targetQueries, setTargetQueries] = useState<Record<TargetListKey, string>>({
@@ -340,6 +378,8 @@ export const AdminPromotionEditorScreen = () => {
 
   const resetForm = () => {
     setEditingPromotionId(null);
+    setAppliedRoutePromotionSignature(null);
+    setInitialTargetEditSignature(null);
     setForm(defaultForm);
     setFormErrors({});
     resetTargetPickerState();
@@ -382,19 +422,29 @@ export const AdminPromotionEditorScreen = () => {
     });
     setFormErrors({});
     resetTargetPickerState();
-    setTargetModes({
+    const nextTargetModes = {
       scope_targets: nextScopeTargets.length > 0 ? 'SPECIFIC_TARGETS' : 'WHOLE_MENU',
       buy_targets: nextBuyTargets.length > 0 ? 'SPECIFIC_TARGETS' : 'WHOLE_MENU',
       free_targets: nextFreeTargets.length > 0 ? 'SPECIFIC_TARGETS' : 'WHOLE_MENU',
-    });
+    } as const;
+    setTargetModes(nextTargetModes);
+    setInitialTargetEditSignature(
+      targetEditSignature(nextBehavior, nextTargetModes, {
+        scope_targets: nextScopeTargets,
+        buy_targets: nextBuyTargets,
+        free_targets: nextFreeTargets,
+      }),
+    );
   };
 
   useEffect(() => {
     const promotion = route.params?.promotion;
-    if (!promotion || appliedRoutePromotionId === promotion.id) return;
+    if (!promotion) return;
+    const signature = promotionRouteSignature(promotion);
+    if (appliedRoutePromotionSignature === signature) return;
     startEdit(promotion);
-    setAppliedRoutePromotionId(promotion.id);
-  }, [appliedRoutePromotionId, route.params?.promotion]);
+    setAppliedRoutePromotionSignature(signature);
+  }, [appliedRoutePromotionSignature, route.params?.promotion]);
 
   const updateTargetList = (key: TargetListKey, updater: (targets: PromotionTargetDraftInput[]) => PromotionTargetDraftInput[]) => {
     setForm((prev) => ({ ...prev, [key]: updater(prev[key]) }));
@@ -422,6 +472,8 @@ export const AdminPromotionEditorScreen = () => {
 
   const validateForm = () => {
     const nextErrors: Record<string, string | undefined> = {};
+    const targetsUnchangedForEdit =
+      editingPromotionId !== null && initialTargetEditSignature === targetEditSignature(form.behavior, targetModes, form);
     if (!form.title_en.trim() || !form.title_ar.trim()) nextErrors.translation = t('admin.missingTranslation');
     if (form.behavior === 'FIXED_DISCOUNT' && !isPercentageNumber(form.value)) nextErrors.value = t('validation.requiredFields');
     if (form.behavior === 'FREE_DELIVERY_ABOVE_AMOUNT' && !isPositiveNumber(form.value)) nextErrors.value = t('validation.requiredFields');
@@ -429,15 +481,15 @@ export const AdminPromotionEditorScreen = () => {
       if (!isPositiveInteger(form.buy_quantity)) nextErrors.buy_quantity = t('validation.requiredFields');
       if (!isPositiveInteger(form.free_quantity)) nextErrors.free_quantity = t('validation.requiredFields');
     }
-    if (form.behavior === 'FIXED_DISCOUNT' && targetModes.scope_targets === 'SPECIFIC_TARGETS') {
+    if (!targetsUnchangedForEdit && (form.behavior === 'FIXED_DISCOUNT' || form.behavior === 'FIRST_TIME_FREE_ITEM') && targetModes.scope_targets === 'SPECIFIC_TARGETS') {
       const scopeTargets = normalizeTargetsForSave(form.scope_targets, targetOptionMap);
       if (hasInvalidSpecificTargets(targetModes.scope_targets, form.scope_targets, scopeTargets)) nextErrors.scope_targets = t('validation.requiredFields');
     }
-    if (form.behavior === 'BUY_N_GET_M_FREE' && targetModes.buy_targets === 'SPECIFIC_TARGETS') {
+    if (!targetsUnchangedForEdit && form.behavior === 'BUY_N_GET_M_FREE' && targetModes.buy_targets === 'SPECIFIC_TARGETS') {
       const buyTargets = normalizeTargetsForSave(form.buy_targets, targetOptionMap);
       if (hasInvalidSpecificTargets(targetModes.buy_targets, form.buy_targets, buyTargets)) nextErrors.buy_targets = t('validation.requiredFields');
     }
-    if (form.behavior === 'BUY_N_GET_M_FREE' && targetModes.free_targets === 'SPECIFIC_TARGETS') {
+    if (!targetsUnchangedForEdit && form.behavior === 'BUY_N_GET_M_FREE' && targetModes.free_targets === 'SPECIFIC_TARGETS') {
       const freeTargets = normalizeTargetsForSave(form.free_targets, targetOptionMap);
       if (hasInvalidSpecificTargets(targetModes.free_targets, form.free_targets, freeTargets)) nextErrors.free_targets = t('validation.requiredFields');
     }
@@ -459,10 +511,13 @@ export const AdminPromotionEditorScreen = () => {
     if (!validateForm()) return;
     try {
       setSaving(true);
+      const targetsUnchangedForEdit =
+        editingPromotionId !== null && initialTargetEditSignature === targetEditSignature(form.behavior, targetModes, form);
       const needsFreshTargets =
-        (form.behavior === 'FIXED_DISCOUNT' && targetModes.scope_targets === 'SPECIFIC_TARGETS') ||
-        (form.behavior === 'BUY_N_GET_M_FREE' &&
-          (targetModes.buy_targets === 'SPECIFIC_TARGETS' || targetModes.free_targets === 'SPECIFIC_TARGETS'));
+        !targetsUnchangedForEdit &&
+        (((form.behavior === 'FIXED_DISCOUNT' || form.behavior === 'FIRST_TIME_FREE_ITEM') && targetModes.scope_targets === 'SPECIFIC_TARGETS') ||
+          (form.behavior === 'BUY_N_GET_M_FREE' &&
+            (targetModes.buy_targets === 'SPECIFIC_TARGETS' || targetModes.free_targets === 'SPECIFIC_TARGETS')));
       const freshTargetOptionMap = needsFreshTargets
         ? await (async () => {
             const freshMenuResponse = await adminService.getMenuTree({ force: true });
@@ -475,13 +530,13 @@ export const AdminPromotionEditorScreen = () => {
       const buyResult = targetModes.buy_targets === 'SPECIFIC_TARGETS' ? normalizeTargetsForSave(form.buy_targets, freshTargetOptionMap) : emptyNormalizedTargets();
       const freeResult = targetModes.free_targets === 'SPECIFIC_TARGETS' ? normalizeTargetsForSave(form.free_targets, freshTargetOptionMap) : emptyNormalizedTargets();
       const targetErrors: Record<string, string | undefined> = {};
-      if (form.behavior === 'FIXED_DISCOUNT' && hasInvalidSpecificTargets(targetModes.scope_targets, form.scope_targets, scopeResult)) {
+      if (!targetsUnchangedForEdit && (form.behavior === 'FIXED_DISCOUNT' || form.behavior === 'FIRST_TIME_FREE_ITEM') && hasInvalidSpecificTargets(targetModes.scope_targets, form.scope_targets, scopeResult)) {
         targetErrors.scope_targets = t('validation.requiredFields');
       }
-      if (form.behavior === 'BUY_N_GET_M_FREE' && hasInvalidSpecificTargets(targetModes.buy_targets, form.buy_targets, buyResult)) {
+      if (!targetsUnchangedForEdit && form.behavior === 'BUY_N_GET_M_FREE' && hasInvalidSpecificTargets(targetModes.buy_targets, form.buy_targets, buyResult)) {
         targetErrors.buy_targets = t('validation.requiredFields');
       }
-      if (form.behavior === 'BUY_N_GET_M_FREE' && hasInvalidSpecificTargets(targetModes.free_targets, form.free_targets, freeResult)) {
+      if (!targetsUnchangedForEdit && form.behavior === 'BUY_N_GET_M_FREE' && hasInvalidSpecificTargets(targetModes.free_targets, form.free_targets, freeResult)) {
         targetErrors.free_targets = t('validation.requiredFields');
       }
       if (Object.keys(targetErrors).length > 0) {
@@ -489,16 +544,16 @@ export const AdminPromotionEditorScreen = () => {
         Alert.alert(t('common.error'), t('admin.targetNoLongerAvailable'));
         return;
       }
-      const payload = {
+      const payload: Record<string, unknown> = {
         title_en: form.title_en.trim(),
         title_ar: form.title_ar.trim(),
         type: derivePromotionType(form),
-        value: form.behavior === 'BUY_N_GET_M_FREE' ? 0 : Number(form.value),
+        value: form.behavior === 'BUY_N_GET_M_FREE' || form.behavior === 'FIRST_TIME_FREE_ITEM' ? 0 : Number(form.value),
         starts_at: form.starts_at.toISOString(),
         ends_at: form.ends_at.toISOString(),
         is_active: form.is_active,
         required_completed_orders:
-          form.behavior !== 'FREE_DELIVERY_ABOVE_AMOUNT' && form.eligibility_mode === 'AFTER_ORDER_COUNT'
+          form.behavior !== 'FREE_DELIVERY_ABOVE_AMOUNT' && form.behavior !== 'FIRST_TIME_FREE_ITEM' && form.eligibility_mode === 'AFTER_ORDER_COUNT'
             ? Number(form.required_completed_orders)
             : null,
         buy_quantity: form.behavior === 'BUY_N_GET_M_FREE' ? Number(form.buy_quantity) : null,
@@ -509,12 +564,40 @@ export const AdminPromotionEditorScreen = () => {
             ? Number(form.free_delivery_discount_percent)
             : null,
         loyalty_rule_id: null,
-        targets: form.behavior === 'FIXED_DISCOUNT' ? scopeResult.targets : [],
-        buy_targets: form.behavior === 'BUY_N_GET_M_FREE' ? buyResult.targets : [],
-        free_targets: form.behavior === 'BUY_N_GET_M_FREE' ? freeResult.targets : [],
       };
+      if (!targetsUnchangedForEdit || !editingPromotionId) {
+        payload.targets = form.behavior === 'FIXED_DISCOUNT' || form.behavior === 'FIRST_TIME_FREE_ITEM' ? scopeResult.targets : [];
+        payload.buy_targets = form.behavior === 'BUY_N_GET_M_FREE' ? buyResult.targets : [];
+        payload.free_targets = form.behavior === 'BUY_N_GET_M_FREE' ? freeResult.targets : [];
+      }
       if (editingPromotionId) await adminService.updatePromotion(editingPromotionId, payload);
-      else await adminService.createPromotion(payload);
+      else await adminService.createPromotion(payload as Parameters<typeof adminService.createPromotion>[0]);
+      resetForm();
+      if (navigation.canGoBack()) navigation.goBack();
+    } catch (e) {
+      Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (!editingPromotionId) return;
+    Alert.alert(t('admin.deletePromotion'), t('admin.deletePromotionConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('admin.deletePromotion'),
+        style: 'destructive',
+        onPress: () => void deletePromotion(),
+      },
+    ]);
+  };
+
+  const deletePromotion = async () => {
+    if (!editingPromotionId) return;
+    try {
+      setSaving(true);
+      await adminService.deletePromotion(editingPromotionId);
       resetForm();
       if (navigation.canGoBack()) navigation.goBack();
     } catch (e) {
@@ -531,10 +614,12 @@ export const AdminPromotionEditorScreen = () => {
     form.ends_at.getTime() > form.starts_at.getTime() &&
     (form.behavior === 'BUY_N_GET_M_FREE'
       ? isPositiveInteger(form.buy_quantity) && isPositiveInteger(form.free_quantity)
+      : form.behavior === 'FIRST_TIME_FREE_ITEM'
+        ? true
       : form.behavior === 'FIXED_DISCOUNT'
         ? isPercentageNumber(form.value)
         : isPositiveNumber(form.value)) &&
-    (form.eligibility_mode !== 'AFTER_ORDER_COUNT' || isPositiveInteger(form.required_completed_orders)) &&
+    (form.behavior === 'FIRST_TIME_FREE_ITEM' || form.eligibility_mode !== 'AFTER_ORDER_COUNT' || isPositiveInteger(form.required_completed_orders)) &&
     (form.behavior !== 'FREE_DELIVERY_ABOVE_AMOUNT' ||
       form.free_delivery_mode === 'FREE_DELIVERY' ||
       isPercentageNumber(form.free_delivery_discount_percent));
@@ -557,7 +642,9 @@ export const AdminPromotionEditorScreen = () => {
   };
 
   const eligibilityPreview =
-    form.eligibility_mode === 'NEW_CUSTOMERS'
+    form.behavior === 'FIRST_TIME_FREE_ITEM'
+      ? t('admin.eligibilityFirstTimeHelp')
+      : form.eligibility_mode === 'NEW_CUSTOMERS'
       ? t('admin.eligibilityFirstTimeHelp')
       : form.eligibility_mode === 'AFTER_ORDER_COUNT'
         ? `${t('admin.completedOrdersEligibilityPrefix')} ${form.required_completed_orders || 0} ${t('admin.ordersThreshold')}`
@@ -570,6 +657,8 @@ export const AdminPromotionEditorScreen = () => {
         ? form.free_delivery_mode === 'PERCENTAGE_DISCOUNT'
           ? `${t('admin.percentageDiscount')} ${form.free_delivery_discount_percent || 0}%`
           : `${t('admin.freeDelivery')} | ${t('admin.minimumOrderAmount')} ${form.value || 0}`
+        : form.behavior === 'FIRST_TIME_FREE_ITEM'
+          ? t('admin.singleFreeItemRule')
         : `${t('admin.discountAmount')} ${form.value || 0}`;
 
   const scopePreview = targetSummary(form.scope_targets, targetOptionMap, t);
@@ -579,7 +668,11 @@ export const AdminPromotionEditorScreen = () => {
     behaviorLabel(form.behavior, t),
     rulePreview,
     eligibilityPreview,
-    form.behavior === 'BUY_N_GET_M_FREE' ? `${t('admin.buyFrom')}: ${buyPreview}` : form.behavior === 'FIXED_DISCOUNT' ? scopePreview : null,
+    form.behavior === 'BUY_N_GET_M_FREE'
+      ? `${t('admin.buyFrom')}: ${buyPreview}`
+      : form.behavior === 'FIXED_DISCOUNT' || form.behavior === 'FIRST_TIME_FREE_ITEM'
+        ? scopePreview
+        : null,
     form.behavior === 'BUY_N_GET_M_FREE' ? `${t('admin.freeFrom')}: ${freePreview}` : null,
   ]);
 
@@ -596,12 +689,12 @@ export const AdminPromotionEditorScreen = () => {
       title_en: form.title_en.trim() || t('admin.createPromotion'),
       title_ar: form.title_ar.trim() || t('admin.createPromotion'),
       type: derivePromotionType(form),
-      value: form.behavior === 'BUY_N_GET_M_FREE' ? '0' : form.value || '0',
+      value: form.behavior === 'BUY_N_GET_M_FREE' || form.behavior === 'FIRST_TIME_FREE_ITEM' ? '0' : form.value || '0',
       starts_at: form.starts_at.toISOString(),
       ends_at: form.ends_at.toISOString(),
       is_active: form.is_active,
       required_completed_orders:
-        form.eligibility_mode === 'AFTER_ORDER_COUNT' && form.required_completed_orders
+        form.behavior !== 'FIRST_TIME_FREE_ITEM' && form.eligibility_mode === 'AFTER_ORDER_COUNT' && form.required_completed_orders
           ? Number(form.required_completed_orders)
           : null,
       buy_quantity: form.behavior === 'BUY_N_GET_M_FREE' && form.buy_quantity ? Number(form.buy_quantity) : null,
@@ -612,7 +705,7 @@ export const AdminPromotionEditorScreen = () => {
           ? form.free_delivery_discount_percent || '0'
           : null,
       loyalty_rule_id: null,
-      targets: form.behavior === 'FIXED_DISCOUNT' ? scopeTargets : [],
+      targets: form.behavior === 'FIXED_DISCOUNT' || form.behavior === 'FIRST_TIME_FREE_ITEM' ? scopeTargets : [],
       buy_targets: form.behavior === 'BUY_N_GET_M_FREE' ? buyTargets : [],
       free_targets: form.behavior === 'BUY_N_GET_M_FREE' ? freeTargets : [],
       scope_summary_en: offerSummaryPreview,
@@ -624,6 +717,7 @@ export const AdminPromotionEditorScreen = () => {
 
   const behaviorCards = [
     { value: 'FIXED_DISCOUNT' as const, title: t('admin.offerBehaviorDiscount'), description: t('admin.offerBehaviorDiscountHelp') },
+    { value: 'FIRST_TIME_FREE_ITEM' as const, title: t('admin.offerBehaviorFirstTimeFreeItem'), description: t('admin.offerBehaviorFirstTimeFreeItemHelp') },
     { value: 'BUY_N_GET_M_FREE' as const, title: t('admin.offerBehaviorBuyGet'), description: t('admin.offerBehaviorBuyGetHelp') },
     { value: 'FREE_DELIVERY_ABOVE_AMOUNT' as const, title: t('admin.offerBehaviorFreeDelivery'), description: t('admin.offerBehaviorFreeDeliveryHelp') },
   ];
@@ -640,6 +734,8 @@ export const AdminPromotionEditorScreen = () => {
             { value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') },
             { value: 'AFTER_ORDER_COUNT' as const, title: t('admin.eligibilityAfterOrders'), description: t('admin.eligibilityAfterOrdersHelp') },
           ]
+        : form.behavior === 'FIRST_TIME_FREE_ITEM'
+          ? [{ value: 'NEW_CUSTOMERS' as const, title: t('admin.eligibilityFirstTime'), description: t('admin.eligibilityFirstTimeHelp') }]
         : [{ value: 'EVERYONE' as const, title: t('admin.eligibilityEveryone'), description: t('admin.eligibilityEveryoneHelp') }];
 
   const targetTypeSelectOptions = targetTypeOptions.map((option) => ({ value: option, label: t(`admin.${option}`) }));
@@ -838,14 +934,16 @@ export const AdminPromotionEditorScreen = () => {
                   ...prev,
                   behavior: value,
                   eligibility_mode:
-                    value === 'FIXED_DISCOUNT'
+                    value === 'FIRST_TIME_FREE_ITEM'
+                      ? 'NEW_CUSTOMERS'
+                      : value === 'FIXED_DISCOUNT'
                       ? prev.eligibility_mode
                       : value === 'BUY_N_GET_M_FREE'
                         ? prev.eligibility_mode === 'NEW_CUSTOMERS'
                           ? 'EVERYONE'
                         : prev.eligibility_mode
                         : 'EVERYONE',
-                  value: value === 'BUY_N_GET_M_FREE' ? '' : prev.value,
+                  value: value === 'BUY_N_GET_M_FREE' || value === 'FIRST_TIME_FREE_ITEM' ? '' : prev.value,
                   buy_quantity: value === 'BUY_N_GET_M_FREE' ? prev.buy_quantity : '',
                   free_quantity: value === 'BUY_N_GET_M_FREE' ? prev.free_quantity : '',
                   free_delivery_mode: value === 'FREE_DELIVERY_ABOVE_AMOUNT' ? prev.free_delivery_mode : 'FREE_DELIVERY',
@@ -976,7 +1074,7 @@ export const AdminPromotionEditorScreen = () => {
               {renderTargetPicker({ listKey: 'buy_targets', title: t('admin.buyFrom'), description: t('admin.buyFromHelp'), mode: buyMode })}
               {renderTargetPicker({ listKey: 'free_targets', title: t('admin.freeFrom'), description: t('admin.freeFromHelp'), mode: freeMode })}
             </View>
-          ) : form.behavior === 'FIXED_DISCOUNT' ? (
+          ) : form.behavior === 'FIXED_DISCOUNT' || form.behavior === 'FIRST_TIME_FREE_ITEM' ? (
             renderTargetPicker({ listKey: 'scope_targets', title: t('admin.eligibleMenuItems'), description: t('admin.scopeChooserHelp'), mode: scopeMode })
           ) : null}
 
@@ -997,20 +1095,27 @@ export const AdminPromotionEditorScreen = () => {
                 <InfoLine label={t('admin.buyFrom')} value={buyPreview} numberOfLines={2} />
                 <InfoLine label={t('admin.freeFrom')} value={freePreview} numberOfLines={2} />
               </>
-            ) : form.behavior === 'FIXED_DISCOUNT' ? (
+            ) : form.behavior === 'FIXED_DISCOUNT' || form.behavior === 'FIRST_TIME_FREE_ITEM' ? (
               <InfoLine label={t('admin.scopeSummary')} value={scopePreview} numberOfLines={2} />
             ) : null}
             <InfoLine label={t('admin.eligibilitySummary')} value={eligibilityPreview} numberOfLines={2} />
           </AdminPageSection>
 
-          <ActionRow compact={isCompact}>
+          <ActionRow compact={isFooterCompact}>
             <AppButton
               title={t('admin.previewWholeMenu')}
               variant="secondary"
               onPress={() => navigation.navigate('AdminWholeMenuPreview', { draftPromotion, initialLanguage: language })}
-              style={styles.flexButton}
+              style={isFooterCompact ? undefined : styles.flexButton}
             />
-            <AppButton title={editingPromotionId ? t('admin.saveChanges') : t('admin.createPromotion')} loading={saving} disabled={!canSave} onPress={() => void save()} style={styles.flexButton} />
+            <AppButton
+              title={editingPromotionId ? t('admin.saveChanges') : t('admin.createPromotion')}
+              loading={saving}
+              disabled={!canSave}
+              onPress={() => void save()}
+              style={isFooterCompact ? undefined : styles.flexButton}
+            />
+            {editingPromotionId ? <AppButton title={t('admin.deletePromotion')} variant="destructive" onPress={confirmDelete} style={isFooterCompact ? undefined : styles.flexButton} /> : null}
             {editingPromotionId ? <AppButton title={t('common.cancel')} variant="ghost" onPress={resetForm} fullWidth={false} /> : null}
           </ActionRow>
         </View>

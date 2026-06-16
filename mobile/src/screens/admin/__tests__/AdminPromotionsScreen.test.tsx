@@ -10,10 +10,12 @@ const mockListPromotions = jest.fn();
 const mockGetMenuTree = jest.fn();
 const mockCreatePromotion = jest.fn();
 const mockUpdatePromotion = jest.fn();
+const mockDeletePromotion = jest.fn();
 const mockTogglePromotion = jest.fn();
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
 let mockRouteParams: Record<string, unknown> | undefined;
+let mockDateTimeFieldValues: Record<string, Date> = {};
 
 const translationMap: Record<string, string> = {
   'common.loading': 'Loading...',
@@ -43,6 +45,8 @@ const translationMap: Record<string, string> = {
   'admin.offerBehavior': 'What should this offer do?',
   'admin.offerBehaviorDiscount': 'Apply a discount percent',
   'admin.offerBehaviorDiscountHelp': 'Percentage discount help',
+  'admin.offerBehaviorFirstTimeFreeItem': 'First order gets one free item',
+  'admin.offerBehaviorFirstTimeFreeItemHelp': 'First order free item help',
   'admin.offerBehaviorBuyGet': 'Buy some, get some free',
   'admin.offerBehaviorBuyGetHelp': 'Buy/get help',
   'admin.offerBehaviorFreeDelivery': 'Free delivery above an amount',
@@ -67,6 +71,7 @@ const translationMap: Record<string, string> = {
   'admin.requiredCompletedOrdersPlaceholder': 'Example: 5',
   'admin.buyQuantity': 'Buy quantity',
   'admin.freeQuantity': 'Free quantity',
+  'admin.singleFreeItemRule': 'One matching item becomes free',
   'admin.buyGetRule': 'Buy/Get rule',
   'admin.discountAmount': 'Discount percent',
   'admin.minimumOrderAmount': 'Minimum order amount',
@@ -102,6 +107,8 @@ const translationMap: Record<string, string> = {
   'admin.scopeSummary': 'Scope',
   'admin.eligibilitySummary': 'Eligibility',
   'admin.saveChanges': 'Save changes',
+  'admin.deletePromotion': 'Delete offer',
+  'admin.deletePromotionConfirm': 'Delete this offer permanently? Customers will no longer see or use it.',
   'admin.noPromotionsTitle': 'No promotions',
   'admin.noPromotionsSubtitle': 'Create a promotion to show offers in client app.',
   'admin.disable': 'Disable',
@@ -158,9 +165,13 @@ jest.mock('@/components/AppInput', () => ({
 }));
 
 jest.mock('@/components/DateTimeField', () => ({
-  DateTimeField: ({ label }: any) => {
-    const { Text } = require('react-native');
-    return <Text>{label}</Text>;
+  DateTimeField: ({ label, value, onChange }: any) => {
+    const { Pressable, Text } = require('react-native');
+    return (
+      <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => mockDateTimeFieldValues[label] && onChange(mockDateTimeFieldValues[label])}>
+        <Text>{`${label}:${value?.toISOString?.() ?? ''}`}</Text>
+      </Pressable>
+    );
   },
 }));
 
@@ -186,6 +197,7 @@ jest.mock('@/services/adminService', () => ({
     getMenuTree: (...args: any[]) => mockGetMenuTree(...args),
     createPromotion: (...args: any[]) => mockCreatePromotion(...args),
     updatePromotion: (...args: any[]) => mockUpdatePromotion(...args),
+    deletePromotion: (...args: any[]) => mockDeletePromotion(...args),
     togglePromotion: (...args: any[]) => mockTogglePromotion(...args),
   },
 }));
@@ -194,6 +206,7 @@ describe('AdminPromotionsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRouteParams = undefined;
+    mockDateTimeFieldValues = {};
     jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     const now = Date.now();
     mockListPromotions.mockResolvedValue({
@@ -320,6 +333,7 @@ describe('AdminPromotionsScreen', () => {
     });
     mockCreatePromotion.mockResolvedValue({ id: 'created-promo' });
     mockUpdatePromotion.mockResolvedValue({ id: 'promo-1' });
+    mockDeletePromotion.mockResolvedValue(undefined);
     mockTogglePromotion.mockResolvedValue({ id: 'promo-1', is_active: false });
   });
 
@@ -340,6 +354,225 @@ describe('AdminPromotionsScreen', () => {
     expect(queryByText('All sections')).toBeNull();
     fireEvent.press(getByText('Disable'));
     expect(Alert.alert).toHaveBeenCalledWith('Disable', 'This offer is live for customers right now. Are you sure you want to change its status?', expect.any(Array));
+  });
+
+  it('sends edited offer window dates in the update payload', async () => {
+    const originalStart = new Date('2026-03-09T08:00:00.000Z');
+    const originalEnd = new Date('2026-03-12T20:00:00.000Z');
+    const editedStart = new Date('2026-03-10T08:00:00.000Z');
+    const editedEnd = new Date('2026-03-14T20:00:00.000Z');
+    mockRouteParams = {
+      promotion: {
+        id: 'promo-1',
+        title_en: 'Latte + Muffin',
+        title_ar: 'لاتيه + مافن',
+        type: 'BUY_N_GET_M_FREE',
+        value: '0.00',
+        starts_at: originalStart.toISOString(),
+        ends_at: originalEnd.toISOString(),
+        is_active: true,
+        required_completed_orders: 4,
+        buy_quantity: 2,
+        free_quantity: 1,
+        loyalty_rule_id: null,
+        targets: [],
+        buy_targets: [{ id: 'target-buy', promotion_id: 'promo-1', target_group: 'buy', entity_type: 'item', entity_id: 'item-1', entity_name_en: 'Latte', entity_name_ar: 'لاتيه' }],
+        free_targets: [{ id: 'target-free', promotion_id: 'promo-1', target_group: 'free', entity_type: 'item', entity_id: 'item-2', entity_name_en: 'Muffin', entity_name_ar: 'مافن' }],
+        scope_summary_en: 'Buy from Latte; free item from Muffin',
+        scope_summary_ar: 'اشتر من لاتيه وخذ من مافن',
+        eligibility_summary_en: 'Available after 4 completed orders',
+        eligibility_summary_ar: 'متاح بعد 4 طلبات مكتملة',
+      },
+    };
+    mockDateTimeFieldValues = {
+      'Start date': editedStart,
+      'End date': editedEnd,
+    };
+
+    const { getAllByText, getByLabelText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getAllByText('Edit promotion').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.press(getByLabelText('Start date'));
+    fireEvent.press(getByLabelText('End date'));
+    fireEvent.press(getAllByText('Save changes').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockUpdatePromotion).toHaveBeenCalledWith(
+        'promo-1',
+        expect.objectContaining({
+          starts_at: editedStart.toISOString(),
+          ends_at: editedEnd.toISOString(),
+        }),
+      );
+    });
+    expect(mockUpdatePromotion).not.toHaveBeenCalledWith(
+      'promo-1',
+      expect.objectContaining({
+        starts_at: originalStart.toISOString(),
+        ends_at: originalEnd.toISOString(),
+      }),
+    );
+  });
+
+  it('updates old offers with stale unchanged targets without resending target arrays', async () => {
+    const originalStart = new Date('2026-03-09T08:00:00.000Z');
+    const originalEnd = new Date('2026-03-12T20:00:00.000Z');
+    const editedStart = new Date('2026-03-10T08:00:00.000Z');
+    mockRouteParams = {
+      promotion: {
+        id: 'promo-old',
+        title_en: 'Snacks 10% off',
+        title_ar: 'خصم 10% على السناكات',
+        type: 'TEMPORARY',
+        value: '10.00',
+        starts_at: originalStart.toISOString(),
+        ends_at: originalEnd.toISOString(),
+        is_active: true,
+        required_completed_orders: null,
+        buy_quantity: null,
+        free_quantity: null,
+        loyalty_rule_id: null,
+        targets: [
+          {
+            id: 'target-stale',
+            promotion_id: 'promo-old',
+            target_group: 'scope',
+            entity_type: 'section',
+            entity_id: 'deleted-section',
+            entity_name_en: null,
+            entity_name_ar: null,
+          },
+        ],
+        buy_targets: [],
+        free_targets: [],
+        scope_summary_en: 'Unavailable menu target',
+        scope_summary_ar: 'هدف غير متاح',
+        eligibility_summary_en: 'Available to everyone',
+        eligibility_summary_ar: 'متاح للجميع',
+      },
+    };
+    mockDateTimeFieldValues = {
+      'Start date': editedStart,
+    };
+
+    const { getAllByText, getByLabelText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getAllByText('Edit promotion').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.press(getByLabelText('Start date'));
+    fireEvent.press(getAllByText('Save changes').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockUpdatePromotion).toHaveBeenCalledWith(
+        'promo-old',
+        expect.objectContaining({
+          starts_at: editedStart.toISOString(),
+        }),
+      );
+    });
+    const payload = mockUpdatePromotion.mock.calls[0][1];
+    expect(payload).not.toHaveProperty('targets');
+    expect(payload).not.toHaveProperty('buy_targets');
+    expect(payload).not.toHaveProperty('free_targets');
+  });
+
+  it('confirms and deletes an existing offer', async () => {
+    mockRouteParams = {
+      promotion: {
+        id: 'promo-delete',
+        title_en: 'Delete me',
+        title_ar: 'احذفني',
+        type: 'TEMPORARY',
+        value: '5.00',
+        starts_at: new Date('2026-03-09T08:00:00.000Z').toISOString(),
+        ends_at: new Date('2026-03-12T20:00:00.000Z').toISOString(),
+        is_active: false,
+        required_completed_orders: null,
+        buy_quantity: null,
+        free_quantity: null,
+        loyalty_rule_id: null,
+        targets: [],
+        buy_targets: [],
+        free_targets: [],
+        scope_summary_en: 'Whole menu',
+        scope_summary_ar: 'كل القائمة',
+        eligibility_summary_en: 'Available to everyone',
+        eligibility_summary_ar: 'متاح للجميع',
+      },
+    };
+
+    const { getAllByText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getAllByText('Edit promotion').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.press(getAllByText('Delete offer').at(-1)!);
+    expect(Alert.alert).toHaveBeenCalledWith('Delete offer', 'Delete this offer permanently? Customers will no longer see or use it.', expect.any(Array));
+
+    const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)![2] as Array<{ onPress?: () => void; style?: string; text: string }>;
+    expect(buttons[1]).toEqual(expect.objectContaining({ text: 'Delete offer', style: 'destructive' }));
+    buttons[1].onPress?.();
+
+    await waitFor(() => {
+      expect(mockDeletePromotion).toHaveBeenCalledWith('promo-delete');
+      expect(mockGoBack).toHaveBeenCalled();
+    });
+  });
+
+  it('reapplies route data when the same offer returns with updated dates', async () => {
+    const originalStart = new Date('2026-03-09T08:00:00.000Z');
+    const originalEnd = new Date('2026-03-12T20:00:00.000Z');
+    const refreshedStart = new Date('2026-03-11T08:00:00.000Z');
+    const refreshedEnd = new Date('2026-03-15T20:00:00.000Z');
+    const promotion = {
+      id: 'promo-1',
+      title_en: 'Latte + Muffin',
+      title_ar: 'لاتيه + مافن',
+      type: 'BUY_N_GET_M_FREE',
+      value: '0.00',
+      starts_at: originalStart.toISOString(),
+      ends_at: originalEnd.toISOString(),
+      is_active: true,
+      required_completed_orders: 4,
+      buy_quantity: 2,
+      free_quantity: 1,
+      loyalty_rule_id: null,
+      targets: [],
+      buy_targets: [{ id: 'target-buy', promotion_id: 'promo-1', target_group: 'buy', entity_type: 'item', entity_id: 'item-1', entity_name_en: 'Latte', entity_name_ar: 'لاتيه' }],
+      free_targets: [{ id: 'target-free', promotion_id: 'promo-1', target_group: 'free', entity_type: 'item', entity_id: 'item-2', entity_name_en: 'Muffin', entity_name_ar: 'مافن' }],
+      scope_summary_en: 'Buy from Latte; free item from Muffin',
+      scope_summary_ar: 'اشتر من لاتيه وخذ من مافن',
+      eligibility_summary_en: 'Available after 4 completed orders',
+      eligibility_summary_ar: 'متاح بعد 4 طلبات مكتملة',
+    };
+    mockRouteParams = { promotion };
+
+    const { getByText, rerender } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText(`Start date:${originalStart.toISOString()}`)).toBeTruthy();
+      expect(getByText(`End date:${originalEnd.toISOString()}`)).toBeTruthy();
+    });
+
+    mockRouteParams = {
+      promotion: {
+        ...promotion,
+        starts_at: refreshedStart.toISOString(),
+        ends_at: refreshedEnd.toISOString(),
+      },
+    };
+    rerender(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText(`Start date:${refreshedStart.toISOString()}`)).toBeTruthy();
+      expect(getByText(`End date:${refreshedEnd.toISOString()}`)).toBeTruthy();
+    });
   });
 
   it('creates a buy-get offer with separate buy and free targets', async () => {
@@ -412,6 +645,42 @@ describe('AdminPromotionsScreen', () => {
       );
     });
     expect(mockGetMenuTree).not.toHaveBeenCalledWith({ force: true });
+  });
+
+  it('creates a first-time single free item offer from selected hierarchy targets', async () => {
+    const { getAllByText, getByLabelText, getByText } = render(<AdminPromotionEditorScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Offer identity')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByLabelText('Title (English)'), 'First waffle free');
+    fireEvent.changeText(getByLabelText('Title (Arabic)'), 'أول وافل مجاني');
+    fireEvent.press(getByLabelText('What should this offer do?: First order gets one free item'));
+    fireEvent.press(getByLabelText('Eligible menu items: Specific targets'));
+    fireEvent.press(getByLabelText('Target type: Section'));
+    fireEvent.press(getByLabelText('Coffee'));
+    fireEvent.press(getAllByText('Create promotion').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockCreatePromotion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title_en: 'First waffle free',
+          title_ar: 'أول وافل مجاني',
+          type: 'FIRST_TIME_FREE_ITEM',
+          value: 0,
+          required_completed_orders: null,
+          buy_quantity: null,
+          free_quantity: null,
+          targets: [
+            { entity_type: 'item', entity_id: 'item-1' },
+            { entity_type: 'item', entity_id: 'item-2' },
+          ],
+          buy_targets: [],
+          free_targets: [],
+        }),
+      );
+    });
   });
 
   it('does not create a fixed discount above 100 percent', async () => {
