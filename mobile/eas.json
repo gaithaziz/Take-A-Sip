@@ -13,9 +13,9 @@
     },
     "iosProductionUsb": {
       "distribution": "internal",
-      "channel": "production",
       "env": {
-        "EXPO_NOTIFICATIONS_IOS_MODE": "production"
+        "EXPO_NOTIFICATIONS_IOS_MODE": "production",
+        "EXPO_PUBLIC_API_BASE_URL": "https://take-a-sip-backend-prod-dxwxxm76vq-uc.a.run.app"
       },
       "ios": {
         "simulator": false
