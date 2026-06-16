@@ -66,16 +66,35 @@ def _ensure_secure_otp_configuration() -> None:
         )
 
 
-def _get_otp_bypass_role(phone_number: str, otp_code: str | None = None) -> UserRole | None:
+def _otp_bypass_lookup_candidates(phone_number: str) -> list[str]:
+    normalized_phone = normalize_phone_number(phone_number)
+    candidates = [normalized_phone]
+    if normalized_phone.startswith('+9627') and len(normalized_phone) == 13:
+        local_digits = normalized_phone[4:]
+        candidates.extend([f'0{local_digits}', local_digits])
+    elif normalized_phone.startswith('07') and len(normalized_phone) == 10:
+        local_digits = normalized_phone[1:]
+        candidates.extend([f'+962{local_digits}', local_digits])
+    elif normalized_phone.startswith('7') and len(normalized_phone) == 9:
+        candidates.extend([f'+962{normalized_phone}', f'0{normalized_phone}'])
+    return list(dict.fromkeys(candidates))
+
+
+def _get_otp_bypass_account(phone_number: str, otp_code: str | None = None) -> tuple[str, UserRole] | None:
     if not settings.otp_bypass_enabled:
         return None
     bypass_code = settings.otp_bypass_code.strip()
     if otp_code is not None and (not bypass_code or otp_code.strip() != bypass_code):
         return None
 
-    normalized_phone = normalize_phone_number(phone_number)
-    role_value = settings.otp_bypass_accounts.get(normalized_phone)
-    if role_value is None:
+    account_phone = None
+    role_value = None
+    for candidate in _otp_bypass_lookup_candidates(phone_number):
+        role_value = settings.otp_bypass_accounts.get(candidate)
+        if role_value is not None:
+            account_phone = candidate
+            break
+    if role_value is None or account_phone is None:
         return None
 
     try:
@@ -85,7 +104,7 @@ def _get_otp_bypass_role(phone_number: str, otp_code: str | None = None) -> User
             logger,
             logging.ERROR,
             'auth.otp_bypass_invalid_role',
-            {'phone_number': mask_phone_number(normalized_phone), 'role': role_value},
+            {'phone_number': mask_phone_number(account_phone), 'role': role_value},
         )
         return None
 
@@ -94,10 +113,10 @@ def _get_otp_bypass_role(phone_number: str, otp_code: str | None = None) -> User
             logger,
             logging.ERROR,
             'auth.otp_bypass_forbidden_role',
-            {'phone_number': mask_phone_number(normalized_phone), 'role': role.value},
+            {'phone_number': mask_phone_number(account_phone), 'role': role.value},
         )
         return None
-    return role
+    return account_phone, role
 
 
 async def _activate_auth_rls_context(db: AsyncSession) -> None:
@@ -111,13 +130,14 @@ async def _activate_auth_rls_context(db: AsyncSession) -> None:
 
 async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> str:
     _ensure_secure_otp_configuration()
-    bypass_role = _get_otp_bypass_role(payload.phone_number)
-    if bypass_role is not None:
+    bypass_account = _get_otp_bypass_account(payload.phone_number)
+    if bypass_account is not None:
+        account_phone, bypass_role = bypass_account
         log_structured(
             logger,
             logging.INFO,
             'auth.otp_bypass_send_skipped',
-            {'phone_number': mask_phone_number(payload.phone_number), 'role': bypass_role.value},
+            {'phone_number': mask_phone_number(account_phone), 'role': bypass_role.value},
         )
         return settings.otp_bypass_code
 
@@ -176,9 +196,10 @@ async def send_otp(payload: SendOTPRequest, db: AsyncSession) -> str:
 
 async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenResponse:
     _ensure_secure_otp_configuration()
-    bypass_role = _get_otp_bypass_role(payload.phone_number, payload.otp_code)
-    if bypass_role is not None:
-        return await _verify_otp_bypass(payload, db, bypass_role)
+    bypass_account = _get_otp_bypass_account(payload.phone_number, payload.otp_code)
+    if bypass_account is not None:
+        account_phone, bypass_role = bypass_account
+        return await _verify_otp_bypass(payload, db, account_phone, bypass_role)
 
     verify_result = await otp_service.verify(db, payload.phone_number, payload.otp_code)
     if verify_result in {OTPVerifyResult.NOT_FOUND, OTPVerifyResult.EXPIRED}:
@@ -253,16 +274,21 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
     return await _build_token_response(user, db, event='auth.login_success')
 
 
-async def _verify_otp_bypass(payload: VerifyOTPRequest, db: AsyncSession, role: UserRole) -> TokenResponse:
+async def _verify_otp_bypass(
+    payload: VerifyOTPRequest,
+    db: AsyncSession,
+    account_phone: str,
+    role: UserRole,
+) -> TokenResponse:
     await _activate_auth_rls_context(db)
-    result = await db.execute(select(User).where(User.phone_number == payload.phone_number))
+    result = await db.execute(select(User).where(User.phone_number == account_phone))
     user = result.scalar_one_or_none()
 
     if user is None:
         user = User(
             first_name=payload.first_name or ('Test' if role == UserRole.CLIENT else 'Test'),
             last_name=payload.last_name or ('Customer' if role == UserRole.CLIENT else 'Driver'),
-            phone_number=payload.phone_number,
+            phone_number=account_phone,
             role=role,
             is_active=True,
             is_banned=False,

@@ -71,6 +71,28 @@ async def test_send_otp_bypass_skips_sms_delivery() -> None:
 
 
 @pytest.mark.asyncio
+async def test_send_otp_bypass_accepts_local_jordan_phone_format() -> None:
+    db = object()
+    payload = SendOTPRequest(
+        phone_number='0790000222',
+        first_name='Test',
+        last_name='Driver',
+    )
+    settings = Settings(
+        otp_bypass_enabled=True,
+        otp_bypass_code='000000',
+        otp_bypass_accounts={'+962790000222': 'DRIVER'},
+    )
+
+    with patch('app.services.auth_service.settings', settings):
+        with patch('app.services.auth_service.build_sms_provider') as provider_mock:
+            code = await send_otp(payload, db)
+
+    assert code == '000000'
+    provider_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_kiosk_login_returns_frontdesk_token() -> None:
     db = AsyncMock()
     user = User(

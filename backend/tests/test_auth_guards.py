@@ -139,6 +139,45 @@ async def test_verify_otp_bypass_returns_configured_driver_without_otp_check() -
 
 
 @pytest.mark.asyncio
+async def test_verify_otp_bypass_local_jordan_phone_uses_canonical_account() -> None:
+    driver_user = SimpleNamespace(
+        id=UUID('00000000-0000-0000-0000-000000000222'),
+        first_name='Test',
+        last_name='Driver',
+        phone_number='+962790000222',
+        role=UserRole.DRIVER,
+        is_banned=False,
+        is_active=True,
+    )
+
+    class FakeResult:
+        def scalar_one_or_none(self):
+            return driver_user
+
+    db = AsyncMock()
+    db.execute.side_effect = [MagicMock(), FakeResult()]
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    settings = Settings(
+        otp_bypass_enabled=True,
+        otp_bypass_code='000000',
+        otp_bypass_accounts={'+962790000222': 'DRIVER'},
+    )
+    payload = VerifyOTPRequest(phone_number='0790000222', otp_code='000000')
+
+    with patch('app.services.auth_service.settings', settings):
+        with patch('app.services.auth_service.otp_service.verify', new=AsyncMock()) as verify_mock:
+            response = await verify_otp(payload, db)
+
+    verify_mock.assert_not_awaited()
+    select_statement = db.execute.await_args_list[1].args[0]
+    assert '+962790000222' in str(select_statement.compile(compile_kwargs={'literal_binds': True}))
+    assert response.user.phone_number == '+962790000222'
+    assert response.user.role == 'DRIVER'
+
+
+@pytest.mark.asyncio
 async def test_verify_otp_bypass_wrong_code_uses_normal_otp_path() -> None:
     class FakeResult:
         def scalar_one_or_none(self):
