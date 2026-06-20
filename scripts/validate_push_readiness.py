@@ -35,8 +35,24 @@ def main() -> int:
     apns_private_key_path = env_value('APNS_PRIVATE_KEY_PATH')
     if not has_value('APNS_PRIVATE_KEY') and not apns_private_key_path:
         failures.append('APNS_PRIVATE_KEY or APNS_PRIVATE_KEY_PATH is required for iOS APNs delivery.')
+    if (
+        apns_private_key_path.startswith('-----BEGIN')
+        or '\\n' in apns_private_key_path
+        or '\n' in apns_private_key_path
+    ):
+        failures.append(
+            'APNS_PRIVATE_KEY_PATH looks like key contents. Use APNS_PRIVATE_KEY for Secret Manager env injection.'
+        )
     if apns_private_key_path and not Path(apns_private_key_path).is_file():
         failures.append(f'APNS_PRIVATE_KEY_PATH does not point to a readable file: {apns_private_key_path}')
+    if env_value('ENVIRONMENT').lower() == 'production' and env_value('APNS_USE_SANDBOX').lower() in {
+        '',
+        '1',
+        'true',
+        'yes',
+        'on',
+    }:
+        failures.append('APNS_USE_SANDBOX must be false for production iOS builds.')
 
     if failures:
         print('Push readiness failed:', file=sys.stderr)

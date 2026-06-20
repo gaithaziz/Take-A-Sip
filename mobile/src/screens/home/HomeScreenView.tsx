@@ -131,11 +131,22 @@ export const HomeScreenView = ({
                   <Ionicons name="bag-handle-outline" size={18} color={theme.colors.primary700} />
                 </View>
                 <View style={[styles.cartMetaRow, mirroredRow(isRTL)]}>
-                  <AppText variant="caption" color={theme.colors.textSecondary}>
+                  <AppText
+                    variant="caption"
+                    color={theme.colors.textSecondary}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={1}
+                    style={styles.cartLabel}>
                     {t('home.cart')}
                   </AppText>
                   <View style={styles.cartCountBadge}>
-                    <AppText variant="caption" color={theme.colors.white} align="center">
+                    <AppText
+                      variant="caption"
+                      color={theme.colors.white}
+                      align="center"
+                      numberOfLines={1}
+                      maxFontSizeMultiplier={1}
+                      style={styles.cartCountText}>
                       {cartCount.toString()}
                     </AppText>
                   </View>
@@ -320,16 +331,23 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   topBarCompact: {
-    alignItems: 'stretch',
+    alignItems: 'center',
+    minHeight: 68,
   },
   topTitleWrap: {
     flex: 1,
     alignItems: 'flex-start',
     gap: theme.spacing.md,
+    minWidth: 0,
   },
   logoWrap: {
     width: 68,
     height: 68,
+    maxWidth: 68,
+    maxHeight: 68,
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'center',
     borderRadius: theme.radius.pill,
     overflow: 'hidden',
     borderWidth: 1,
@@ -343,6 +361,7 @@ const styles = StyleSheet.create({
   },
   titleTextWrap: {
     flex: 1,
+    minWidth: 0,
     gap: theme.spacing.xs,
   },
   cartButton: {
@@ -359,7 +378,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   cartButtonCompact: {
-    width: '100%',
+    flexShrink: 0,
     justifyContent: 'center',
   },
   cartIconWrap: {
@@ -375,6 +394,16 @@ const styles = StyleSheet.create({
   cartMetaRow: {
     alignItems: 'center',
     gap: theme.spacing.xs,
+    flexShrink: 1,
+  },
+  cartLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
+  cartCountText: {
+    fontSize: 11,
+    lineHeight: 14,
   },
   cartCountBadge: {
     minWidth: 24,

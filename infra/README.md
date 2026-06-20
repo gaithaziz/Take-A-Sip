@@ -72,10 +72,12 @@ The Terraform scaffold creates Secret Manager entries from `secret_ids`. A good 
 - `apns-key-id`
 - `apns-team-id`
 - `apns-bundle-id`
-- `apns-private-key-path`
+- `apns-private-key`
 
 In GitHub Actions, `BACKEND_SECRET_ENV_VARS` should map app env names to Secret Manager names, for example:
 
 ```text
-DATABASE_URL=database-url:latest,MIGRATION_DATABASE_URL=migration-database-url:latest,JWT_SECRET_KEY=jwt-secret-key:latest,MERSAL_API_KEY=mersal-api-key:latest,S3_ACCESS_KEY_ID=s3-access-key-id:latest,S3_SECRET_ACCESS_KEY=s3-secret-access-key:latest
+DATABASE_URL=database-url:latest,MIGRATION_DATABASE_URL=migration-database-url:latest,JWT_SECRET_KEY=jwt-secret-key:latest,MERSAL_API_KEY=mersal-api-key:latest,S3_ACCESS_KEY_ID=s3-access-key-id:latest,S3_SECRET_ACCESS_KEY=s3-secret-access-key:latest,FCM_SERVICE_ACCOUNT_JSON=fcm-service-account-json:latest,APNS_KEY_ID=apns-key-id:latest,APNS_TEAM_ID=apns-team-id:latest,APNS_BUNDLE_ID=apns-bundle-id:latest,APNS_PRIVATE_KEY=apns-private-key:latest
 ```
+
+Set `PUSH_ENABLED=true` and `APNS_USE_SANDBOX=false` in production runtime env vars. Use `APNS_PRIVATE_KEY` when Secret Manager injects the `.p8` key as an environment variable; use `APNS_PRIVATE_KEY_PATH` only when the key is mounted as a readable file inside the container.

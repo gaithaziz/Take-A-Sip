@@ -49,7 +49,8 @@ for name in \
   FCM_SERVICE_ACCOUNT_JSON \
   APNS_KEY_ID \
   APNS_TEAM_ID \
-  APNS_BUNDLE_ID; do
+  APNS_BUNDLE_ID \
+  APNS_USE_SANDBOX; do
   if printf '%s' "$service_json" | grep -q "\"$name\""; then
     echo "Found $name on runtime service."
   else
@@ -58,9 +59,10 @@ for name in \
   fi
 done
 
-if printf '%s' "$service_json" | grep -q '"APNS_PRIVATE_KEY"' || \
-  printf '%s' "$service_json" | grep -q '"APNS_PRIVATE_KEY_PATH"'; then
+if printf '%s' "$service_json" | grep -q '"APNS_PRIVATE_KEY"'; then
   echo "Found APNs private key configuration on runtime service."
+elif printf '%s' "$service_json" | grep -q '"APNS_PRIVATE_KEY_PATH"'; then
+  echo "Found APNS_PRIVATE_KEY_PATH on runtime service. Confirm this is a real file path in the container, not raw .p8 key text."
 else
   echo "Runtime service is missing APNS_PRIVATE_KEY or APNS_PRIVATE_KEY_PATH." >&2
   exit 1

@@ -44,7 +44,7 @@ export const TopAppBar = ({ title, onBack, rightAction }: TopAppBarProps) => {
         </View>
         <View style={styles.titleWrap}>
           {title ? (
-            <AppText variant="h2" align="center" numberOfLines={1}>
+            <AppText variant="h2" align="center" numberOfLines={1} maxFontSizeMultiplier={1.1}>
               {title}
             </AppText>
           ) : null}

@@ -31,5 +31,5 @@ secret_ids = [
   "apns-key-id",
   "apns-team-id",
   "apns-bundle-id",
-  "apns-private-key-path"
+  "apns-private-key"
 ]

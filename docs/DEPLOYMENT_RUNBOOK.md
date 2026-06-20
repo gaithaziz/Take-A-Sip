@@ -114,4 +114,5 @@ Before production mobile release:
 - verify permission prompts still match `mobile/app.json`
 - confirm Android release builds include `EXPO_ANDROID_GOOGLE_SERVICES_FILE` pointing to Firebase `google-services.json`
 - confirm backend push env passes `scripts/validate_push_readiness.py` with FCM and APNs secrets loaded
+- confirm production backend env includes `PUSH_ENABLED=true`, `APNS_USE_SANDBOX=false`, `APNS_BUNDLE_ID=com.takeasip.mobile`, and `APNS_PRIVATE_KEY=apns-private-key:latest` from Secret Manager
 - test login, checkout, notifications, and profile flows on device
