@@ -37,6 +37,13 @@ export const buildReceiptText = (order: OrderRead, options?: ReceiptTextOptions)
     : order.order_type === 'pickup'
       ? 'Pickup'
       : 'Delivery';
+  const paymentMethodText = isArabic
+    ? order.payment_method === 'CARD'
+      ? 'بطاقة عبر جهاز الدفع'
+      : 'نقدا'
+    : order.payment_method === 'CARD'
+      ? 'Card (terminal)'
+      : 'Cash';
   const address = getDeliveryAddress(order);
   const shopName = options?.shopName?.trim() || 'TAKE A SIP';
   const shopNameArabic = options?.shopNameArabic?.trim() || 'خذلك شفة';
@@ -69,6 +76,7 @@ export const buildReceiptText = (order: OrderRead, options?: ReceiptTextOptions)
     isArabic ? `الهاتف: ${order.customer_phone || 'غير متوفر'}` : `Phone: ${order.customer_phone || 'N/A'}`,
     '',
     isArabic ? `نوع الطلب: ${orderTypeText}` : `Type: ${orderTypeText}`,
+    isArabic ? `طريقة الدفع: ${paymentMethodText}` : `Payment: ${paymentMethodText}`,
     order.order_type === 'delivery'
       ? isArabic
         ? `العنوان: ${address || 'غير متوفر'}`

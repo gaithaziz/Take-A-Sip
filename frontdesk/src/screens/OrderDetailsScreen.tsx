@@ -62,6 +62,13 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComp
           numberOfLines={1}
         />
         <FrontdeskLabelValueText label={t('details.type')} value={getOrderTypeLabel(order.order_type, t)} isRTL={isRTL} style={styles.line} numberOfLines={1} />
+        <FrontdeskLabelValueText
+          label={t('details.paymentMethod')}
+          value={t(order.payment_method === 'CARD' ? 'details.paymentCard' : 'details.paymentCash')}
+          isRTL={isRTL}
+          style={styles.line}
+          numberOfLines={1}
+        />
         <FrontdeskLabelValueText label={t('orders.status')} value={getOrderStatusLabel(order.status, t)} isRTL={isRTL} style={styles.line} numberOfLines={1} />
         <FrontdeskLabelValueText
           label={t('details.address')}

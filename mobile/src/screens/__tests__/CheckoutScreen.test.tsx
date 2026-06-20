@@ -20,6 +20,11 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'checkout.savedAddressHint': 'You can save this delivery address for next time.',
         'checkout.noSavedAddresses': 'Saved delivery addresses will appear here after you save one.',
         'checkout.placeOrder': 'Place order',
+        'checkout.paymentMethod': 'Payment method',
+        'checkout.cash': 'Cash',
+        'checkout.card': 'Card',
+        'checkout.cashHint': 'Pay when receiving your order',
+        'checkout.cardHint': 'Pay using the driver or shop card terminal',
         'common.notes': 'Notes',
         'common.subtotal': 'Subtotal',
         'common.discount': 'Discount',
@@ -95,5 +100,20 @@ describe('CheckoutScreen', () => {
     expect(getByText('Delivery address is required')).toBeTruthy();
     expect(getByTestId('checkout-place-order')).toBeDisabled();
     expect(orderService.create).not.toHaveBeenCalled();
+  });
+
+  it('submits the selected card payment method', async () => {
+    (orderService.create as jest.Mock).mockResolvedValue({ id: 'order-1' });
+    const navigate = jest.fn();
+    const { getByText } = render(
+      <CheckoutScreen navigation={{ navigate, goBack: jest.fn() } as never} route={{} as never} />,
+    );
+
+    fireEvent.press(getByText('Card'));
+    fireEvent.press(getByText('Place order'));
+
+    expect(orderService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_method: 'CARD', order_type: 'pickup' }),
+    );
   });
 });

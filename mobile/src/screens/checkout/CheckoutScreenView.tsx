@@ -14,6 +14,7 @@ import { formatCurrency } from '@/utils/format';
 import { mirroredRow } from '@/utils/layout';
 
 type CheckoutOrderType = 'pickup' | 'delivery';
+type CheckoutPaymentMethod = 'CASH' | 'CARD';
 
 const DEFAULT_STORE_LOCATION = {
   latitude: 32.551347,
@@ -46,9 +47,15 @@ type CheckoutScreenViewProps = {
   noSavedAddressesLabel: string;
   totalLabel: string;
   placeOrderLabel: string;
+  paymentMethodLabel: string;
+  cashLabel: string;
+  cardLabel: string;
+  cashHintLabel: string;
+  cardHintLabel: string;
   language: LanguageCode;
   isRTL: boolean;
   orderType: CheckoutOrderType;
+  paymentMethod: CheckoutPaymentMethod;
   deliveryAddress: string;
   deliveryAddressError?: string;
   selectedLat: number | null;
@@ -72,6 +79,7 @@ type CheckoutScreenViewProps = {
   bottomInset: number;
   onBack: () => void;
   onSelectOrderType: (next: CheckoutOrderType) => void;
+  onSelectPaymentMethod: (next: CheckoutPaymentMethod) => void;
   onChangeDeliveryAddress: (value: string) => void;
   onSelectDeliveryLocation: (lat: number, lng: number) => void;
   onChangeNotes: (value: string) => void;
@@ -103,9 +111,15 @@ export const CheckoutScreenView = ({
   noSavedAddressesLabel,
   totalLabel,
   placeOrderLabel,
+  paymentMethodLabel,
+  cashLabel,
+  cardLabel,
+  cashHintLabel,
+  cardHintLabel,
   language,
   isRTL,
   orderType,
+  paymentMethod,
   deliveryAddress,
   deliveryAddressError,
   selectedLat,
@@ -129,6 +143,7 @@ export const CheckoutScreenView = ({
   bottomInset,
   onBack,
   onSelectOrderType,
+  onSelectPaymentMethod,
   onChangeDeliveryAddress,
   onSelectDeliveryLocation,
   onChangeNotes,
@@ -268,6 +283,52 @@ export const CheckoutScreenView = ({
                   color={orderType === 'delivery' ? theme.colors.primary700 : theme.colors.textSecondary}>
                   {deliveryLabel}
                 </AppText>
+              </Pressable>
+            </View>
+          </AppCard>
+
+          <AppCard style={styles.selectorCard}>
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {paymentMethodLabel}
+            </AppText>
+            <View style={[styles.selectorRow, mirroredRow(isRTL)]}>
+              <Pressable
+                style={[styles.option, paymentMethod === 'CASH' ? styles.optionActive : null]}
+                onPress={() => onSelectPaymentMethod('CASH')}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: paymentMethod === 'CASH' }}
+                accessibilityLabel={cashLabel}
+                hitSlop={6}>
+                <View style={styles.optionIndicatorWrap}>
+                  <View style={[styles.optionIndicator, paymentMethod === 'CASH' ? styles.optionIndicatorActive : null]} />
+                </View>
+                <View style={styles.optionCopy}>
+                  <AppText variant="button" color={paymentMethod === 'CASH' ? theme.colors.primary700 : theme.colors.textSecondary}>
+                    {cashLabel}
+                  </AppText>
+                  <AppText variant="caption" color={theme.colors.textSecondary}>
+                    {cashHintLabel}
+                  </AppText>
+                </View>
+              </Pressable>
+              <Pressable
+                style={[styles.option, paymentMethod === 'CARD' ? styles.optionActive : null]}
+                onPress={() => onSelectPaymentMethod('CARD')}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: paymentMethod === 'CARD' }}
+                accessibilityLabel={cardLabel}
+                hitSlop={6}>
+                <View style={styles.optionIndicatorWrap}>
+                  <View style={[styles.optionIndicator, paymentMethod === 'CARD' ? styles.optionIndicatorActive : null]} />
+                </View>
+                <View style={styles.optionCopy}>
+                  <AppText variant="button" color={paymentMethod === 'CARD' ? theme.colors.primary700 : theme.colors.textSecondary}>
+                    {cardLabel}
+                  </AppText>
+                  <AppText variant="caption" color={theme.colors.textSecondary}>
+                    {cardHintLabel}
+                  </AppText>
+                </View>
               </Pressable>
             </View>
           </AppCard>
@@ -481,6 +542,10 @@ const styles = StyleSheet.create({
   },
   optionIndicatorActive: {
     backgroundColor: theme.colors.primary500,
+  },
+  optionCopy: {
+    alignItems: 'center',
+    gap: theme.spacing.xs,
   },
   detailsCard: {
     gap: theme.spacing.md,

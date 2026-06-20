@@ -44,6 +44,8 @@ const mockT = (key: string) => {
     'orders.itemsTitle': 'Items',
     'orders.orderType': 'Order type',
     'orders.deliveryAddress': 'Delivery address',
+    'orders.paymentMethod': 'Payment method',
+    'orders.paymentCard': 'Card terminal when receiving',
     'orders.completedAt': 'Completed at',
     'orders.placedAt': 'Placed at',
     'checkout.delivery': 'Delivery',
@@ -81,6 +83,7 @@ const mockOrder = {
   google_maps_url: 'https://maps.example/order-1',
   status: 'NEW',
   order_type: 'delivery',
+  payment_method: 'CARD',
   created_at: '2026-06-16T12:00:00.000Z',
   notes: 'Please call on arrival',
   items: [
@@ -233,7 +236,7 @@ describe('AdminOrderDetailsScreen', () => {
   it('renders full admin order details', async () => {
     (orderService.getById as jest.Mock).mockResolvedValue(mockOrder);
 
-    const { getByText } = render(
+    const { getByText, queryByText } = render(
       <AdminOrderDetailsScreen
         navigation={{ goBack: jest.fn() } as never}
         route={{ key: 'AdminOrderDetails', name: 'AdminOrderDetails', params: { orderId: 'order-1' } } as never}
@@ -251,6 +254,15 @@ describe('AdminOrderDetailsScreen', () => {
     expect(getByText('Latte')).toBeTruthy();
     expect(getByText('Extra shot:')).toBeTruthy();
     expect(getByText('5/5')).toBeTruthy();
+    expect(getByText('Card terminal when receiving')).toBeTruthy();
+    expect(queryByText('user-1')).toBeNull();
+    expect(queryByText('driver-1')).toBeNull();
+    expect(queryByText('promo-1')).toBeNull();
+    expect(queryByText('item-1')).toBeNull();
+    expect(queryByText('size-1')).toBeNull();
+    expect(queryByText('band-1')).toBeNull();
+    expect(queryByText('31.9500, 35.9200')).toBeNull();
+    expect(queryByText('https://maps.example/order-1')).toBeNull();
     expect(orderService.getById).toHaveBeenCalledWith('order-1');
   });
 });

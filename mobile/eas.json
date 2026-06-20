@@ -34,6 +34,13 @@
     "production": {
       "distribution": "store",
       "channel": "production",
+      "env": {
+        "EXPO_NOTIFICATIONS_IOS_MODE": "production",
+        "EXPO_PUBLIC_API_BASE_URL": "https://take-a-sip-backend-prod-dxwxxm76vq-uc.a.run.app"
+      },
+      "ios": {
+        "autoIncrement": true
+      },
       "android": {
         "buildType": "app-bundle"
       }

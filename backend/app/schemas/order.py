@@ -19,6 +19,7 @@ class OrderItemCreate(AppBaseModel):
 
 class OrderCreateRequest(AppBaseModel):
     order_type: str = Field(pattern='^(pickup|delivery)$')
+    payment_method: str = Field(default='CASH', pattern='^(CASH|CARD)$')
     delivery_address: str | None = Field(default=None, max_length=255)
     delivery_address_text: str | None = Field(default=None, max_length=255)
     delivery_latitude: float | None = None
@@ -104,6 +105,7 @@ class OrderRead(AppBaseModel):
     google_maps_url: str | None = None
     status: str
     order_type: str
+    payment_method: str
     created_at: datetime
     notes: str | None
     items: list[OrderItemRead] = Field(default_factory=list)

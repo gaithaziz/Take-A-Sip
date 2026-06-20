@@ -165,6 +165,7 @@ export type PromotionTargetInput = {
 
 export type CreateOrderPayload = {
   order_type: 'pickup' | 'delivery';
+  payment_method: 'CASH' | 'CARD';
   delivery_address?: string;
   delivery_address_text?: string;
   delivery_lat?: number;
@@ -244,6 +245,7 @@ export type OrderRead = {
   google_maps_url?: string | null;
   status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
   order_type: 'pickup' | 'delivery';
+  payment_method: 'CASH' | 'CARD';
   created_at: string;
   notes: string | null;
   items: OrderItemRead[];

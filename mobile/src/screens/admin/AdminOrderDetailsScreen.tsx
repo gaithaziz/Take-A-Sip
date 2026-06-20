@@ -127,24 +127,24 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
           <AppText variant="h3">{t('admin.customerDetails')}</AppText>
           <InfoLine label={t('admin.customerName')} value={order.customer_name || '-'} numberOfLines={2} />
           <InfoLine label={t('profile.phone')} value={order.customer_phone || '-'} numberOfLines={2} />
-          <InfoLine label={t('admin.userId')} value={order.user_id} numberOfLines={2} />
           {order.notes ? <InfoLine label={t('common.notes')} value={order.notes} numberOfLines={4} /> : null}
         </AppCard>
 
         <AppCard style={styles.card}>
           <AppText variant="h3">{t('admin.fulfillmentDetails')}</AppText>
           <InfoLine label={t('orders.orderType')} value={order.order_type === 'pickup' ? t('checkout.pickup') : t('checkout.delivery')} />
+          <InfoLine
+            label={t('orders.paymentMethod')}
+            value={t(order.payment_method === 'CARD' ? 'orders.paymentCard' : 'orders.paymentCash')}
+          />
           <InfoLine label={t('admin.assignedDriver')} value={order.assigned_driver_name || order.assigned_driver_phone || t('admin.none')} numberOfLines={2} />
           {order.assigned_driver_phone ? <InfoLine label={t('admin.driverPhone')} value={order.assigned_driver_phone} /> : null}
-          {order.assigned_driver_id ? <InfoLine label={t('admin.driverId')} value={order.assigned_driver_id} numberOfLines={2} /> : null}
           <InfoLine label={t('admin.assignedAt')} value={optionalDate(order.assigned_at, language)} />
           <InfoLine label={t('orders.completedAt')} value={optionalDate(order.completed_at, language)} />
           {order.order_type === 'delivery' ? (
             <>
               <InfoLine label={t('orders.deliveryAddress')} value={order.delivery_address_text || order.delivery_address || '-'} numberOfLines={4} />
               <InfoLine label={t('admin.deliveryDistance')} value={order.delivery_distance_km ? `${order.delivery_distance_km} km` : '-'} />
-              <InfoLine label={t('admin.deliveryCoordinates')} value={order.delivery_latitude && order.delivery_longitude ? `${order.delivery_latitude}, ${order.delivery_longitude}` : '-'} numberOfLines={2} />
-              <InfoLine label={t('admin.mapsUrl')} value={order.google_maps_url || '-'} numberOfLines={3} />
             </>
           ) : null}
         </AppCard>
@@ -171,8 +171,7 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
               <AppText variant="h3">{formatCurrency(totalAmount, language)}</AppText>
             </View>
           </View>
-          <InfoLine label={t('admin.appliedPromotion')} value={promotionTitle || order.applied_promotion_id || t('admin.none')} numberOfLines={3} />
-          {order.applied_promotion_id ? <InfoLine label={t('admin.promotionId')} value={order.applied_promotion_id} numberOfLines={2} /> : null}
+          <InfoLine label={t('admin.appliedPromotion')} value={promotionTitle || t('admin.none')} numberOfLines={3} />
         </AppCard>
 
         <AppCard style={styles.card}>
@@ -188,9 +187,7 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
                   </AppText>
                   <AppText variant="caption" color={theme.colors.textSecondary}>{`${line.quantity}x`}</AppText>
                 </View>
-                <InfoLine label={t('admin.itemId')} value={line.item_id_snapshot || '-'} numberOfLines={2} />
                 <InfoLine label={t('admin.orderVariant')} value={getLocalizedOrderSizeName(line, menuSnapshotLookup, language)} numberOfLines={2} />
-                <InfoLine label={t('admin.variantId')} value={line.size_id_snapshot || '-'} numberOfLines={2} />
                 <InfoLine label={t('admin.unitPrice')} value={formatCurrency(toNumber(line.price_snapshot), language)} />
                 {line.addons.length > 0 ? (
                   <View style={styles.addons}>
@@ -214,8 +211,6 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
         <AppCard style={styles.card}>
           <AppText variant="h3">{t('admin.auditDetails')}</AppText>
           <InfoLine label={t('orders.placedAt')} value={formatDateTime(order.created_at, language)} />
-          <InfoLine label={t('admin.orderId')} value={order.id} numberOfLines={2} />
-          <InfoLine label={t('admin.deliveryDistanceBandId')} value={order.delivery_distance_band_id || '-'} numberOfLines={2} />
           {order.rating ? (
             <>
               <InfoLine label={t('admin.rating')} value={`${order.rating.stars}/5`} />

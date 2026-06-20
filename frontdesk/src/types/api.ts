@@ -140,6 +140,7 @@ export type OrderRead = {
     | 'COMPLETED'
     | 'CANCELLED';
   order_type: 'pickup' | 'delivery';
+  payment_method: 'CASH' | 'CARD';
   created_at: string;
   notes: string | null;
   items: OrderItemRead[];

@@ -41,6 +41,7 @@ async def test_create_order_and_fetch_history(client, db_session):
         headers=headers,
         json={
             'order_type': 'pickup',
+            'payment_method': 'CARD',
             'notes': 'No sugar',
             'items': [
                 {
@@ -55,6 +56,7 @@ async def test_create_order_and_fetch_history(client, db_session):
     assert create_response.status_code == 201
     created = create_response.json()
     assert created['status'] == 'NEW'
+    assert created['payment_method'] == 'CARD'
     assert created['items'][0]['item_id_snapshot'] == str(item.id)
     assert created['items'][0]['size_id_snapshot'] == str(size.id)
     assert created['items'][0]['item_name_snapshot'] == 'Latte'
@@ -68,6 +70,7 @@ async def test_create_order_and_fetch_history(client, db_session):
     assert len(history_data['orders']) == 1
     assert history_data['orders'][0]['id'] == created['id']
     assert history_data['orders'][0]['customer_name'] == 'Sara Client'
+    assert history_data['orders'][0]['payment_method'] == 'CARD'
 
 
 async def test_admin_latest_orders_supports_search(client, db_session):

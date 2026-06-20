@@ -268,6 +268,14 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
             </View>
             <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
               <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('orders.paymentMethod')}
+              </AppText>
+              <AppText variant="bodySmall">
+                {t(order.payment_method === 'CARD' ? 'orders.paymentCard' : 'orders.paymentCash')}
+              </AppText>
+            </View>
+            <View style={[styles.summaryRow, mirroredRow(isRTL)]}>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
                 {t('orders.placedAt')}
               </AppText>
               <AppText variant="bodySmall">{formatDateTime(order.created_at, language)}</AppText>

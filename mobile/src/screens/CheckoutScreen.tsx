@@ -24,6 +24,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const { token, user } = useAuth();
   const { items, subtotal, clearCart } = useCart();
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD'>('CASH');
   const { discount, total, freeDelivery } = useCartPricing(items, subtotal, orderType);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -117,6 +118,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const payload = useMemo(
     () => ({
       order_type: orderType,
+      payment_method: paymentMethod,
       delivery_address: orderType === 'delivery' && deliveryAddress.trim() ? deliveryAddress.trim() : undefined,
       delivery_address_text: orderType === 'delivery' && deliveryAddress.trim() ? deliveryAddress.trim() : undefined,
       delivery_lat: orderType === 'delivery' && hasDeliveryCoords ? deliveryCoords.lat : undefined,
@@ -128,7 +130,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
         addon_ids: item.addons.map((addon) => addon.id),
       })),
     }),
-    [deliveryAddress, hasDeliveryCoords, deliveryCoords, items, notes, orderType],
+    [deliveryAddress, hasDeliveryCoords, deliveryCoords, items, notes, orderType, paymentMethod],
   );
 
   const placeOrder = async () => {
@@ -236,9 +238,15 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       noSavedAddressesLabel={t('checkout.noSavedAddresses')}
       totalLabel={t('common.total')}
       placeOrderLabel={t('checkout.placeOrder')}
+      paymentMethodLabel={t('checkout.paymentMethod')}
+      cashLabel={t('checkout.cash')}
+      cardLabel={t('checkout.card')}
+      cashHintLabel={t('checkout.cashHint')}
+      cardHintLabel={t('checkout.cardHint')}
       language={language}
       isRTL={isRTL}
       orderType={orderType}
+      paymentMethod={paymentMethod}
       deliveryAddress={deliveryAddress}
       deliveryAddressError={deliveryAddressError}
       selectedLat={deliveryCoords?.lat ?? null}
@@ -278,6 +286,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
           setDeliveryLocationError(t('checkout.deliveryLocationRequired'));
         }
       }}
+      onSelectPaymentMethod={setPaymentMethod}
       onChangeDeliveryAddress={(value) => {
         setDeliveryAddress(value);
         if (value.trim().length > 0) {

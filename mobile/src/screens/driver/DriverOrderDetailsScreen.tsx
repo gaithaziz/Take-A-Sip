@@ -150,6 +150,9 @@ export const DriverOrderDetailsScreen = ({ route, navigation }: Props) => {
         <AppText variant="h3">{order.customer_name ?? '-'}</AppText>
         <AppText color={theme.colors.textSecondary}>{order.customer_phone ?? '-'}</AppText>
         <AppText>{order.delivery_address_text || order.delivery_address || '-'}</AppText>
+        <AppText variant="h3" color={order.payment_method === 'CARD' ? theme.colors.primary700 : theme.colors.textPrimary}>
+          {t(order.payment_method === 'CARD' ? 'orders.paymentCard' : 'orders.paymentCash')}
+        </AppText>
       </AppCard>
       <AppCard style={styles.block}>
         <AppText variant="bodySmall" color={theme.colors.textSecondary}>

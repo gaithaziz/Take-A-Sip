@@ -23,6 +23,11 @@ class OrderType(str, enum.Enum):
     DELIVERY = 'delivery'
 
 
+class PaymentMethod(str, enum.Enum):
+    CASH = 'CASH'
+    CARD = 'CARD'
+
+
 class Order(UUIDPrimaryKeyMixin, TimestampCreatedMixin, Base):
     __tablename__ = 'orders'
 
@@ -35,6 +40,12 @@ class Order(UUIDPrimaryKeyMixin, TimestampCreatedMixin, Base):
     )
     order_type: Mapped[OrderType] = mapped_column(
         Enum(OrderType, name='order_type', native_enum=False), nullable=False
+    )
+    payment_method: Mapped[PaymentMethod] = mapped_column(
+        Enum(PaymentMethod, name='payment_method', native_enum=False),
+        nullable=False,
+        default=PaymentMethod.CASH,
+        server_default=PaymentMethod.CASH.value,
     )
     delivery_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     delivery_latitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)

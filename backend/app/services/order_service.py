@@ -16,7 +16,7 @@ from app.core.config import get_settings
 from app.core.logging import log_structured
 from app.models.delivery import DeliveryDistanceBand
 from app.models.menu import Item, ItemType, Size
-from app.models.order import Order, OrderEvent, OrderItem, OrderItemAddon, OrderRating, OrderStatus, OrderType
+from app.models.order import Order, OrderEvent, OrderItem, OrderItemAddon, OrderRating, OrderStatus, OrderType, PaymentMethod
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 from app.schemas.order import AssignDriverRequest, OrderCreateRequest
@@ -82,6 +82,7 @@ def order_to_read_dict(order: Order) -> dict:
         'google_maps_url': _build_google_maps_url(order),
         'status': order.status.value,
         'order_type': order.order_type.value,
+        'payment_method': order.payment_method.value,
         'created_at': order.created_at,
         'notes': order.notes,
         'items': order.items,
@@ -385,6 +386,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                 user_id=user_id,
                 status=OrderStatus.NEW,
                 order_type=order_type,
+                payment_method=PaymentMethod(payload.payment_method),
                 delivery_address=delivery_address,
                 delivery_latitude=Decimal(str(delivery_lat)) if delivery_lat is not None else None,
                 delivery_longitude=Decimal(str(delivery_lng)) if delivery_lng is not None else None,
@@ -522,6 +524,7 @@ async def reorder_order(db: AsyncSession, user: User, source_order_id: UUID) -> 
         user_id=user.id,
         status=OrderStatus.NEW,
         order_type=source_order.order_type,
+        payment_method=source_order.payment_method,
         delivery_address=source_order.delivery_address,
         delivery_latitude=source_order.delivery_latitude,
         delivery_longitude=source_order.delivery_longitude,

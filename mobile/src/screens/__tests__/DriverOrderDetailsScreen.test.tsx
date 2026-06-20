@@ -15,6 +15,7 @@ const mockT = (key: string) => {
     'driver.markOutForDelivery': 'Mark Out For Delivery',
     'driver.markDelivered': 'Mark Delivered',
     'driver.noDestination': 'No destination',
+    'orders.paymentCard': 'Card terminal when receiving',
   };
   return map[key] ?? key;
 };
@@ -32,6 +33,7 @@ const mockOrder = {
   google_maps_url: null,
   status: 'OUT_FOR_DELIVERY',
   order_type: 'delivery',
+  payment_method: 'CARD',
   created_at: '2026-03-18T10:00:00.000Z',
   notes: null,
   items: [
@@ -99,5 +101,6 @@ describe('DriverOrderDetailsScreen', () => {
     await findByText('#401');
     await findByText('Open in Google Maps');
     await findByText('Mark Delivered');
+    await findByText('Card terminal when receiving');
   });
 });
