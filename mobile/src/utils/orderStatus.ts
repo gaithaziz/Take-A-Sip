@@ -1,5 +1,8 @@
 import { OrderRead } from '@/types/api';
 
+export const getCustomerOrderStatusKey = (status: OrderRead['status']) =>
+  status === 'ACCEPTED' ? 'orders.statusInProgress' : `status.${status}`;
+
 export const isFinalDeliveredStatus = (status: OrderRead['status']) =>
   status === 'DELIVERED' || status === 'COMPLETED';
 

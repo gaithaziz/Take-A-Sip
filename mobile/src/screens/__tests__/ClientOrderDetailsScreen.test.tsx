@@ -25,6 +25,8 @@ const mockT = (key: string) => {
     'orders.ratingSubmitted': 'Thanks for your feedback',
     'orders.ratingAvailableAfterAcceptance': 'Rating will be available as soon as the shop accepts this pickup order.',
     'orders.ratingAvailableAfterDelivery': 'Rating will be available as soon as this delivery is marked delivered.',
+    'orders.statusInProgress': 'In progress',
+    'orders.estimatedReadyTime': 'Estimated ready time: 5–25 minutes',
     'status.ACCEPTED': 'Accepted',
     'status.COMPLETED': 'Completed',
     'status.NEW': 'New',
@@ -162,7 +164,7 @@ describe('ClientOrderDetailsScreen', () => {
   it('shows rating inputs for accepted pickup unrated order', async () => {
     (orderService.getById as jest.Mock).mockResolvedValue(mockOrder);
 
-    const { findByText, findByPlaceholderText } = render(
+    const { findByText, findAllByText, findByPlaceholderText } = render(
       <ClientOrderDetailsScreen
         navigation={{ goBack: jest.fn() } as never}
         route={{ key: 'ClientOrderDetails', name: 'ClientOrderDetails', params: { orderId: 'order-1' } } as never}
@@ -172,6 +174,8 @@ describe('ClientOrderDetailsScreen', () => {
     await findByText('Order details');
     await findByText('Rate order');
     await findByPlaceholderText('Optional review note');
+    await expect(findAllByText('In progress')).resolves.toHaveLength(2);
+    await findByText('Estimated ready time: 5–25 minutes');
   });
 
   it('shows existing rating and hides submit controls when order already rated', async () => {

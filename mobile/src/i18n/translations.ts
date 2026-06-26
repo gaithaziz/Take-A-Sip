@@ -205,6 +205,9 @@ export const en = {
     paymentMethod: 'Payment method',
     paymentCash: 'Cash when receiving',
     paymentCard: 'Card terminal when receiving',
+    statusInProgress: 'In progress',
+    estimatedReadyShort: 'Ready in about 5–25 minutes',
+    estimatedReadyTime: 'Estimated ready time: 5–25 minutes',
   },
   profile: {
     title: 'Profile',
@@ -885,6 +888,9 @@ export const ar = {
     paymentMethod: '\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u062F\u0641\u0639',
     paymentCash: '\u0646\u0642\u062F\u0627\u064B \u0639\u0646\u062F \u0627\u0644\u0627\u0633\u062A\u0644\u0627\u0645',
     paymentCard: '\u0628\u062C\u0647\u0627\u0632 \u0627\u0644\u0628\u0637\u0627\u0642\u0629 \u0639\u0646\u062F \u0627\u0644\u0627\u0633\u062A\u0644\u0627\u0645',
+    statusInProgress: '\u0642\u064A\u062F \u0627\u0644\u062A\u062D\u0636\u064A\u0631',
+    estimatedReadyShort: '\u0633\u064A\u0643\u0648\u0646 \u062C\u0627\u0647\u0632\u0627\u064B \u062E\u0644\u0627\u0644 5\u201325 \u062F\u0642\u064A\u0642\u0629 \u062A\u0642\u0631\u064A\u0628\u0627\u064B',
+    estimatedReadyTime: '\u0627\u0644\u0648\u0642\u062A \u0627\u0644\u062A\u0642\u062F\u064A\u0631\u064A \u0644\u0644\u062C\u0627\u0647\u0632\u064A\u0629: 5\u201325 \u062F\u0642\u064A\u0642\u0629',
   },
   profile: {
     title: '\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A',

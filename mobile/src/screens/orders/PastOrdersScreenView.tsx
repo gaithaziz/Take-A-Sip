@@ -15,7 +15,7 @@ import {
   getLocalizedOrderItemName,
   getLocalizedOrderSizeName,
 } from '@/utils/orderLocalization';
-import { isOrderRateable } from '@/utils/orderStatus';
+import { getCustomerOrderStatusKey, isOrderRateable } from '@/utils/orderStatus';
 
 const statusToneMap = {
   NEW: 'warning',
@@ -87,36 +87,38 @@ export const PastOrdersScreenView = ({
       contentInsetAdjustmentBehavior="never"
       data={data}
       keyExtractor={(order) => order.id}
-      renderItem={({ item: order }) => (
-        <AppCard style={styles.card}>
-          <View style={[styles.top, mirroredRow(isRTL)]}>
-            <View style={styles.orderMeta}>
-              <AppText variant="h3">#{order.order_number}</AppText>
-              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                {t(`status.${order.status}`)}
-              </AppText>
-              <AppText variant="caption" color={theme.colors.textSecondary}>
-                {formatDateTime(order.created_at, language)}
-              </AppText>
-              <AppText variant="caption" color={theme.colors.primary700}>
-                {formatCurrency(getOrderTotal(order), language)}
-              </AppText>
-            </View>
-            <BadgeChip label={t(`status.${order.status}`)} tone={statusToneMap[order.status]} />
-          </View>
-
-          <View style={styles.itemsWrap}>
-            {order.items.slice(0, 3).map((orderItem) => (
-              <View key={orderItem.id} style={[styles.itemLine, mirroredRow(isRTL)]}>
-                <AppText variant="bodySmall" numberOfLines={1} style={styles.itemName}>
-                  {getLocalizedOrderItemName(orderItem, menuSnapshotLookup, language)}
+      renderItem={({ item: order }) => {
+        const statusLabel = t(getCustomerOrderStatusKey(order.status));
+        return (
+          <AppCard style={styles.card}>
+            <View style={[styles.top, mirroredRow(isRTL)]}>
+              <View style={styles.orderMeta}>
+                <AppText variant="h3">#{order.order_number}</AppText>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                  {order.status === 'ACCEPTED' ? t('orders.estimatedReadyShort') : statusLabel}
                 </AppText>
                 <AppText variant="caption" color={theme.colors.textSecondary}>
-                  {orderItem.quantity}x {getLocalizedOrderSizeName(orderItem, menuSnapshotLookup, language)}
+                  {formatDateTime(order.created_at, language)}
+                </AppText>
+                <AppText variant="caption" color={theme.colors.primary700}>
+                  {formatCurrency(getOrderTotal(order), language)}
                 </AppText>
               </View>
-            ))}
-          </View>
+              <BadgeChip label={statusLabel} tone={statusToneMap[order.status]} />
+            </View>
+
+            <View style={styles.itemsWrap}>
+              {order.items.slice(0, 3).map((orderItem) => (
+                <View key={orderItem.id} style={[styles.itemLine, mirroredRow(isRTL)]}>
+                  <AppText variant="bodySmall" numberOfLines={1} style={styles.itemName}>
+                    {getLocalizedOrderItemName(orderItem, menuSnapshotLookup, language)}
+                  </AppText>
+                  <AppText variant="caption" color={theme.colors.textSecondary}>
+                    {orderItem.quantity}x {getLocalizedOrderSizeName(orderItem, menuSnapshotLookup, language)}
+                  </AppText>
+                </View>
+              ))}
+            </View>
 
           {isOrderRateable(order) ? (
             <>
@@ -156,8 +158,9 @@ export const PastOrdersScreenView = ({
               />
             </>
           )}
-        </AppCard>
-      )}
+          </AppCard>
+        );
+      }}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListHeaderComponent={
         <View style={styles.headerWrap}>

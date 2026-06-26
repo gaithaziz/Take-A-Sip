@@ -27,7 +27,7 @@ import {
   getLocalizedOrderItemName,
   getLocalizedOrderSizeName,
 } from '@/utils/orderLocalization';
-import { getOrderRatingAvailabilityKey, isOrderRateable } from '@/utils/orderStatus';
+import { getCustomerOrderStatusKey, getOrderRatingAvailabilityKey, isOrderRateable } from '@/utils/orderStatus';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClientOrderDetails'>;
 
@@ -158,13 +158,14 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
   const deliveryFee = toNumber(order.delivery_fee ?? 0);
   const totalAmount = toNumber(order.total_amount ?? itemsSubtotal - discountAmount + deliveryFee);
   const canRateOrder = isOrderRateable(order);
+  const statusLabel = t(getCustomerOrderStatusKey(order.status));
 
   return (
     <View style={styles.screen}>
       <TopAppBar title={t('orders.detailsTitle')} onBack={() => navigation.goBack()} />
       <AppShell includeTopInset={false} resetScrollKey={order.id}>
         <View style={[styles.header, mirroredRow(isRTL)]}>
-          <BadgeChip label={t(`status.${order.status}`)} tone={statusToneMap[order.status]} />
+          <BadgeChip label={statusLabel} tone={statusToneMap[order.status]} />
           <BadgeChip label={formatCurrency(totalAmount, language)} tone="success" />
         </View>
 
@@ -174,6 +175,22 @@ export const ClientOrderDetailsScreen = ({ route, navigation }: Props) => {
             {formatDateTime(order.created_at, language)}
           </AppText>
         </View>
+
+        {order.status === 'ACCEPTED' ? (
+          <View style={[styles.progressNotice, mirroredRow(isRTL)]}>
+            <View style={styles.progressIcon}>
+              <Ionicons name="time-outline" size={20} color={theme.colors.primary700} />
+            </View>
+            <View style={styles.progressCopy}>
+              <AppText variant="bodySmall" color={theme.colors.primary700}>
+                {statusLabel}
+              </AppText>
+              <AppText variant="caption" color={theme.colors.textSecondary}>
+                {t('orders.estimatedReadyTime')}
+              </AppText>
+            </View>
+          </View>
+        ) : null}
 
         {order.status === 'NEW' ? (
           <AppCard style={styles.card}>
@@ -371,6 +388,29 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     gap: theme.spacing.xs,
+  },
+  progressNotice: {
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary200,
+    backgroundColor: theme.colors.primary50,
+  },
+  progressIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.white,
+  },
+  progressCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   card: {
     gap: theme.spacing.sm,

@@ -10,6 +10,8 @@ const t = (key: string) => {
     'orders.emptySubtitle': 'Your previous orders will appear here.',
     'orders.rateOrder': 'Rate order',
     'orders.ratingReady': 'You can rate this order now.',
+    'orders.statusInProgress': 'In progress',
+    'orders.estimatedReadyShort': 'Ready in about 5–25 minutes',
     'common.loading': 'Loading...',
   };
   return map[key] ?? key;
@@ -98,13 +100,15 @@ describe('PastOrdersScreen', () => {
       ],
     });
 
-    const { getByText } = render(
+    const { getByText, getAllByText } = render(
       <PastOrdersScreen navigation={{ getParent: () => ({ navigate: jest.fn() }) } as never} route={{} as never} />,
     );
 
     await waitFor(() => {
       expect(getByText('Rate order')).toBeTruthy();
       expect(getByText('You can rate this order now.')).toBeTruthy();
+      expect(getAllByText('In progress')).toHaveLength(1);
+      expect(getByText('Ready in about 5–25 minutes')).toBeTruthy();
     });
   });
 });
