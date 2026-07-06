@@ -99,6 +99,18 @@ variable "backend_latency_ms_threshold" {
   default     = 1500
 }
 
+variable "backend_slow_request_seconds_threshold" {
+  description = "Non-WebSocket, non-OTP backend request latency in seconds that triggers an alert."
+  type        = number
+  default     = 3
+}
+
+variable "backend_otp_slow_seconds_threshold" {
+  description = "OTP send latency in seconds that triggers an alert."
+  type        = number
+  default     = 10
+}
+
 variable "backend_startup_latency_ms_threshold" {
   description = "Cloud Run container startup latency in milliseconds that triggers an alert."
   type        = number
