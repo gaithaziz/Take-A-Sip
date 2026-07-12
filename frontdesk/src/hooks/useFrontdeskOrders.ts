@@ -16,7 +16,8 @@ import { FrontdeskSocket } from '@/websocket/frontdeskSocket';
 
 const baseUrl = resolveApiBaseUrl();
 const ALERT_INTERVAL_MS = 8000;
-const ORDER_POLL_INTERVAL_MS = 10000;
+const ORDER_POLL_INTERVAL_MS = 30000;
+const MENU_LOOKUP_REFRESH_MS = 5 * 60 * 1000;
 
 type FailedPrintJob = {
   order: OrderRead;
@@ -41,6 +42,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
   const alertLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const alertedNewOrderIdsRef = useRef<Set<string>>(new Set());
   const loadInFlightRef = useRef(false);
+  const menuLookupRefreshedAtRef = useRef(0);
   const appStateRef = useRef(AppState.currentState);
 
   const stopAlertLoop = useCallback(() => {
@@ -89,6 +91,20 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     }
   }, [orders, startAlertLoop, stopAlertLoop]);
 
+  const refreshMenuLookup = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - menuLookupRefreshedAtRef.current < MENU_LOOKUP_REFRESH_MS) {
+      return;
+    }
+    try {
+      const menu = await menuService.getMenu();
+      arabicLookupRef.current = buildReceiptArabicLookup(menu);
+      menuLookupRefreshedAtRef.current = now;
+    } catch {
+      // Keep previous lookup; receipt will fallback to snapshots.
+    }
+  }, []);
+
   const loadNewOrders = useCallback(async () => {
     if (loadInFlightRef.current) {
       return;
@@ -103,12 +119,6 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       const drivers = await orderService.listAvailableDrivers();
       if (isMountedRef.current) {
         setAvailableDrivers(drivers);
-      }
-      try {
-        const menu = await menuService.getMenu();
-        arabicLookupRef.current = buildReceiptArabicLookup(menu);
-      } catch {
-        // Keep previous lookup; receipt will fallback to snapshots.
       }
     } catch (error) {
       if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
@@ -162,6 +172,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     let isMounted = true;
     const boot = async () => {
       try {
+        await refreshMenuLookup(true);
         await loadNewOrders();
       } finally {
         if (isMounted) {
@@ -174,6 +185,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     const socket = new FrontdeskSocket(baseUrl, token, {
       onOpen: () => {
         setConnectionState('connected');
+        void refreshMenuLookup();
         void loadNewOrders();
       },
       onMessage: (message) => {
@@ -207,11 +219,13 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       const wasInactive = appStateRef.current !== 'active';
       appStateRef.current = nextState;
       if (nextState === 'active' && wasInactive) {
+        void refreshMenuLookup();
         void loadNewOrders();
       }
     });
     const pollTimer = setInterval(() => {
       if (appStateRef.current === 'active') {
+        void refreshMenuLookup();
         void loadNewOrders();
       }
     }, ORDER_POLL_INTERVAL_MS);
@@ -224,7 +238,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       socketRef.current = null;
       stopAlertLoop();
     };
-  }, [handleSocketMessage, loadNewOrders, onUnauthorized, stopAlertLoop, token]);
+  }, [handleSocketMessage, loadNewOrders, onUnauthorized, refreshMenuLookup, stopAlertLoop, token]);
 
   const acceptOrder = useCallback(async (order: OrderRead) => {
     try {
