@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isRtlLanguage } from '@/i18n';
 import { OrderRead, UserSummary } from '@/types/api';
@@ -31,7 +32,9 @@ const getItemsSubtotal = (order: OrderRead) =>
 
 export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComplete, drivers, onAssignDriver }: Props) => {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
+  const bottomPadding = Math.max(56, insets.bottom + frontdeskTheme.spacing.xxl);
   const localizedOrderNumber = Number.isFinite(Number(order.order_number))
     ? formatLocalizedNumber(Number(order.order_number), i18n.language)
     : order.order_number;
@@ -40,7 +43,7 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComp
   const total = Number(order.total_amount ?? subtotal - discount + Number(order.delivery_fee ?? 0));
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}>
       <FrontdeskCompositeText
         style={styles.orderNumber}
         isRTL={isRTL}
@@ -207,7 +210,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: frontdeskTheme.spacing.md,
-    paddingBottom: 20,
   },
   orderNumber: {
     ...frontdeskTheme.typography.titleLg,
