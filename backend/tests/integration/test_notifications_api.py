@@ -196,6 +196,14 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
         is_active=True,
         is_banned=False,
     )
+    frontdesk = User(
+        first_name='Faris',
+        last_name='Frontdesk',
+        phone_number='+962790001139',
+        role=UserRole.FRONTDESK,
+        is_active=True,
+        is_banned=False,
+    )
     driver = User(
         first_name='Samer',
         last_name='Driver',
@@ -224,6 +232,7 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
     db_session.add_all(
         [
             admin,
+            frontdesk,
             driver,
             customer,
             section,
@@ -260,6 +269,15 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
                 push_provider='fcm',
                 push_token='admin-token',
                 device_id='admin-device',
+                language='en',
+                is_active=True,
+            ),
+            UserPushToken(
+                user_id=frontdesk.id,
+                platform='android',
+                push_provider='fcm',
+                push_token='frontdesk-token',
+                device_id='frontdesk-device',
                 language='en',
                 is_active=True,
             ),
@@ -337,6 +355,7 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
         monkeypatch.setattr(notification_service.settings, 'push_enabled', False)
 
     assert ('admin-token', 'admin_new_order') in deliveries
+    assert ('frontdesk-token', 'frontdesk_new_order') in deliveries
     assert ('admin-token', 'admin_driver_assignment_needed') in deliveries
     assert ('client-token', 'client_order_accepted') in deliveries
     assert ('client-token-invalid', 'client_order_accepted') in deliveries

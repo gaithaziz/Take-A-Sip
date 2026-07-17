@@ -13,7 +13,7 @@ from app.services.notification_service import deactivate_push_token, register_pu
 
 router = APIRouter(prefix='/notifications', tags=['notifications'])
 
-_SUPPORTED_ROLES = {UserRole.CLIENT, UserRole.ADMIN, UserRole.DRIVER}
+_SUPPORTED_ROLES = {UserRole.CLIENT, UserRole.ADMIN, UserRole.FRONTDESK, UserRole.DRIVER}
 
 
 def _ensure_supported_role(current_user: User) -> None:

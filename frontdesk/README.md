@@ -4,13 +4,13 @@ Sunmi V2 Pro frontdesk app for incoming order handling and local thermal printin
 
 ## Features implemented
 
-- WebSocket connection to `ws://<backend>/ws/frontdesk` using `Authorization: Bearer <jwt>`
+- High-priority FCM delivery for new orders
 - Incoming `NEW` orders list
 - New order alert (vibration + native beep when module exists)
 - Accept order flow (`POST /orders/{id}/accept`)
 - Receipt formatting and print call via Sunmi native module wrapper
-- Reconnect with exponential backoff
-- Missed-order recovery on reconnect via `GET /orders?status=NEW`
+- Push-token retry when the device boots before Wi-Fi or Google Play Services is ready
+- Missed-order recovery on app resume and every five minutes
 
 ## Run
 

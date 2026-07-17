@@ -185,6 +185,16 @@ def _notification_spec(notification_type: str, order: Order, language: str) -> d
             ),
             'screen': 'AdminOrderDetails',
         },
+        'frontdesk_new_order': {
+            'role_target': UserRole.FRONTDESK.value,
+            'title': '\u0637\u0644\u0628 \u062c\u062f\u064a\u062f' if is_arabic else 'New order',
+            'body': (
+                f'\u062a\u0645 \u0627\u0633\u062a\u0644\u0627\u0645 \u0627\u0644\u0637\u0644\u0628 \u0631\u0642\u0645 {order.order_number}.'
+                if is_arabic
+                else f'Order #{order.order_number} has been received.'
+            ),
+            'screen': 'FrontdeskOrders',
+        },
         'admin_driver_assignment_needed': {
             'role_target': UserRole.ADMIN.value,
             'title': '\u0645\u0637\u0644\u0648\u0628 \u062a\u0639\u064a\u064a\u0646 \u0633\u0627\u0626\u0642' if is_arabic else 'Driver assignment needed',
@@ -232,6 +242,18 @@ async def _resolve_admin_user_ids(db: AsyncSession) -> list[UUID]:
     return [row[0] for row in result.all()]
 
 
+async def _resolve_frontdesk_user_ids(db: AsyncSession) -> list[UUID]:
+    async with _privileged_notification_context(db):
+        result = await db.execute(
+            select(User.id).where(
+                User.role == UserRole.FRONTDESK,
+                User.is_active.is_(True),
+                User.is_banned.is_(False),
+            )
+        )
+    return [row[0] for row in result.all()]
+
+
 async def _resolve_client_user_ids(db: AsyncSession) -> list[UUID]:
     async with _privileged_notification_context(db):
         result = await db.execute(
@@ -270,6 +292,21 @@ async def send_order_notification_to_admins(
         notification_type=notification_type,
         order=order,
         user_ids=admin_ids,
+    )
+
+
+async def send_order_notification_to_frontdesk(
+    db: AsyncSession,
+    *,
+    notification_type: str,
+    order: Order,
+) -> list[NotificationSendAttempt]:
+    frontdesk_ids = await _resolve_frontdesk_user_ids(db)
+    return await send_order_notification_to_users(
+        db,
+        notification_type=notification_type,
+        order=order,
+        user_ids=frontdesk_ids,
     )
 
 
@@ -531,11 +568,23 @@ async def _send_via_fcm(token: UserPushToken, payload: dict[str, str]) -> Notifi
         raise RuntimeError('FCM project id is not configured')
 
     access_token = await _create_google_access_token()
+    android_notification: dict[str, Any] = {
+        'sound': 'default',
+        'default_vibrate_timings': True,
+    }
+    if payload['role_target'] == UserRole.FRONTDESK.value:
+        android_notification['channel_id'] = 'frontdesk_orders'
+
     message = {
         'message': {
             'token': token.push_token,
             'notification': {'title': payload['title'], 'body': payload['body']},
             'data': {key: value for key, value in payload.items() if key not in {'title', 'body'}},
+            'android': {
+                'priority': 'HIGH',
+                'ttl': '300s',
+                'notification': android_notification,
+            },
         }
     }
     async with httpx.AsyncClient(timeout=10) as client:
@@ -648,6 +697,11 @@ async def emit_post_commit_order_notifications(
         )
         if event == 'order.created':
             await send_order_notification_to_admins(db, notification_type='admin_new_order', order=order)
+            await send_order_notification_to_frontdesk(
+                db,
+                notification_type='frontdesk_new_order',
+                order=order,
+            )
             if order.order_type == OrderType.DELIVERY:
                 await send_order_notification_to_admins(
                     db,

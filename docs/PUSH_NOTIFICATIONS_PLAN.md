@@ -1,15 +1,15 @@
 # Push Notifications Plan
 
 ## Summary
-Add push notifications for `CLIENT`, `ADMIN`, and `DRIVER` users. Do not add push notifications for `FRONTDESK`.
+Add push notifications for `CLIENT`, `ADMIN`, `DRIVER`, and `FRONTDESK` users.
 
-Keep `FRONTDESK` on its current websocket-based realtime flow. Add device-token registration, notification preferences groundwork, and server-triggered notifications for important order events on mobile roles.
+Use high-priority FCM as the frontdesk realtime path. Add device-token registration, notification preferences groundwork, and server-triggered notifications for important order events on mobile roles.
 
 ## Goals
 - Notify clients when their order status changes in meaningful ways.
 - Notify admins when new orders or operational exceptions need attention.
 - Notify drivers when they are assigned a delivery or when delivery state changes require action.
-- Keep frontdesk excluded from push and continue using websocket + local alert behavior there.
+- Deliver new orders to frontdesk through high-priority FCM, with app-resume and five-minute recovery syncs.
 
 ## Roles And Notification Scope
 
@@ -31,8 +31,8 @@ Keep `FRONTDESK` on its current websocket-based realtime flow. Add device-token 
 - Optional later: order updated/cancelled after assignment
 
 ### Frontdesk
-- No push notifications
-- Keep current websocket-based realtime flow unchanged
+- High-priority notification when a new order is created
+- App-resume and five-minute recovery sync for missed notifications
 
 ## Architecture Direction
 

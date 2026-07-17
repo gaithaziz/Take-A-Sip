@@ -6,17 +6,15 @@ import i18next from '@/i18n';
 import { buildReceiptText } from '@/printer/receiptFormatter';
 import { buildReceiptArabicLookup, emptyReceiptArabicLookup } from '@/printer/receiptLocalization';
 import { sunmiPrinter } from '@/printer/sunmiPrinter';
-import { resolveApiBaseUrl } from '@/services/http';
 import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
+import { notificationService } from '@/services/notificationService';
 import { formatOrderReference } from '@/utils/localeFormat';
 import { isFrontdeskActionableOrder } from '@/utils/orderPresentation';
 import { FrontdeskSocketMessage, OrderRead, UserSummary } from '@/types/api';
-import { FrontdeskSocket } from '@/websocket/frontdeskSocket';
 
-const baseUrl = resolveApiBaseUrl();
 const ALERT_INTERVAL_MS = 8000;
-const ORDER_POLL_INTERVAL_MS = 30000;
+const ORDER_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const MENU_LOOKUP_REFRESH_MS = 5 * 60 * 1000;
 
 type FailedPrintJob = {
@@ -35,7 +33,6 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     'connecting',
   );
   const [banner, setBanner] = useState<string | null>(null);
-  const socketRef = useRef<FrontdeskSocket | null>(null);
   const arabicLookupRef = useRef(emptyReceiptArabicLookup);
   const shopNameRef = useRef((process.env.EXPO_PUBLIC_SHOP_NAME || 'TAKE A SIP').trim());
   const shopNameArabicRef = useRef((process.env.EXPO_PUBLIC_SHOP_NAME_AR || 'خذلك شفة').trim());
@@ -44,6 +41,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
   const loadInFlightRef = useRef(false);
   const menuLookupRefreshedAtRef = useRef(0);
   const appStateRef = useRef(AppState.currentState);
+  const pushRegisteredRef = useRef(false);
 
   const stopAlertLoop = useCallback(() => {
     if (alertLoopRef.current) {
@@ -182,39 +180,42 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     };
     void boot();
 
-    const socket = new FrontdeskSocket(baseUrl, token, {
-      onOpen: () => {
-        setConnectionState('connected');
-        void refreshMenuLookup();
+    const registerPush = async () => {
+      if (pushRegisteredRef.current) {
+        return;
+      }
+      try {
+        const registered = await notificationService.syncPushRegistration(i18next.language);
+        if (!registered) {
+          throw new Error('Push notifications are unavailable');
+        }
+        pushRegisteredRef.current = true;
+        if (isMountedRef.current) {
+          setConnectionState('connected');
+        }
+      } catch (error) {
+        console.warn('Frontdesk push registration failed', error);
+        if (isMountedRef.current) {
+          setConnectionState('disconnected');
+        }
+      }
+    };
+    void registerPush();
+    const pushRegistrationTimer = setInterval(() => {
+      void registerPush();
+    }, 60_000);
+    const unsubscribeNotifications = notificationService.subscribe(({ orderId }) => {
+      void handleSocketMessage({
+        event: 'order.created',
+        order_id: orderId,
+        order_number: 0,
+        status: 'NEW',
+      }).catch(() => {
         void loadNewOrders();
-      },
-      onMessage: (message) => {
-        void handleSocketMessage(message).catch(() => {
-          if (!isMountedRef.current) {
-            return;
-          }
-          setBanner(i18next.t('banner.realtimeFailed'));
-        });
-      },
-      onClose: () => {
-        if (!isMountedRef.current) {
-          return;
-        }
-        setConnectionState('disconnected');
-      },
-      onError: () => {
-        if (!isMountedRef.current) {
-          return;
-        }
-        setConnectionState('disconnected');
-      },
-      onUnauthorized: () => {
-        void onUnauthorized();
-      },
+      });
     });
-    socketRef.current = socket;
+
     setConnectionState('connecting');
-    socket.connect();
     const appStateSubscription = AppState.addEventListener('change', (nextState) => {
       const wasInactive = appStateRef.current !== 'active';
       appStateRef.current = nextState;
@@ -233,9 +234,9 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     return () => {
       isMounted = false;
       clearInterval(pollTimer);
+      clearInterval(pushRegistrationTimer);
+      unsubscribeNotifications();
       appStateSubscription.remove();
-      socket.disconnect();
-      socketRef.current = null;
       stopAlertLoop();
     };
   }, [handleSocketMessage, loadNewOrders, onUnauthorized, refreshMenuLookup, stopAlertLoop, token]);
