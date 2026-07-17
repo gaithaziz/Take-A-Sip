@@ -13,9 +13,9 @@ export type FrontdeskPushPayload = {
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
+    shouldShowBanner: false,
+    shouldShowList: false,
+    shouldPlaySound: false,
     shouldSetBadge: false,
   }),
 });
@@ -47,9 +47,9 @@ export const notificationService = {
 
     await Notifications.setNotificationChannelAsync('frontdesk_orders', {
       name: 'New orders',
-      importance: Notifications.AndroidImportance.MAX,
-      sound: 'default',
-      vibrationPattern: [0, 500, 250, 500],
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: null,
+      enableVibrate: false,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
 

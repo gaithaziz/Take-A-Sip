@@ -242,8 +242,13 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
   }, [handleSocketMessage, loadNewOrders, onUnauthorized, refreshMenuLookup, stopAlertLoop, token]);
 
   const acceptOrder = useCallback(async (order: OrderRead) => {
+    let acceptedOrder: OrderRead;
     try {
-      await orderService.acceptOrder(order.id);
+      const response = await orderService.acceptOrder(order.id);
+      acceptedOrder = { ...order, status: response.status as OrderRead['status'] };
+      setOrders((prev) =>
+        [acceptedOrder, ...prev.filter((item) => item.id !== order.id)].filter(isFrontdeskActionableOrder),
+      );
     } catch {
       setBanner(i18next.t('banner.acceptFailed'));
       return;
@@ -251,7 +256,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
 
     const isArabic = i18next.language === 'ar';
     try {
-      const receipt = buildReceiptText(order, {
+      const receipt = buildReceiptText(acceptedOrder, {
         isArabic,
         shopName: shopNameRef.current,
         shopNameArabic: shopNameArabicRef.current,
@@ -263,22 +268,22 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       setBanner(i18next.t('banner.acceptedPrintFailed', { message }));
       setFailedPrints((prev) => [
         {
-          order,
+          order: acceptedOrder,
           reason: message,
           failedAt: Date.now(),
         },
         ...prev.filter((job) => job.order.id !== order.id),
       ]);
     }
-    if (order.order_type === 'delivery') {
+    if (acceptedOrder.order_type === 'delivery') {
       try {
-        const updated = await orderService.getOrder(order.id);
-        setOrders((prev) => [updated, ...prev.filter((item) => item.id !== order.id)].filter(isFrontdeskActionableOrder));
+        const updated = await orderService.getOrder(acceptedOrder.id);
+        setOrders((prev) =>
+          [updated, ...prev.filter((item) => item.id !== acceptedOrder.id)].filter(isFrontdeskActionableOrder),
+        );
       } catch {
-        setOrders((prev) => prev.filter((item) => item.id !== order.id));
+        // Keep the immediate accepted state; the recovery sync will fill in any extra fields.
       }
-    } else {
-      setOrders((prev) => prev.filter((item) => item.id !== order.id));
     }
   }, []);
 
