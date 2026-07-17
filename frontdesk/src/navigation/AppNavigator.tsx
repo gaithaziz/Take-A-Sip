@@ -17,9 +17,9 @@ type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 export const AppNavigator = () => {
-  const { token, logout } = useAuth();
+  const { token, recoverSession, logout } = useAuth();
   const { t, i18n } = useTranslation();
-  const realtime = useFrontdeskOrders(token, logout);
+  const realtime = useFrontdeskOrders(token, recoverSession);
   const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
 
   return (

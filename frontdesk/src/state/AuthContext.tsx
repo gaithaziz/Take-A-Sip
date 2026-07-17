@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { authService } from '@/services/authService';
 import { resolveApiBaseUrl, setAuthToken } from '@/services/http';
@@ -12,6 +12,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   sendOtp: (payload: SendOtpPayload) => Promise<void>;
   verifyOtp: (payload: VerifyOtpPayload) => Promise<void>;
+  recoverSession: () => Promise<boolean>;
   logout: () => Promise<void>;
 };
 
@@ -50,6 +51,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const recoveryPromiseRef = useRef<Promise<boolean> | null>(null);
   const apiBaseUrl = resolveApiBaseUrl();
 
   const clearStoredAuth = async () => {
@@ -77,18 +79,27 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     }
   };
 
-  const bootstrapAuth = async () => {
+  const authenticateKiosk = async () => {
     const kioskSecret = getBootstrapKioskSecret();
-    if (kioskSecret) {
-      try {
-        const response = await authService.kioskLogin({ secret: kioskSecret });
-        if (response.user.role === 'FRONTDESK' || response.user.role === 'ADMIN') {
-          await persistAuthState(response.access_token, response.user);
-          return true;
-        }
-      } catch {
-        // Fall back to any legacy baked token below.
+    if (!kioskSecret) {
+      return false;
+    }
+
+    const response = await authService.kioskLogin({ secret: kioskSecret });
+    if (response.user.role !== 'FRONTDESK' && response.user.role !== 'ADMIN') {
+      return false;
+    }
+    await persistAuthState(response.access_token, response.user);
+    return true;
+  };
+
+  const bootstrapAuth = async () => {
+    try {
+      if (await authenticateKiosk()) {
+        return true;
       }
+    } catch {
+      // Fall back to any legacy baked token below during startup.
     }
 
     const bootstrap = getBootstrapTokenAuth();
@@ -130,10 +141,13 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           await bootstrapAuth();
         }
       } catch {
-        // Continue without persisted auth if local storage is unavailable/corrupt.
-        setToken(null);
-        setUser(null);
-        setAuthToken(null);
+        // Storage can be unavailable after an OS update; kiosk auth must still recover.
+        const bootstrapped = await bootstrapAuth();
+        if (!bootstrapped) {
+          setToken(null);
+          setUser(null);
+          setAuthToken(null);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -153,6 +167,17 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     await persistAuthState(response.access_token, response.user);
   };
 
+  const recoverSession = async () => {
+    if (!recoveryPromiseRef.current) {
+      recoveryPromiseRef.current = authenticateKiosk()
+        .catch(() => false)
+        .finally(() => {
+          recoveryPromiseRef.current = null;
+        });
+    }
+    return recoveryPromiseRef.current;
+  };
+
   const logout = async () => {
     try {
       await clearStoredAuth();
@@ -169,7 +194,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   };
 
   const value = useMemo(
-    () => ({ isLoading, token, user, sendOtp, verifyOtp, logout }),
+    () => ({ isLoading, token, user, sendOtp, verifyOtp, recoverSession, logout }),
     [isLoading, token, user],
   );
 

@@ -23,7 +23,7 @@ type FailedPrintJob = {
   failedAt: number;
 };
 
-export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => Promise<void>) => {
+export const useFrontdeskOrders = (token: string | null, recoverSession: () => Promise<boolean>) => {
   const isMountedRef = useRef(true);
   const [orders, setOrders] = useState<OrderRead[]>([]);
   const [failedPrints, setFailedPrints] = useState<FailedPrintJob[]>([]);
@@ -119,8 +119,8 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
         setAvailableDrivers(drivers);
       }
     } catch (error) {
-      if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
-        await onUnauthorized();
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        await recoverSession();
         return;
       }
       if (!isMountedRef.current) {
@@ -130,7 +130,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
     } finally {
       loadInFlightRef.current = false;
     }
-  }, [onUnauthorized]);
+  }, [recoverSession]);
 
   const handleSocketMessage = useCallback(async (message: FrontdeskSocketMessage) => {
     if (message.event === 'order.created') {
@@ -239,7 +239,7 @@ export const useFrontdeskOrders = (token: string | null, onUnauthorized: () => P
       appStateSubscription.remove();
       stopAlertLoop();
     };
-  }, [handleSocketMessage, loadNewOrders, onUnauthorized, refreshMenuLookup, stopAlertLoop, token]);
+  }, [handleSocketMessage, loadNewOrders, recoverSession, refreshMenuLookup, stopAlertLoop, token]);
 
   const acceptOrder = useCallback(async (order: OrderRead) => {
     let acceptedOrder: OrderRead;
