@@ -258,6 +258,7 @@ async def verify_otp(payload: VerifyOTPRequest, db: AsyncSession) -> TokenRespon
         )
         db.add(user)
         await db.commit()
+        await _activate_auth_rls_context(db)
         await db.refresh(user)
         log_structured(
             logger,
@@ -295,6 +296,7 @@ async def _verify_otp_bypass(
         )
         db.add(user)
         await db.commit()
+        await _activate_auth_rls_context(db)
         await db.refresh(user)
         log_structured(
             logger,
