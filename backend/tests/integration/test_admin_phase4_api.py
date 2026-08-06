@@ -710,10 +710,25 @@ async def test_first_time_free_item_discounts_one_matching_unit_only(client, db_
     )
     db_session.add_all([client_user, section, waffle, cake, waffle_type, cake_type, waffle_size, cake_size, promo])
     await db_session.flush()
-    db_session.add(PromotionTarget(promotion_id=promo.id, target_group='scope', entity_type='section', entity_id=section.id))
+    db_session.add(PromotionTarget(promotion_id=promo.id, target_group='scope', entity_type='item', entity_id=waffle.id))
     await db_session.commit()
 
     headers = {'Authorization': f"Bearer {create_access_token(str(client_user.id), client_user.role.value)}"}
+    non_qualifying_response = await client.post(
+        '/promotions/evaluate',
+        headers=headers,
+        json={'items': [{'size_id': str(cake_size.id), 'quantity': 1, 'addon_ids': []}]},
+    )
+
+    assert non_qualifying_response.status_code == 200
+    non_qualifying_payload = non_qualifying_response.json()
+    assert non_qualifying_payload['applied_promotion'] is None
+    assert non_qualifying_payload['discount'] == '0.00'
+    non_qualifying_entries = {
+        entry['promotion']['id']: entry for entry in non_qualifying_payload['ineligible_promotions']
+    }
+    assert non_qualifying_entries[str(promo.id)]['reason_code'] == 'TARGET_MISMATCH'
+
     response = await client.post(
         '/promotions/evaluate',
         headers=headers,
@@ -729,7 +744,7 @@ async def test_first_time_free_item_discounts_one_matching_unit_only(client, db_
     payload = response.json()
     assert payload['applied_promotion']['id'] == str(promo.id)
     assert payload['discount'] == '3.25'
-    assert payload['eligible_promotions'][0]['matched_subtotal'] == '11.00'
+    assert payload['eligible_promotions'][0]['matched_subtotal'] == '6.50'
 
     db_session.add(
         Order(
@@ -750,6 +765,53 @@ async def test_first_time_free_item_discounts_one_matching_unit_only(client, db_
     assert after_first_order.status_code == 200
     ineligible = {entry['promotion']['id']: entry for entry in after_first_order.json()['ineligible_promotions']}
     assert ineligible[str(promo.id)]['reason_code'] == 'FIRST_TIME_ONLY'
+
+
+async def test_first_time_free_item_without_target_does_not_discount_cart(client, db_session):
+    client_user = User(
+        first_name='Safe',
+        last_name='Client',
+        phone_number='+962790001229',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Desserts', name_ar='حلويات', sort_order=1, is_active=True)
+    cake = Item(section=section, name_en='Cake', name_ar='كيك', sort_order=1, is_active=True)
+    cake_type = ItemType(item=cake, name_en='Slice', name_ar='قطعة', sort_order=1, is_active=True)
+    cake_size = Size(
+        item_type=cake_type,
+        name_en='Regular',
+        name_ar='عادي',
+        price=Decimal('4.50'),
+        sort_order=1,
+        is_active=True,
+    )
+    promo = Promotion(
+        title_en='Misconfigured free item',
+        title_ar='عنصر مجاني غير مكتمل',
+        type=PromotionType.FIRST_TIME_FREE_ITEM,
+        value=Decimal('0.00'),
+        starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+        ends_at=datetime.now(timezone.utc) + timedelta(days=1),
+        is_active=True,
+    )
+    db_session.add_all([client_user, section, cake, cake_type, cake_size, promo])
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(client_user.id), client_user.role.value)}"}
+    response = await client.post(
+        '/promotions/evaluate',
+        headers=headers,
+        json={'items': [{'size_id': str(cake_size.id), 'quantity': 1, 'addon_ids': []}]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['applied_promotion'] is None
+    assert payload['discount'] == '0.00'
+    ineligible = {entry['promotion']['id']: entry for entry in payload['ineligible_promotions']}
+    assert ineligible[str(promo.id)]['reason_code'] == 'ELIGIBILITY_RULE_MISSING'
 
 
 async def test_admin_users_list_includes_order_count(client, db_session):

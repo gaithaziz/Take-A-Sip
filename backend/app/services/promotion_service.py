@@ -913,7 +913,9 @@ async def evaluate_promotions_for_user(
             scope_targets = _targets_by_group(promotion, TARGET_GROUP_SCOPE)
             matching_rows = _matching_rows(line_rows, scope_targets)
             matched_subtotal = _rows_subtotal(matching_rows)
-            if reason_code is None and matched_subtotal <= 0:
+            if reason_code is None and not scope_targets:
+                reason_code = 'ELIGIBILITY_RULE_MISSING'
+            elif reason_code is None and matched_subtotal <= 0:
                 reason_code = 'TARGET_MISMATCH'
 
             if reason_code is None:
