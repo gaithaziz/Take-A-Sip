@@ -11,6 +11,7 @@ import { Item, Promotion, Section } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { getLocalizedValue } from '@/utils/i18n';
 import { useLanguage } from '@/state/LanguageContext';
+import { useStoreStatus } from '@/state/StoreStatusContext';
 
 import { HomeScreenView } from './home/HomeScreenView';
 import { HomeMenuGroup, HomeMenuSection } from './home/types';
@@ -21,6 +22,7 @@ export const HomeScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
   const { items: cartItems } = useCart();
+  const { orderingEnabled, refresh: refreshStoreStatus } = useStoreStatus();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
@@ -38,6 +40,7 @@ export const HomeScreen = ({ navigation }: Props) => {
       const [menuResult, promotionsResult] = await Promise.allSettled([
         menuService.getMenu(),
         promotionService.getActive(),
+        refreshStoreStatus(),
       ]);
 
       if (menuResult.status === 'fulfilled') {
@@ -58,7 +61,7 @@ export const HomeScreen = ({ navigation }: Props) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [sections.length, t]);
+  }, [refreshStoreStatus, sections.length, t]);
 
   useEffect(() => {
     void loadData();
@@ -123,6 +126,8 @@ export const HomeScreen = ({ navigation }: Props) => {
       loading={loading}
       refreshing={refreshing}
       error={error}
+      orderingEnabled={orderingEnabled}
+      orderingUnavailableMessage={t('errors.orderingUnavailable')}
       cartCount={cartCount}
       isRTL={isRTL}
       topInset={insets.top}

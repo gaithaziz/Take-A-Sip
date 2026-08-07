@@ -140,6 +140,8 @@ export const AdminWholeMenuPreviewScreen = () => {
           loading={loading}
           refreshing={refreshing}
           error={error}
+          orderingEnabled
+          orderingUnavailableMessage={t('errors.orderingUnavailable')}
           cartCount={0}
           isRTL={previewIsRTL}
           topInset={0}

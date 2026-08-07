@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import { Platform } from 'react-native';
 
 import { launchSingleImageGalleryPicker, requestGalleryImagePermission } from '@/utils/galleryImagePicker';
 
@@ -12,12 +13,14 @@ describe('galleryImagePicker', () => {
     jest.clearAllMocks();
   });
 
-  it('requests read access to the gallery', async () => {
+  it('does not request broad gallery access on Android', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
     (ImagePicker.requestMediaLibraryPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
 
-    await requestGalleryImagePermission();
+    const permission = await requestGalleryImagePermission();
 
-    expect(ImagePicker.requestMediaLibraryPermissionsAsync).toHaveBeenCalledWith(false);
+    expect(permission).toEqual({ granted: true });
+    expect(ImagePicker.requestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
   });
 
   it('opens the image gallery instead of the Android legacy file picker', async () => {

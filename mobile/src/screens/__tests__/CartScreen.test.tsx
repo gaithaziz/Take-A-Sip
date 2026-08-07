@@ -26,6 +26,10 @@ jest.mock('@/state/CartContext', () => ({
   }),
 }));
 
+jest.mock('@/state/StoreStatusContext', () => ({
+  useStoreStatus: () => ({ orderingEnabled: true, refresh: jest.fn() }),
+}));
+
 jest.mock('@/hooks/useCartPricing', () => ({
   useCartPricing: () => ({
     discount: 0,

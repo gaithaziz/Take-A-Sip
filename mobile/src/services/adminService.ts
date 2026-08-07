@@ -5,6 +5,7 @@ import {
   DeliveryDistanceBandListResponse,
   LoyaltyRuleListResponse,
   MenuEntityType,
+  MenuScheduleEntityType,
   MenuDeleteResponse,
   MenuResponse,
   MenuScheduleListResponse,
@@ -14,6 +15,7 @@ import {
   ProvisionStaffResponse,
   RevenueSummaryResponse,
   StaffLifecycleResponse,
+  StoreStatus,
   UserModerationResponse,
   UsersListResponse,
 } from '@/types/api';
@@ -203,6 +205,28 @@ export const adminService = {
     return data;
   },
 
+  async setMenuEntitiesAvailability(
+    entities: Array<{ entity_type: 'section' | 'item'; entity_id: string }>,
+    isActive: boolean,
+  ) {
+    const { data } = await http.patch('/admin/menu/bulk-availability', {
+      entities,
+      is_active: isActive,
+    });
+    invalidateAdminDataCache(['menuTree']);
+    return data;
+  },
+
+  async getStoreStatus(): Promise<StoreStatus> {
+    const { data } = await http.get('/admin/store/status');
+    return data;
+  },
+
+  async updateStoreStatus(orderingEnabled: boolean): Promise<StoreStatus> {
+    const { data } = await http.patch('/admin/store/status', { ordering_enabled: orderingEnabled });
+    return data;
+  },
+
   async deleteMenuEntity(kind: MenuEntityType, id: string): Promise<MenuDeleteResponse> {
     const path =
       kind === 'section'
@@ -227,13 +251,27 @@ export const adminService = {
   },
 
   async createSchedule(payload: {
-    entity_type: MenuEntityType;
+    entity_type: MenuScheduleEntityType;
     entity_id: string;
     start_time: string;
     end_time: string;
     days_of_week: number[];
   }) {
     const { data } = await http.post('/admin/menu/schedule', payload);
+    invalidateAdminDataCache(['menuTree', 'schedules']);
+    return data;
+  },
+
+  async createBulkSectionSchedule(payload: {
+    entity_ids: string[];
+    start_time: string;
+    end_time: string;
+    days_of_week: number[];
+  }): Promise<{ schedule_ids: string[] }> {
+    const { data } = await http.post('/admin/menu/schedule/bulk', {
+      entity_type: 'section',
+      ...payload,
+    });
     invalidateAdminDataCache(['menuTree', 'schedules']);
     return data;
   },

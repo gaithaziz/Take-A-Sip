@@ -1,6 +1,13 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { CheckoutScreen } from '@/screens/CheckoutScreen';
+
+jest.mock('@/state/StoreStatusContext', () => ({
+  useStoreStatus: () => ({
+    orderingEnabled: true,
+    refresh: jest.fn().mockResolvedValue({ ordering_enabled: true }),
+  }),
+}));
 import { orderService } from '@/services/orderService';
 import { addressBook } from '@/services/addressBook';
 
@@ -112,8 +119,10 @@ describe('CheckoutScreen', () => {
     fireEvent.press(getByText('Card'));
     fireEvent.press(getByText('Place order'));
 
-    expect(orderService.create).toHaveBeenCalledWith(
-      expect.objectContaining({ payment_method: 'CARD', order_type: 'pickup' }),
-    );
+    await waitFor(() => {
+      expect(orderService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ payment_method: 'CARD', order_type: 'pickup' }),
+      );
+    });
   });
 });

@@ -18,7 +18,12 @@ const requiredAndroidPermissions = [
   'ACCESS_COARSE_LOCATION',
   'ACCESS_FINE_LOCATION',
   'POST_NOTIFICATIONS',
+];
+const forbiddenAndroidPermissions = [
+  'READ_EXTERNAL_STORAGE',
   'READ_MEDIA_IMAGES',
+  'READ_MEDIA_VIDEO',
+  'WRITE_EXTERNAL_STORAGE',
 ];
 
 const failures = [];
@@ -33,6 +38,12 @@ for (const key of requiredIosStrings) {
 for (const permission of requiredAndroidPermissions) {
   if (!androidPermissions.includes(permission)) {
     failures.push(`Missing Android permission declaration: ${permission}`);
+  }
+}
+
+for (const permission of forbiddenAndroidPermissions) {
+  if (androidPermissions.includes(permission)) {
+    failures.push(`Forbidden broad Android media permission declaration: ${permission}`);
   }
 }
 

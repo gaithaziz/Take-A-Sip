@@ -24,6 +24,7 @@ from app.schemas.promotion import PromotionEvaluationItem
 from app.services.menu_service import current_store_datetime, get_schedules_index, is_entity_available
 from app.services.notification_service import emit_post_commit_order_notifications
 from app.services.promotion_service import evaluate_promotions_for_user
+from app.services.store_service import ensure_ordering_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -296,6 +297,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
     created_order: Order | None = None
     for attempt in range(max_retries):
         try:
+            await ensure_ordering_enabled(db)
             now = current_store_datetime()
             schedules_index = await get_schedules_index(db)
             sizes_by_id = await _load_sizes(db, size_ids)

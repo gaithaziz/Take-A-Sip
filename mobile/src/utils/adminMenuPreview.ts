@@ -22,7 +22,7 @@ export type AdminSubgroupOption = {
 
 export type PreviewScheduleInput = Pick<MenuSchedule, 'entity_type' | 'entity_id' | 'start_time' | 'end_time' | 'days_of_week' | 'is_active'>;
 
-export const targetKey = (target: Pick<PromotionTargetInput, 'entity_type' | 'entity_id'>) =>
+export const targetKey = (target: { entity_type: string; entity_id: string }) =>
   `${target.entity_type}:${target.entity_id}`;
 
 const parseTime = (value: string) => {
@@ -72,6 +72,10 @@ const isEntityAvailable = (
   entity_id: string,
   now: Date,
 ) => {
+  const wholeMenuSchedules = index.get('menu:00000000-0000-0000-0000-000000000000') ?? [];
+  if (wholeMenuSchedules.length > 0 && !wholeMenuSchedules.some((schedule) => isPreviewScheduleActiveNow(schedule, now))) {
+    return false;
+  }
   const schedules = index.get(`${entity_type}:${entity_id}`) ?? [];
   if (schedules.length === 0) return true;
   return schedules.some((schedule) => isPreviewScheduleActiveNow(schedule, now));

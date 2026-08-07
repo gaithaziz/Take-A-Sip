@@ -6,6 +6,7 @@ import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
 import { AppInput } from '@/components/AppInput';
 import { AppText } from '@/components/AppText';
+import { OrderingUnavailableNotice } from '@/components/OrderingUnavailableNotice';
 import { TopAppBar } from '@/components/TopAppBar';
 import { SavedAddress } from '@/services/addressBook';
 import { theme } from '@/theme';
@@ -76,6 +77,8 @@ type CheckoutScreenViewProps = {
   payableTotal: number;
   loading: boolean;
   canPlaceOrder: boolean;
+  orderingEnabled: boolean;
+  orderingUnavailableMessage: string;
   bottomInset: number;
   onBack: () => void;
   onSelectOrderType: (next: CheckoutOrderType) => void;
@@ -140,6 +143,8 @@ export const CheckoutScreenView = ({
   payableTotal,
   loading,
   canPlaceOrder,
+  orderingEnabled,
+  orderingUnavailableMessage,
   bottomInset,
   onBack,
   onSelectOrderType,
@@ -249,6 +254,9 @@ export const CheckoutScreenView = ({
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled">
+          {!orderingEnabled ? (
+            <OrderingUnavailableNotice message={orderingUnavailableMessage} isRTL={isRTL} />
+          ) : null}
           <AppCard style={styles.selectorCard}>
             <AppText variant="bodySmall" color={theme.colors.textSecondary}>
               {title}

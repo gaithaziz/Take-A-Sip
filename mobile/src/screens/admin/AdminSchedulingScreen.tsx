@@ -20,7 +20,7 @@ import { RootStackParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { MenuEntityType, MenuSchedule } from '@/types/api';
+import { MenuSchedule, MenuScheduleEntityType } from '@/types/api';
 import { buildAdminTargetOptions, targetKey } from '@/utils/adminMenuPreview';
 import { getApiErrorMessage } from '@/utils/errors';
 import { getStoreTimeZone } from '@/utils/format';
@@ -29,7 +29,7 @@ import { mirroredRow } from '@/utils/layout';
 type AdminSchedulingNavigation = NativeStackNavigationProp<RootStackParamList>;
 type ScheduleFilter = 'all' | 'active' | 'inactive';
 
-const entityTypes: Array<MenuEntityType | 'all'> = ['all', 'section', 'item', 'type', 'size', 'addon'];
+const entityTypes: Array<MenuScheduleEntityType | 'all'> = ['all', 'menu', 'section', 'item', 'type', 'size', 'addon'];
 
 export const AdminSchedulingScreen = () => {
   const { t, language } = useAppTranslation();
@@ -45,7 +45,7 @@ export const AdminSchedulingScreen = () => {
   const [labelByEntity, setLabelByEntity] = useState<Map<string, string>>(new Map());
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ScheduleFilter>('all');
-  const [typeFilter, setTypeFilter] = useState<MenuEntityType | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<MenuScheduleEntityType | 'all'>('all');
   const [dayFilter, setDayFilter] = useState<number | 'all'>('all');
   const [mutatingScheduleId, setMutatingScheduleId] = useState<string | null>(null);
   const timezone = getStoreTimeZone();
@@ -68,6 +68,7 @@ export const AdminSchedulingScreen = () => {
       setLabelsLoading(true);
       const menu = await adminService.getMenuTree();
       const labels = new Map<string, string>();
+      labels.set('menu:00000000-0000-0000-0000-000000000000', t('admin.wholeMenu'));
       buildAdminTargetOptions(menu.sections, language).forEach((option) => {
         labels.set(targetKey(option), option.label);
       });
@@ -77,7 +78,7 @@ export const AdminSchedulingScreen = () => {
     } finally {
       setLabelsLoading(false);
     }
-  }, [language]);
+  }, [language, t]);
 
   const load = useCallback(
     async (asRefresh = false) => {

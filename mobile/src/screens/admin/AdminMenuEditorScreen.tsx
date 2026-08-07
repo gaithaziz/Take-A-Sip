@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -112,6 +112,11 @@ export const AdminMenuEditorScreen = () => {
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<string[]>([]);
   const [focusedGroupBySection, setFocusedGroupBySection] = useState<Record<string, string>>({});
   const [mutatingEntityId, setMutatingEntityId] = useState<string | null>(null);
+  const [orderingEnabled, setOrderingEnabled] = useState(true);
+  const [orderingMutating, setOrderingMutating] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedEntities, setSelectedEntities] = useState<Set<string>>(new Set());
+  const [bulkMutating, setBulkMutating] = useState(false);
   const [actionSheet, setActionSheet] = useState<{
     title: string;
     items: Array<{ key: string; label: string; tone?: 'default' | 'destructive'; onPress: () => void }>;
@@ -127,9 +132,14 @@ export const AdminMenuEditorScreen = () => {
       try {
         asRefresh ? setRefreshing(true) : setLoading(true);
         setError(null);
-        const [menu, scheduleResponse] = await Promise.all([adminService.getMenuTree(), adminService.listSchedules()]);
+        const [menu, scheduleResponse, storeStatus] = await Promise.all([
+          adminService.getMenuTree(),
+          adminService.listSchedules(),
+          adminService.getStoreStatus(),
+        ]);
         setSections(menu.sections);
         setSchedules(scheduleResponse.schedules);
+        setOrderingEnabled(storeStatus.ordering_enabled);
         setExpandedSectionIds((current) => (current.length ? current : menu.sections.slice(0, 2).map((section) => section.id)));
       } catch (e) {
         setError(getApiErrorMessage(e, t));
@@ -173,6 +183,76 @@ export const AdminMenuEditorScreen = () => {
   const toggleExpanded = (sectionId: string) => {
     setExpandedSectionIds((current) =>
       current.includes(sectionId) ? current.filter((id) => id !== sectionId) : [...current, sectionId],
+    );
+  };
+
+  const toggleSelected = (kind: 'section' | 'item', id: string) => {
+    const key = `${kind}:${id}`;
+    setSelectedEntities((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const leaveSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedEntities(new Set());
+  };
+
+  const updateOrderingStatus = (nextEnabled: boolean) => {
+    Alert.alert(
+      t('admin.orderingStatus'),
+      nextEnabled ? t('admin.resumeOrderingConfirm') : t('admin.pauseOrderingConfirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: async () => {
+            try {
+              setOrderingMutating(true);
+              const next = await adminService.updateStoreStatus(nextEnabled);
+              setOrderingEnabled(next.ordering_enabled);
+            } catch (e) {
+              Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+            } finally {
+              setOrderingMutating(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const updateSelectedAvailability = (isActive: boolean) => {
+    if (selectedEntities.size === 0) return;
+    const action = isActive ? t('admin.enable') : t('admin.disable');
+    Alert.alert(
+      t('common.appName'),
+      t('admin.bulkAvailabilityConfirm', { action, count: selectedEntities.size }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: async () => {
+            try {
+              setBulkMutating(true);
+              const entities = [...selectedEntities].map((key) => {
+                const [entity_type, entity_id] = key.split(':');
+                return { entity_type: entity_type as 'section' | 'item', entity_id };
+              });
+              await adminService.setMenuEntitiesAvailability(entities, isActive);
+              leaveSelectionMode();
+              await load(true);
+            } catch (e) {
+              Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+            } finally {
+              setBulkMutating(false);
+            }
+          },
+        },
+      ],
     );
   };
 
@@ -282,14 +362,19 @@ export const AdminMenuEditorScreen = () => {
   const renderProductRow = (section: Section, item: Item) => {
     const title = getLocalizedValue(item, language, 'name');
     const description = getLocalizedValue(item, language, 'description');
+    const selectionKey = `item:${item.id}`;
+    const selected = selectedEntities.has(selectionKey);
     return (
       <Pressable
         key={item.id}
-        style={({ pressed }) => [styles.productRow, pressed ? styles.rowPressed : null]}
-        onPress={() => navigation.navigate('AdminMenuProductEditor', { item, sectionId: section.id })}
+        style={({ pressed }) => [styles.productRow, selected ? styles.selectedRow : null, pressed ? styles.rowPressed : null]}
+        onPress={() => selectionMode ? toggleSelected('item', item.id) : navigation.navigate('AdminMenuProductEditor', { item, sectionId: section.id })}
         accessibilityRole="button"
         accessibilityLabel={title}>
         <View style={[styles.productTopRow, mirroredRow(isRTL)]}>
+          {selectionMode ? (
+            <Ionicons name={selected ? 'checkbox' : 'square-outline'} size={theme.iconSizes.lg} color={theme.colors.primary700} />
+          ) : null}
           <Thumbnail uri={item.image_url} fallbackIcon="cafe-outline" />
           <View style={styles.productCopy}>
             <View style={[styles.productTitleRow, mirroredRow(isRTL)]}>
@@ -312,7 +397,7 @@ export const AdminMenuEditorScreen = () => {
             </View>
           </View>
         </View>
-        <View style={[styles.productActionRow, isCompact ? styles.productActionRowCompact : null, mirroredRow(isRTL)]}>
+        {!selectionMode ? <View style={[styles.productActionRow, isCompact ? styles.productActionRowCompact : null, mirroredRow(isRTL)]}>
           <AppButton
             title={t('admin.previewAsCustomer')}
             variant="secondary"
@@ -342,7 +427,7 @@ export const AdminMenuEditorScreen = () => {
               <Ionicons name="ellipsis-horizontal" size={theme.iconSizes.md} color={theme.colors.primary700} />
             )}
           </Pressable>
-        </View>
+        </View> : null}
       </Pressable>
     );
   };
@@ -361,6 +446,29 @@ export const AdminMenuEditorScreen = () => {
         </View>
       </View>
 
+      <AppCard style={[styles.orderingCard, !orderingEnabled ? styles.orderingCardPaused : null]}>
+        <View style={[styles.orderingRow, mirroredRow(isRTL)]}>
+          <View style={styles.orderingCopy}>
+            <AppText variant="h3">{t('admin.orderingStatus')}</AppText>
+            <BadgeChip
+              label={orderingEnabled ? t('admin.acceptingOrders') : t('admin.orderingPaused')}
+              tone={orderingEnabled ? 'success' : 'warning'}
+            />
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t('admin.orderingStatusHelp')}
+            </AppText>
+          </View>
+          <Switch
+            value={orderingEnabled}
+            disabled={orderingMutating}
+            onValueChange={updateOrderingStatus}
+            accessibilityLabel={t('admin.orderingStatus')}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary300 }}
+            thumbColor={orderingEnabled ? theme.colors.primary700 : theme.colors.textSecondary}
+          />
+        </View>
+      </AppCard>
+
       <AppCard style={styles.actionsCard}>
         <View style={[styles.primaryActions, isCompact ? styles.primaryActionsCompact : null]}>
           <AppButton
@@ -374,7 +482,35 @@ export const AdminMenuEditorScreen = () => {
             onPress={() => navigation.navigate('AdminMenuCategoryEditor', {})}
             style={styles.primaryActionButton}
           />
+          <AppButton
+            title={selectionMode ? t('common.cancel') : t('admin.selectMenuItems')}
+            variant="ghost"
+            onPress={() => selectionMode ? leaveSelectionMode() : setSelectionMode(true)}
+            style={styles.primaryActionButton}
+          />
         </View>
+        {selectionMode ? (
+          <View style={styles.bulkActions}>
+            <AppText variant="bodySmall">
+              {t('admin.selectionCount', { count: selectedEntities.size })}
+            </AppText>
+            <View style={[styles.primaryActions, isCompact ? styles.primaryActionsCompact : null]}>
+              <AppButton
+                title={t('admin.enableSelected')}
+                variant="secondary"
+                disabled={selectedEntities.size === 0 || bulkMutating}
+                onPress={() => updateSelectedAvailability(true)}
+                style={styles.primaryActionButton}
+              />
+              <AppButton
+                title={t('admin.disableSelected')}
+                disabled={selectedEntities.size === 0 || bulkMutating}
+                onPress={() => updateSelectedAvailability(false)}
+                style={styles.primaryActionButton}
+              />
+            </View>
+          </View>
+        ) : null}
       </AppCard>
 
       <AppCard style={styles.searchCard}>
@@ -410,14 +546,18 @@ export const AdminMenuEditorScreen = () => {
             const groups = buildMenuGroups(section, section.items, language);
             const focusedGroupId = focusedGroupBySection[section.id] ?? 'all';
             const visibleGroups = focusedGroupId === 'all' ? groups : groups.filter((group) => group.id === focusedGroupId);
+            const sectionSelected = selectedEntities.has(`section:${section.id}`);
             return (
               <AppCard key={section.id} style={styles.categoryCard}>
                 <Pressable
-                  style={[styles.categoryHeader, mirroredRow(isRTL)]}
-                  onPress={() => toggleExpanded(section.id)}
+                  style={[styles.categoryHeader, mirroredRow(isRTL), sectionSelected ? styles.selectedRow : null]}
+                  onPress={() => selectionMode ? toggleSelected('section', section.id) : toggleExpanded(section.id)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded }}
                   accessibilityLabel={title}>
+                  {selectionMode ? (
+                    <Ionicons name={sectionSelected ? 'checkbox' : 'square-outline'} size={theme.iconSizes.lg} color={theme.colors.primary700} />
+                  ) : null}
                   <Thumbnail uri={section.image_url} fallbackIcon="restaurant-outline" />
                   <View style={styles.categoryCopy}>
                     <View style={[styles.categoryTitleRow, mirroredRow(isRTL)]}>
@@ -435,14 +575,14 @@ export const AdminMenuEditorScreen = () => {
                       {scheduleKeys.has(`section:${section.id}`) ? <BadgeChip label={t('admin.scheduled')} tone="info" /> : null}
                     </View>
                   </View>
-                  <Pressable
+                  {!selectionMode ? <Pressable
                     style={styles.iconButton}
                     onPress={() => openSectionActions(section)}
                     accessibilityRole="button"
                     accessibilityLabel={t('admin.moreActions')}>
                     <Ionicons name="ellipsis-horizontal" size={theme.iconSizes.md} color={theme.colors.primary700} />
-                  </Pressable>
-                  <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={theme.iconSizes.md} color={theme.colors.primary700} />
+                  </Pressable> : null}
+                  {!selectionMode ? <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={theme.iconSizes.md} color={theme.colors.primary700} /> : null}
                 </Pressable>
 
                 {expanded ? (
@@ -562,6 +702,25 @@ const styles = StyleSheet.create({
   actionsCard: {
     padding: theme.spacing.md,
     borderColor: theme.colors.primary100,
+  },
+  orderingCard: {
+    borderColor: theme.colors.primary100,
+  },
+  orderingCardPaused: {
+    borderColor: theme.colors.warning,
+  },
+  orderingRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  orderingCopy: {
+    flex: 1,
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+  },
+  bulkActions: {
+    gap: theme.spacing.sm,
   },
   primaryActions: {
     flexDirection: 'row',
@@ -738,6 +897,10 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     opacity: 0.94,
+  },
+  selectedRow: {
+    borderColor: theme.colors.primary500,
+    backgroundColor: theme.colors.primary50,
   },
   productTopRow: {
     alignItems: 'stretch',

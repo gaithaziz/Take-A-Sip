@@ -1,6 +1,10 @@
 import * as ImagePicker from 'expo-image-picker';
+import { Platform } from 'react-native';
 
-export const requestGalleryImagePermission = () => ImagePicker.requestMediaLibraryPermissionsAsync(false);
+export const requestGalleryImagePermission = () =>
+  Platform.OS === 'android'
+    ? Promise.resolve({ granted: true })
+    : ImagePicker.requestMediaLibraryPermissionsAsync(false);
 
 export const launchSingleImageGalleryPicker = () =>
   ImagePicker.launchImageLibraryAsync({

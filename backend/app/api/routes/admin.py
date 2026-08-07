@@ -21,6 +21,10 @@ from app.schemas.menu import (
     AddonCreate,
     AddonRead,
     AddonUpdate,
+    BulkMenuAvailabilityRequest,
+    BulkMenuAvailabilityResponse,
+    BulkScheduleMenuRequest,
+    BulkScheduleMenuResponse,
     ItemCreate,
     ItemRead,
     ItemTypeCreate,
@@ -58,6 +62,7 @@ from app.schemas.promotion import (
     PromotionsListResponse,
     PromotionUpdate,
 )
+from app.schemas.store import StoreStatusRead, StoreStatusUpdate
 from app.schemas.user import (
     BanUserRequest,
     ProvisionStaffRequest,
@@ -69,10 +74,12 @@ from app.schemas.user import (
 )
 from app.services.menu_service import (
     create_menu_schedule,
+    create_menu_schedules,
     delete_menu_entity,
     delete_menu_schedule,
     get_admin_menu_tree,
     list_menu_schedules,
+    set_menu_entities_active,
     update_menu_schedule,
 )
 from app.services.delivery_service import (
@@ -101,6 +108,7 @@ from app.services.order_service import (
     list_admin_ratings,
 )
 from app.services.notification_service import emit_post_commit_promotion_created_notification
+from app.services.store_service import get_store_settings, set_ordering_enabled
 from app.services.user_service import (
     archive_staff_user,
     ban_user,
@@ -540,6 +548,56 @@ async def toggle_entity(
     return ToggleResponse(id=entity.id, is_active=entity.is_active)
 
 
+@router.patch('/menu/bulk-availability', response_model=BulkMenuAvailabilityResponse)
+async def bulk_set_menu_availability(
+    payload: BulkMenuAvailabilityRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> BulkMenuAvailabilityResponse:
+    updated = await set_menu_entities_active(
+        db,
+        [(entry.entity_type, entry.entity_id) for entry in payload.entities],
+        is_active=payload.is_active,
+    )
+    _invalidate_public_menu_cache()
+    return BulkMenuAvailabilityResponse(
+        updated=[ToggleResponse(id=entity.id, is_active=entity.is_active) for entity in updated]
+    )
+
+
+@router.get('/store/status', response_model=StoreStatusRead)
+async def get_admin_store_status(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> StoreStatusRead:
+    settings_row = await get_store_settings(db)
+    if settings_row is None:
+        return StoreStatusRead(ordering_enabled=True)
+    return StoreStatusRead(
+        ordering_enabled=settings_row.ordering_enabled,
+        updated_at=settings_row.updated_at,
+        updated_by_user_id=settings_row.ordering_updated_by_user_id,
+    )
+
+
+@router.patch('/store/status', response_model=StoreStatusRead)
+async def update_admin_store_status(
+    payload: StoreStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> StoreStatusRead:
+    settings_row = await set_ordering_enabled(
+        db,
+        ordering_enabled=payload.ordering_enabled,
+        actor_user_id=admin.id,
+    )
+    return StoreStatusRead(
+        ordering_enabled=settings_row.ordering_enabled,
+        updated_at=settings_row.updated_at,
+        updated_by_user_id=settings_row.ordering_updated_by_user_id,
+    )
+
+
 @router.post('/menu/schedule', response_model=ScheduleMenuResponse)
 async def schedule_menu(
     payload: ScheduleMenuRequest,
@@ -562,9 +620,30 @@ async def schedule_menu(
     return ScheduleMenuResponse(message='Schedule created', schedule_id=schedule.id)
 
 
+@router.post('/menu/schedule/bulk', response_model=BulkScheduleMenuResponse)
+async def bulk_schedule_menu(
+    payload: BulkScheduleMenuRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> BulkScheduleMenuResponse:
+    _ensure_days(payload.days_of_week)
+    start_time = _parse_hhmm(payload.start_time, 'start_time')
+    end_time = _parse_hhmm(payload.end_time, 'end_time')
+    schedules = await create_menu_schedules(
+        db,
+        entity_type=payload.entity_type,
+        entity_ids=payload.entity_ids,
+        start_time=start_time,
+        end_time=end_time,
+        days_of_week=payload.days_of_week,
+    )
+    _invalidate_public_menu_cache()
+    return BulkScheduleMenuResponse(schedule_ids=[schedule.id for schedule in schedules])
+
+
 @router.get('/menu/schedule', response_model=ScheduleListResponse)
 async def list_menu_schedule(
-    entity_type: str | None = Query(default=None, pattern='^(section|item|type|size|addon)$'),
+    entity_type: str | None = Query(default=None, pattern='^(menu|section|item|type|size|addon)$'),
     entity_id: UUID | None = Query(default=None),
     is_active: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),

@@ -55,6 +55,7 @@ const apiErrorKeyForMessage = (message: string): string | null => {
   if (detail.includes('size not found')) return 'errors.menuTargetMissing';
   if (detail.includes('addon not available')) return 'errors.addonUnavailable';
   if (detail.includes('one of the menu elements is inactive')) return 'errors.menuItemUnavailable';
+  if (detail.includes('ordering is currently unavailable')) return 'errors.orderingUnavailable';
   if (detail.includes('order quantity exceeds product limit')) return 'errors.orderLimitExceeded';
   if (detail.includes('you already have an order in progress')) return 'errors.orderInProgress';
   if (detail.includes('delivery is temporarily unavailable')) return 'errors.deliveryUnavailable';

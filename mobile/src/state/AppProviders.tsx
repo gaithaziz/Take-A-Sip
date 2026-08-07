@@ -6,6 +6,7 @@ import { AppDialogProvider } from '@/components/AppDialogProvider';
 import { AuthProvider } from './AuthContext';
 import { CartProvider } from './CartContext';
 import { LanguageProvider } from './LanguageContext';
+import { StoreStatusProvider } from './StoreStatusContext';
 
 export const AppProviders = ({ children }: PropsWithChildren) => {
   return (
@@ -13,7 +14,9 @@ export const AppProviders = ({ children }: PropsWithChildren) => {
       <LanguageProvider>
         <AppDialogProvider>
           <AuthProvider>
-            <CartProvider>{children}</CartProvider>
+            <StoreStatusProvider>
+              <CartProvider>{children}</CartProvider>
+            </StoreStatusProvider>
           </AuthProvider>
         </AppDialogProvider>
       </LanguageProvider>

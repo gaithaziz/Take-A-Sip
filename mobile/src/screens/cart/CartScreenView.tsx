@@ -5,6 +5,7 @@ import { AppCard } from '@/components/AppCard';
 import { AppText } from '@/components/AppText';
 import { EmptyState } from '@/components/EmptyState';
 import { QuantitySelector } from '@/components/QuantitySelector';
+import { OrderingUnavailableNotice } from '@/components/OrderingUnavailableNotice';
 import { TopAppBar } from '@/components/TopAppBar';
 import { CartItem } from '@/state/CartContext';
 import { theme } from '@/theme';
@@ -31,6 +32,8 @@ type CartScreenViewProps = {
   offerAppliedLabel: string;
   firstTimeOfferAppliedLabel: string;
   appliedPromotionType: string | null;
+  orderingEnabled: boolean;
+  orderingUnavailableMessage: string;
   bottomInset: number;
   onBack: () => void;
   onRemoveItem: (id: string) => void;
@@ -69,6 +72,8 @@ export const CartScreenView = ({
   offerAppliedLabel,
   firstTimeOfferAppliedLabel,
   appliedPromotionType,
+  orderingEnabled,
+  orderingUnavailableMessage,
   bottomInset,
   onBack,
   onRemoveItem,
@@ -92,7 +97,11 @@ export const CartScreenView = ({
         {!hasItems ? (
           <EmptyState title={emptyTitle} subtitle={emptySubtitle} />
         ) : (
-          items.map((item) => (
+          <>
+            {!orderingEnabled ? (
+              <OrderingUnavailableNotice message={orderingUnavailableMessage} isRTL={isRTL} />
+            ) : null}
+            {items.map((item) => (
             <AppCard key={item.id} style={styles.itemCard}>
               <View style={[styles.itemHeader, mirroredRow(isRTL)]}>
                 <View style={styles.itemInfo}>
@@ -125,7 +134,8 @@ export const CartScreenView = ({
                 <QuantitySelector value={item.quantity} max={getLineMax(items, item)} onChange={(value) => onUpdateQuantity(item.id, value)} />
               </View>
             </AppCard>
-          ))
+            ))}
+          </>
         )}
       </ScrollView>
 
@@ -153,7 +163,7 @@ export const CartScreenView = ({
                 {formatCurrency(total, language)}
               </AppText>
             </View>
-            <AppButton title={checkoutLabel} onPress={onCheckout} />
+            <AppButton title={checkoutLabel} onPress={onCheckout} disabled={!orderingEnabled} />
           </AppCard>
         </View>
       ) : null}

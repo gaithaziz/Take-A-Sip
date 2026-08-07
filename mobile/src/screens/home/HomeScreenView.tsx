@@ -18,6 +18,7 @@ import { AppCard } from '@/components/AppCard';
 import { AppText } from '@/components/AppText';
 import { EmptyState } from '@/components/EmptyState';
 import { OfferRibbon } from '@/components/OfferRibbon';
+import { OrderingUnavailableNotice } from '@/components/OrderingUnavailableNotice';
 import { ProductCard } from '@/components/ProductCard';
 import { HomeProductListSkeleton } from '@/components/skeleton/HomeProductListSkeleton';
 import { theme } from '@/theme';
@@ -32,6 +33,8 @@ type HomeScreenViewProps = {
   loading: boolean;
   refreshing: boolean;
   error: string | null;
+  orderingEnabled: boolean;
+  orderingUnavailableMessage: string;
   cartCount: number;
   isRTL: boolean;
   topInset: number;
@@ -50,6 +53,8 @@ export const HomeScreenView = ({
   loading,
   refreshing,
   error,
+  orderingEnabled,
+  orderingUnavailableMessage,
   cartCount,
   isRTL,
   topInset,
@@ -154,6 +159,10 @@ export const HomeScreenView = ({
               </Pressable>
             </View>
           </AppCard>
+
+          {!orderingEnabled ? (
+            <OrderingUnavailableNotice message={orderingUnavailableMessage} isRTL={isRTL} />
+          ) : null}
 
           {offers.length > 0 ? (
             <View style={styles.ribbonWrap}>

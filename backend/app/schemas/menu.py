@@ -127,8 +127,22 @@ class ToggleResponse(AppBaseModel):
     is_active: bool
 
 
-class ScheduleMenuRequest(AppBaseModel):
+class BulkMenuAvailabilityEntity(AppBaseModel):
     entity_type: str = Field(pattern='^(section|item|type|size|addon)$')
+    entity_id: UUID
+
+
+class BulkMenuAvailabilityRequest(AppBaseModel):
+    entities: list[BulkMenuAvailabilityEntity] = Field(min_length=1, max_length=100)
+    is_active: bool
+
+
+class BulkMenuAvailabilityResponse(AppBaseModel):
+    updated: list[ToggleResponse]
+
+
+class ScheduleMenuRequest(AppBaseModel):
+    entity_type: str = Field(pattern='^(menu|section|item|type|size|addon)$')
     entity_id: UUID
     start_time: str = Field(description='HH:MM')
     end_time: str = Field(description='HH:MM')
@@ -138,6 +152,18 @@ class ScheduleMenuRequest(AppBaseModel):
 class ScheduleMenuResponse(AppBaseModel):
     message: str
     schedule_id: UUID | None = None
+
+
+class BulkScheduleMenuRequest(AppBaseModel):
+    entity_type: str = Field(pattern='^section$')
+    entity_ids: list[UUID] = Field(min_length=1, max_length=100)
+    start_time: str = Field(description='HH:MM')
+    end_time: str = Field(description='HH:MM')
+    days_of_week: list[int] = Field(default_factory=list, description='0=Monday..6=Sunday')
+
+
+class BulkScheduleMenuResponse(AppBaseModel):
+    schedule_ids: list[UUID]
 
 
 class ScheduleRead(AppBaseModel):

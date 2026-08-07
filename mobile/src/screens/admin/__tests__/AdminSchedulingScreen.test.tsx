@@ -7,6 +7,7 @@ import { AdminSchedulingScreen } from '@/screens/admin/AdminSchedulingScreen';
 const mockListSchedules = jest.fn();
 const mockGetMenuTree = jest.fn();
 const mockCreateSchedule = jest.fn();
+const mockCreateBulkSectionSchedule = jest.fn();
 const mockUpdateSchedule = jest.fn();
 const mockDeleteSchedule = jest.fn();
 const mockNavigate = jest.fn();
@@ -42,6 +43,12 @@ const translationMap: Record<string, string> = {
   'admin.size': 'Size',
   'admin.addon': 'Add-on',
   'admin.subgroup': 'Subgroup',
+  'admin.multipleSections': 'Multiple categories',
+  'admin.wholeMenu': 'Whole menu',
+  'admin.wholeMenuScheduleHelp': 'This schedule applies to future categories.',
+  'admin.selectWholeMenu': 'Select whole menu',
+  'admin.clearSelection': 'Clear selection',
+  'admin.selectionCount': '{{count}} selected',
   'admin.storeTimezone': 'Store timezone',
   'admin.timeRange': 'Time range',
   'admin.daysOfWeek': 'Days of week',
@@ -117,6 +124,7 @@ jest.mock('@/services/adminService', () => ({
     listSchedules: (...args: any[]) => mockListSchedules(...args),
     getMenuTree: (...args: any[]) => mockGetMenuTree(...args),
     createSchedule: (...args: any[]) => mockCreateSchedule(...args),
+    createBulkSectionSchedule: (...args: any[]) => mockCreateBulkSectionSchedule(...args),
     updateSchedule: (...args: any[]) => mockUpdateSchedule(...args),
     deleteSchedule: (...args: any[]) => mockDeleteSchedule(...args),
   },
@@ -238,6 +246,7 @@ describe('AdminSchedulingScreen', () => {
     });
     mockGetMenuTree.mockResolvedValue(menuTree);
     mockCreateSchedule.mockResolvedValue({ schedule_id: 'new-schedule' });
+    mockCreateBulkSectionSchedule.mockResolvedValue({ schedule_ids: ['bulk-schedule'] });
     mockUpdateSchedule.mockResolvedValue({ id: 'schedule-1' });
     mockDeleteSchedule.mockResolvedValue(undefined);
   });
@@ -278,6 +287,39 @@ describe('AdminSchedulingScreen', () => {
       expect(mockCreateSchedule).toHaveBeenCalledWith(expect.objectContaining({ entity_type: 'item', entity_id: 'item-2' }));
     });
     expect(mockGetMenuTree).toHaveBeenCalledWith({ force: true });
+  });
+
+  it('creates a whole-menu schedule through the atomic section endpoint', async () => {
+    const { getAllByText, getByLabelText, getByText } = render(<AdminScheduleEditorScreen />);
+
+    await waitFor(() => expect(getByText('Schedule target')).toBeTruthy());
+    fireEvent.press(getByLabelText('Multiple categories'));
+    fireEvent.press(getByText('Select whole menu'));
+    fireEvent.press(getAllByText('Create schedule').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockCreateBulkSectionSchedule).toHaveBeenCalledWith(
+        expect.objectContaining({ entity_ids: ['section-1'] }),
+      );
+    });
+    expect(mockGetMenuTree).toHaveBeenCalledWith({ force: true });
+  });
+
+  it('creates a persistent whole-menu schedule rule', async () => {
+    const { getAllByText, getByLabelText, getByText } = render(<AdminScheduleEditorScreen />);
+
+    await waitFor(() => expect(getByText('Schedule target')).toBeTruthy());
+    fireEvent.press(getByLabelText('Whole menu'));
+    fireEvent.press(getAllByText('Create schedule').at(-1)!);
+
+    await waitFor(() => {
+      expect(mockCreateSchedule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity_type: 'menu',
+          entity_id: '00000000-0000-0000-0000-000000000000',
+        }),
+      );
+    });
   });
 
   it('creates a nested size schedule after refreshing the menu targets', async () => {

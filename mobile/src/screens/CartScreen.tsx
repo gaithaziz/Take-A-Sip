@@ -6,6 +6,7 @@ import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
 import { useCart } from '@/state/CartContext';
 import { useLanguage } from '@/state/LanguageContext';
+import { useStoreStatus } from '@/state/StoreStatusContext';
 
 import { CartScreenView } from './cart/CartScreenView';
 
@@ -15,6 +16,7 @@ export const CartScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
   const { items, removeItem, updateQuantity, subtotal } = useCart();
+  const { orderingEnabled } = useStoreStatus();
   const { discount, total, appliedPromotion } = useCartPricing(items, subtotal);
   const insets = useSafeAreaInsets();
 
@@ -37,11 +39,15 @@ export const CartScreen = ({ navigation }: Props) => {
       offerAppliedLabel={t('cart.offerApplied')}
       firstTimeOfferAppliedLabel={t('cart.firstTimeOfferApplied')}
       appliedPromotionType={appliedPromotion?.type ?? null}
+      orderingEnabled={orderingEnabled}
+      orderingUnavailableMessage={t('errors.orderingUnavailable')}
       bottomInset={insets.bottom}
       onBack={() => navigation.goBack()}
       onRemoveItem={removeItem}
       onUpdateQuantity={updateQuantity}
-      onCheckout={() => navigation.navigate('Checkout')}
+      onCheckout={() => {
+        if (orderingEnabled) navigation.navigate('Checkout');
+      }}
     />
   );
 };

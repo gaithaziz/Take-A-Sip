@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import { AdminMenuCustomerPreviewScreen } from '@/screens/admin/AdminMenuCustomerPreviewScreen';
 import { AdminMenuEditorScreen } from '@/screens/admin/AdminMenuEditorScreen';
@@ -10,6 +11,7 @@ const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
 const mockGetMenuTree = jest.fn();
 const mockListSchedules = jest.fn();
+const mockGetStoreStatus = jest.fn();
 
 const translationMap: Record<string, string> = {
   'common.appName': 'Take A Sip',
@@ -31,6 +33,11 @@ const translationMap: Record<string, string> = {
   'admin.filterIssues': 'Needs review',
   'admin.addProduct': 'Add product',
   'admin.addCategory': 'Add category',
+  'admin.orderingStatus': 'Ordering status',
+  'admin.acceptingOrders': 'Accepting orders',
+  'admin.orderingPaused': 'Ordering paused',
+  'admin.orderingStatusHelp': 'Customers can browse while paused.',
+  'admin.selectMenuItems': 'Select categories and products',
   'admin.addProductHere': 'Add product here',
   'admin.allSubgroups': 'All subgroups',
   'admin.ungroupedProducts': 'Ungrouped products',
@@ -217,6 +224,9 @@ jest.mock('@/services/adminService', () => ({
   adminService: {
     getMenuTree: (...args: any[]) => mockGetMenuTree(...args),
     listSchedules: (...args: any[]) => mockListSchedules(...args),
+    getStoreStatus: (...args: any[]) => mockGetStoreStatus(...args),
+    updateStoreStatus: jest.fn(),
+    setMenuEntitiesAvailability: jest.fn(),
     createSection: jest.fn(),
     createItem: jest.fn(),
     createType: jest.fn(),
@@ -246,6 +256,7 @@ describe('AdminMenuEditorScreen', () => {
       ],
     });
     mockListSchedules.mockResolvedValue({ schedules: [] });
+    mockGetStoreStatus.mockResolvedValue({ ordering_enabled: true });
   });
 
   it('shows the rebuilt browse surface and opens product/preview routes', async () => {
@@ -277,6 +288,22 @@ describe('AdminMenuEditorScreen', () => {
       item: latteItem,
       initialLanguage: 'en',
     });
+  });
+
+  it('confirms and pauses all ordering from the menu editor', async () => {
+    (adminService.updateStoreStatus as jest.Mock).mockResolvedValue({ ordering_enabled: false });
+    jest.spyOn(Alert, 'alert').mockImplementation(((_title: string, _message?: string, buttons?: any[]) => {
+      void buttons?.[1]?.onPress?.();
+    }) as typeof Alert.alert);
+
+    const { getByLabelText } = render(<AdminMenuEditorScreen />);
+    await waitFor(() => expect(getByLabelText('Ordering status')).toBeTruthy());
+    fireEvent(getByLabelText('Ordering status'), 'valueChange', false);
+
+    await waitFor(() => {
+      expect(adminService.updateStoreStatus).toHaveBeenCalledWith(false);
+    });
+    jest.restoreAllMocks();
   });
 
   it('creates a product through item, option, and variant endpoints in order', async () => {

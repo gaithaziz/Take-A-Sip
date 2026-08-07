@@ -13,6 +13,7 @@ import { useCart } from '@/state/CartContext';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { getApiErrorMessage } from '@/utils/errors';
 import { useLanguage } from '@/state/LanguageContext';
+import { useStoreStatus } from '@/state/StoreStatusContext';
 
 import { CheckoutScreenView } from './checkout/CheckoutScreenView';
 
@@ -23,6 +24,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const { isRTL } = useLanguage();
   const { token, user } = useAuth();
   const { items, subtotal, clearCart } = useCart();
+  const { orderingEnabled, refresh: refreshStoreStatus } = useStoreStatus();
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD'>('CASH');
   const { discount, total, freeDelivery } = useCartPricing(items, subtotal, orderType);
@@ -45,7 +47,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const hasDeliveryQuote = orderType === 'pickup' || (!deliveryQuoteLoading && deliveryFee !== null);
   const isDeliveryValid = orderType === 'pickup' || (hasDeliveryAddress && hasDeliveryCoords && hasDeliveryQuote);
   const isAuthenticatedClient = Boolean(token) && user?.role === 'CLIENT';
-  const canPlaceOrder = isAuthenticatedClient && items.length > 0 && isDeliveryValid && !loading;
+  const canPlaceOrder = orderingEnabled && isAuthenticatedClient && items.length > 0 && isDeliveryValid && !loading;
   const effectiveDeliveryFee = orderType === 'delivery' && freeDelivery ? 0 : deliveryFee;
   const payableTotal = total + (orderType === 'delivery' ? effectiveDeliveryFee ?? 0 : 0);
 
@@ -160,6 +162,11 @@ export const CheckoutScreen = ({ navigation }: Props) => {
 
     try {
       setLoading(true);
+      const currentStatus = await refreshStoreStatus();
+      if (!currentStatus.ordering_enabled) {
+        Alert.alert(t('common.appName'), t('errors.orderingUnavailable'));
+        return;
+      }
       await orderService.create(payload);
       if (orderType === 'delivery' && user?.id && deliveryAddress.trim() && deliveryCoords) {
         const nextAddresses = await addressBook.save(user.id, {
@@ -267,6 +274,8 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       payableTotal={payableTotal}
       loading={loading}
       canPlaceOrder={canPlaceOrder}
+      orderingEnabled={orderingEnabled}
+      orderingUnavailableMessage={t('errors.orderingUnavailable')}
       bottomInset={insets.bottom}
       onBack={() => navigation.goBack()}
       onSelectOrderType={(next) => {

@@ -13,6 +13,7 @@ from app.models.menu import Addon, Item, ItemType, MenuSchedule, Section, Size
 from app.schemas.menu import MenuDeleteCounts
 
 DEFAULT_STORE_TIMEZONE = 'Asia/Amman'
+WHOLE_MENU_SCHEDULE_ENTITY_ID = UUID(int=0)
 
 
 def get_store_timezone() -> ZoneInfo:
@@ -63,6 +64,10 @@ def _entity_available(
     entity_id: UUID,
     now: datetime,
 ) -> bool:
+    if entity_type != 'menu':
+        whole_menu_schedules = schedules_by_entity.get(('menu', WHOLE_MENU_SCHEDULE_ENTITY_ID), [])
+        if whole_menu_schedules and not any(_is_schedule_active(schedule, now) for schedule in whole_menu_schedules):
+            return False
     schedules = schedules_by_entity.get((entity_type, entity_id), [])
     if not schedules:
         return True
@@ -186,6 +191,41 @@ async def get_admin_menu_tree(db: AsyncSession) -> list[Section]:
     return sections
 
 
+async def set_menu_entities_active(
+    db: AsyncSession,
+    entities: list[tuple[str, UUID]],
+    *,
+    is_active: bool,
+) -> list[Section | Item | ItemType | Size | Addon]:
+    model_map = {
+        'section': Section,
+        'item': Item,
+        'type': ItemType,
+        'size': Size,
+        'addon': Addon,
+    }
+    unique_entities = list(dict.fromkeys(entities))
+    resolved: dict[tuple[str, UUID], Section | Item | ItemType | Size | Addon] = {}
+
+    for entity_type, model in model_map.items():
+        entity_ids = [entity_id for kind, entity_id in unique_entities if kind == entity_type]
+        if not entity_ids:
+            continue
+        result = await db.execute(select(model).where(model.id.in_(entity_ids)))
+        for entity in result.scalars().all():
+            resolved[(entity_type, entity.id)] = entity
+
+    missing = [entry for entry in unique_entities if entry not in resolved]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='One or more menu entities were not found')
+
+    updated = [resolved[entry] for entry in unique_entities]
+    for entity in updated:
+        entity.is_active = is_active
+    await db.commit()
+    return updated
+
+
 async def create_menu_schedule(
     db: AsyncSession,
     entity_type: str,
@@ -201,8 +241,12 @@ async def create_menu_schedule(
         'size': Size,
         'addon': Addon,
     }
-    model = model_map[entity_type]
-    entity = await db.get(model, entity_id)
+    if entity_type == 'menu':
+        entity_id = WHOLE_MENU_SCHEDULE_ENTITY_ID
+        entity = True
+    else:
+        model = model_map[entity_type]
+        entity = await db.get(model, entity_id)
     if entity is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Entity not found')
 
@@ -218,6 +262,42 @@ async def create_menu_schedule(
     await db.commit()
     await db.refresh(schedule)
     return schedule
+
+
+async def create_menu_schedules(
+    db: AsyncSession,
+    *,
+    entity_type: str,
+    entity_ids: list[UUID],
+    start_time: time,
+    end_time: time,
+    days_of_week: list[int],
+) -> list[MenuSchedule]:
+    if entity_type != 'section':
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Invalid bulk schedule target')
+
+    unique_ids = list(dict.fromkeys(entity_ids))
+    result = await db.execute(select(Section.id).where(Section.id.in_(unique_ids)))
+    found_ids = set(result.scalars().all())
+    if len(found_ids) != len(unique_ids):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='One or more menu entities were not found')
+
+    schedules = [
+        MenuSchedule(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            start_time=start_time,
+            end_time=end_time,
+            days_of_week=days_of_week,
+            is_active=True,
+        )
+        for entity_id in unique_ids
+    ]
+    db.add_all(schedules)
+    await db.commit()
+    for schedule in schedules:
+        await db.refresh(schedule)
+    return schedules
 
 
 async def list_menu_schedules(

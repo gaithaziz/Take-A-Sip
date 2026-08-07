@@ -20,7 +20,7 @@ import { RootStackParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
-import { MenuEntityType, MenuSchedule, Section } from '@/types/api';
+import { MenuEntityType, MenuSchedule, MenuScheduleEntityType, Section } from '@/types/api';
 import {
   AdminSubgroupOption,
   buildAdminSubgroupOptions,
@@ -34,14 +34,15 @@ import { getStoreTimeZone } from '@/utils/format';
 
 type ScheduleEditorNavigation = NativeStackNavigationProp<RootStackParamList>;
 type ScheduleEditorRoute = RouteProp<RootStackParamList, 'AdminScheduleEditor'>;
-type TargetMode = MenuEntityType | 'subgroup';
+type TargetMode = MenuScheduleEntityType | 'subgroup' | 'sections';
 
 type ScheduleForm = {
   target_mode: TargetMode;
-  entity_type: MenuEntityType;
+  entity_type: MenuScheduleEntityType;
   entity_id: string;
   subgroup_id: string;
   subgroup_item_ids: string[];
+  section_ids: string[];
   start_time: string;
   end_time: string;
   days_of_week: number[];
@@ -54,13 +55,15 @@ const defaultForm: ScheduleForm = {
   entity_id: '',
   subgroup_id: '',
   subgroup_item_ids: [],
+  section_ids: [],
   start_time: '07:00',
   end_time: '11:00',
   days_of_week: [0, 1, 2, 3, 4, 5, 6],
   is_active: true,
 };
 
-const targetModes: TargetMode[] = ['section', 'subgroup', 'item', 'type', 'size', 'addon'];
+const WHOLE_MENU_ENTITY_ID = '00000000-0000-0000-0000-000000000000';
+const targetModes: TargetMode[] = ['menu', 'section', 'sections', 'subgroup', 'item', 'type', 'size', 'addon'];
 
 const timeToDate = (value: string): Date => {
   const [h, m] = value.split(':').map(Number);
@@ -128,6 +131,7 @@ export const AdminScheduleEditorScreen = () => {
       entity_id: editingSchedule.entity_id,
       subgroup_id: '',
       subgroup_item_ids: [],
+      section_ids: [],
       start_time: editingSchedule.start_time,
       end_time: editingSchedule.end_time,
       days_of_week: editingSchedule.days_of_week,
@@ -156,13 +160,29 @@ export const AdminScheduleEditorScreen = () => {
   }, [subgroupOptions, targetQuery]);
 
   const selectedLabel = useMemo(() => {
+    if (form.target_mode === 'menu') return t('admin.wholeMenu');
+    if (form.target_mode === 'sections') {
+      if (form.section_ids.length === sections.length && sections.length > 0) return t('admin.wholeMenu');
+      return t('admin.selectionCount', { count: form.section_ids.length });
+    }
     if (form.target_mode === 'subgroup') {
       return subgroupOptions.find((option) => option.id === form.subgroup_id)?.title ?? t('admin.noTargetsSelected');
     }
     return targetOptionMap.get(`${form.entity_type}:${form.entity_id}`)?.label ?? t('admin.noTargetsSelected');
-  }, [form.entity_id, form.entity_type, form.subgroup_id, form.target_mode, subgroupOptions, t, targetOptionMap]);
+  }, [form.entity_id, form.entity_type, form.section_ids.length, form.subgroup_id, form.target_mode, sections.length, subgroupOptions, t, targetOptionMap]);
 
   const previewSchedules = useMemo<MenuSchedule[]>(() => {
+    if (form.target_mode === 'sections') {
+      return form.section_ids.map((entity_id, index) => ({
+        id: `draft-section-schedule-${index}`,
+        entity_type: 'section',
+        entity_id,
+        start_time: form.start_time,
+        end_time: form.end_time,
+        days_of_week: form.days_of_week,
+        is_active: form.is_active,
+      }));
+    }
     if (form.target_mode === 'subgroup') {
       return form.subgroup_item_ids.map((entity_id, index) => ({
         id: `draft-subgroup-schedule-${index}`,
@@ -193,10 +213,11 @@ export const AdminScheduleEditorScreen = () => {
     setForm((prev) => ({
       ...prev,
       target_mode: mode,
-      entity_type: mode === 'subgroup' ? 'item' : mode,
-      entity_id: '',
+      entity_type: mode === 'subgroup' ? 'item' : mode === 'sections' ? 'section' : mode,
+      entity_id: mode === 'menu' ? WHOLE_MENU_ENTITY_ID : '',
       subgroup_id: '',
       subgroup_item_ids: [],
+      section_ids: [],
     }));
   };
 
@@ -209,6 +230,17 @@ export const AdminScheduleEditorScreen = () => {
       entity_id: '',
       subgroup_id: subgroup.id,
       subgroup_item_ids: subgroup.item_ids,
+      section_ids: [],
+    }));
+  };
+
+  const toggleSectionTarget = (sectionId: string) => {
+    setFormError(null);
+    setForm((prev) => ({
+      ...prev,
+      section_ids: prev.section_ids.includes(sectionId)
+        ? prev.section_ids.filter((id) => id !== sectionId)
+        : [...prev.section_ids, sectionId],
     }));
   };
 
@@ -233,7 +265,11 @@ export const AdminScheduleEditorScreen = () => {
     Boolean(form.end_time) &&
     form.start_time !== form.end_time &&
     form.days_of_week.length > 0 &&
-    (form.target_mode === 'subgroup' ? form.subgroup_item_ids.length > 0 : Boolean(form.entity_id));
+    (form.target_mode === 'subgroup'
+      ? form.subgroup_item_ids.length > 0
+      : form.target_mode === 'sections'
+        ? form.section_ids.length > 0
+        : Boolean(form.entity_id));
 
   const showTargetUnavailable = () => {
     const message = t('admin.targetNoLongerAvailable');
@@ -261,7 +297,27 @@ export const AdminScheduleEditorScreen = () => {
         const freshMenu = await adminService.getMenuTree({ force: true });
         setSections(freshMenu.sections);
 
-        if (form.target_mode === 'subgroup') {
+        if (form.target_mode === 'menu') {
+          await adminService.createSchedule({
+            entity_type: 'menu',
+            entity_id: WHOLE_MENU_ENTITY_ID,
+            start_time: form.start_time,
+            end_time: form.end_time,
+            days_of_week: form.days_of_week,
+          });
+        } else if (form.target_mode === 'sections') {
+          const freshSectionIds = new Set(freshMenu.sections.map((section) => section.id));
+          if (form.section_ids.some((id) => !freshSectionIds.has(id))) {
+            showTargetUnavailable();
+            return;
+          }
+          await adminService.createBulkSectionSchedule({
+            entity_ids: form.section_ids,
+            start_time: form.start_time,
+            end_time: form.end_time,
+            days_of_week: form.days_of_week,
+          });
+        } else if (form.target_mode === 'subgroup') {
           const freshSubgroup = buildAdminSubgroupOptions(freshMenu.sections, language).find(
             (option) => option.id === form.subgroup_id,
           );
@@ -307,7 +363,7 @@ export const AdminScheduleEditorScreen = () => {
   };
 
   const targetModeLabel = (mode: TargetMode) =>
-    mode === 'subgroup' ? t('admin.subgroup') : t(`admin.${mode}`);
+    mode === 'menu' ? t('admin.wholeMenu') : mode === 'subgroup' ? t('admin.subgroup') : mode === 'sections' ? t('admin.multipleSections') : t(`admin.${mode}`);
 
   if (loading) return <DetailPageSkeleton isRTL={isRTL} sections={4} />;
   if (error) return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
@@ -364,7 +420,42 @@ export const AdminScheduleEditorScreen = () => {
               placeholder={form.target_mode === 'subgroup' ? t('admin.searchSubgroupsPlaceholder') : t('admin.targetSearchPlaceholder')}
             />
 
-            {form.target_mode === 'subgroup' ? (
+            {form.target_mode === 'menu' ? (
+              <AppCard style={styles.warningCard}>
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                  {t('admin.wholeMenuScheduleHelp')}
+                </AppText>
+              </AppCard>
+            ) : form.target_mode === 'sections' ? (
+              <View style={styles.optionStack}>
+                <AppButton
+                  title={form.section_ids.length === sections.length ? t('admin.clearSelection') : t('admin.selectWholeMenu')}
+                  variant="secondary"
+                  onPress={() => setForm((prev) => ({
+                    ...prev,
+                    section_ids: prev.section_ids.length === sections.length ? [] : sections.map((section) => section.id),
+                  }))}
+                />
+                {sections.map((section) => {
+                  const selected = form.section_ids.includes(section.id);
+                  const label = getLocalizedValue(section, language, 'name');
+                  return (
+                    <Pressable
+                      key={section.id}
+                      style={[styles.optionCard, selected ? styles.optionCardActive : null]}
+                      onPress={() => toggleSectionTarget(section.id)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      accessibilityLabel={label}>
+                      <View style={[styles.optionRow, mirroredRow(isRTL)]}>
+                        <AppText variant="bodySmall">{label}</AppText>
+                        {selected ? <BadgeChip label={t('admin.selected')} tone="success" /> : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : form.target_mode === 'subgroup' ? (
               <View style={styles.optionStack}>
                 {filteredSubgroups.length === 0 ? (
                   <AppText variant="caption" color={theme.colors.textSecondary}>{t('admin.noMatchingTargets')}</AppText>
@@ -414,6 +505,7 @@ export const AdminScheduleEditorScreen = () => {
                             entity_id: option.entity_id,
                             subgroup_id: '',
                             subgroup_item_ids: [],
+                            section_ids: [],
                           }));
                         }}
                         accessibilityRole="button"

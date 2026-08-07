@@ -7,6 +7,7 @@ import { promotionService } from '@/services/promotionService';
 
 const mockNavigate = jest.fn();
 const mockCartItems = [{ quantity: 2 }];
+const mockRefreshStoreStatus = jest.fn().mockResolvedValue({ ordering_enabled: true });
 
 const menuResponse = {
   sections: [
@@ -116,6 +117,13 @@ jest.mock('@/hooks/useAppTranslation', () => ({
 jest.mock('@/state/CartContext', () => ({
   useCart: () => ({
     items: mockCartItems,
+  }),
+}));
+
+jest.mock('@/state/StoreStatusContext', () => ({
+  useStoreStatus: () => ({
+    orderingEnabled: true,
+    refresh: mockRefreshStoreStatus,
   }),
 }));
 

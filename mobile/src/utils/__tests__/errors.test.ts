@@ -30,6 +30,14 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage(error, t)).toBe('errors.menuTargetMissing');
   });
 
+  it('translates the paused-ordering response', () => {
+    jest.spyOn(axios, 'isAxiosError').mockReturnValue(true);
+    const error = {
+      response: { status: 409, data: { detail: 'Ordering is currently unavailable' } },
+    };
+    expect(getApiErrorMessage(error, t)).toBe('errors.orderingUnavailable');
+  });
+
   it('maps validation arrays to a friendly validation message', () => {
     jest.spyOn(axios, 'isAxiosError').mockReturnValue(true);
     const error = {

@@ -1,5 +1,11 @@
 export type LanguageCode = 'en' | 'ar';
 
+export type StoreStatus = {
+  ordering_enabled: boolean;
+  updated_at?: string | null;
+  updated_by_user_id?: string | null;
+};
+
 export type AuthUser = {
   id: string;
   first_name: string;
@@ -257,6 +263,7 @@ export type OrderListResponse = {
 };
 
 export type MenuEntityType = 'section' | 'item' | 'type' | 'size' | 'addon';
+export type MenuScheduleEntityType = MenuEntityType | 'menu';
 
 export type MenuDeleteCounts = {
   sections: number;
@@ -275,7 +282,7 @@ export type MenuDeleteResponse = {
 
 export type MenuSchedule = {
   id: string;
-  entity_type: MenuEntityType;
+  entity_type: MenuScheduleEntityType;
   entity_id: string;
   start_time: string;
   end_time: string;
