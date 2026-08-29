@@ -18,6 +18,7 @@ import {
   StoreStatus,
   UserModerationResponse,
   UsersListResponse,
+  StoreSettingsUpdate,
 } from '@/types/api';
 
 import { http } from './http';
@@ -224,6 +225,16 @@ export const adminService = {
 
   async updateStoreStatus(orderingEnabled: boolean): Promise<StoreStatus> {
     const { data } = await http.patch('/admin/store/status', { ordering_enabled: orderingEnabled });
+    return data;
+  },
+
+  async getStoreSettings(): Promise<StoreStatus> {
+    const { data } = await http.get('/admin/store/settings');
+    return data;
+  },
+
+  async updateStoreSettings(payload: StoreSettingsUpdate): Promise<StoreStatus> {
+    const { data } = await http.patch('/admin/store/settings', payload);
     return data;
   },
 

@@ -62,7 +62,7 @@ from app.schemas.promotion import (
     PromotionsListResponse,
     PromotionUpdate,
 )
-from app.schemas.store import StoreStatusRead, StoreStatusUpdate
+from app.schemas.store import StoreSettingsUpdate, StoreStatusRead, StoreStatusUpdate
 from app.schemas.user import (
     BanUserRequest,
     ProvisionStaffRequest,
@@ -108,7 +108,7 @@ from app.services.order_service import (
     list_admin_ratings,
 )
 from app.services.notification_service import emit_post_commit_promotion_created_notification
-from app.services.store_service import get_store_settings, set_ordering_enabled
+from app.services.store_service import get_store_settings, set_ordering_enabled, store_status_payload, update_store_settings
 from app.services.user_service import (
     archive_staff_user,
     ban_user,
@@ -571,13 +571,7 @@ async def get_admin_store_status(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> StoreStatusRead:
     settings_row = await get_store_settings(db)
-    if settings_row is None:
-        return StoreStatusRead(ordering_enabled=True)
-    return StoreStatusRead(
-        ordering_enabled=settings_row.ordering_enabled,
-        updated_at=settings_row.updated_at,
-        updated_by_user_id=settings_row.ordering_updated_by_user_id,
-    )
+    return StoreStatusRead.model_validate(store_status_payload(settings_row))
 
 
 @router.patch('/store/status', response_model=StoreStatusRead)
@@ -591,11 +585,25 @@ async def update_admin_store_status(
         ordering_enabled=payload.ordering_enabled,
         actor_user_id=admin.id,
     )
-    return StoreStatusRead(
-        ordering_enabled=settings_row.ordering_enabled,
-        updated_at=settings_row.updated_at,
-        updated_by_user_id=settings_row.ordering_updated_by_user_id,
-    )
+    return StoreStatusRead.model_validate(store_status_payload(settings_row))
+
+
+@router.get('/store/settings', response_model=StoreStatusRead)
+async def get_admin_store_settings(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+) -> StoreStatusRead:
+    return StoreStatusRead.model_validate(store_status_payload(await get_store_settings(db)))
+
+
+@router.patch('/store/settings', response_model=StoreStatusRead)
+async def patch_admin_store_settings(
+    payload: StoreSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> StoreStatusRead:
+    settings_row = await update_store_settings(db, payload=payload, actor_user_id=admin.id)
+    return StoreStatusRead.model_validate(store_status_payload(settings_row))
 
 
 @router.post('/menu/schedule', response_model=ScheduleMenuResponse)

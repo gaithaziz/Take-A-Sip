@@ -1,5 +1,6 @@
 from app.models.base import Base
 from app.models.delivery import DeliveryDistanceBand
+from app.models.first_time_offer_claim import FirstTimeOfferClaim
 from app.models.menu import Addon, Item, ItemType, MenuSchedule, Section, Size
 from app.models.otp_challenge import OTPChallenge
 from app.models.order import Order, OrderEvent, OrderItem, OrderItemAddon, OrderRating, OrderStatus, OrderType
@@ -14,6 +15,7 @@ __all__ = [
     'Addon',
     'Base',
     'DeliveryDistanceBand',
+    'FirstTimeOfferClaim',
     'Item',
     'ItemType',
     'LoyaltyRule',

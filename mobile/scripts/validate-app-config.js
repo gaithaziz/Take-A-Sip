@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const appConfigPath = path.resolve(__dirname, '..', 'app.json');
+const appConfigPath = path.resolve(__dirname, '..', 'app.base.json');
 const raw = fs.readFileSync(appConfigPath, 'utf8');
 const config = JSON.parse(raw);
 const expo = config.expo ?? {};

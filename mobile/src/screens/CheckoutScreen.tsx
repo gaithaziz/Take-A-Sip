@@ -1,5 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -12,6 +12,7 @@ import { useAuth } from '@/state/AuthContext';
 import { useCart } from '@/state/CartContext';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { getApiErrorMessage } from '@/utils/errors';
+import { formatCurrency } from '@/utils/format';
 import { useLanguage } from '@/state/LanguageContext';
 import { useStoreStatus } from '@/state/StoreStatusContext';
 
@@ -24,8 +25,8 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const { isRTL } = useLanguage();
   const { token, user } = useAuth();
   const { items, subtotal, clearCart } = useCart();
-  const { orderingEnabled, refresh: refreshStoreStatus } = useStoreStatus();
-  const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
+  const { status: storeStatus, orderingEnabled, refresh: refreshStoreStatus } = useStoreStatus();
+  const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('delivery');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD'>('CASH');
   const { discount, total, freeDelivery } = useCartPricing(items, subtotal, orderType);
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -47,9 +48,19 @@ export const CheckoutScreen = ({ navigation }: Props) => {
   const hasDeliveryQuote = orderType === 'pickup' || (!deliveryQuoteLoading && deliveryFee !== null);
   const isDeliveryValid = orderType === 'pickup' || (hasDeliveryAddress && hasDeliveryCoords && hasDeliveryQuote);
   const isAuthenticatedClient = Boolean(token) && user?.role === 'CLIENT';
-  const canPlaceOrder = orderingEnabled && isAuthenticatedClient && items.length > 0 && isDeliveryValid && !loading;
+  const deliveryMinimum = Number(storeStatus?.minimum_delivery_order_amount ?? 0);
+  const pickupMinimum = Number(storeStatus?.minimum_pickup_order_amount ?? 0);
+  const orderMinimum = orderType === 'delivery' ? deliveryMinimum : pickupMinimum;
+  const meetsOrderMinimum = subtotal >= orderMinimum;
+  const minimumRemaining = Math.max(0, orderMinimum - subtotal);
+  const canPlaceOrder = orderingEnabled && isAuthenticatedClient && items.length > 0 && isDeliveryValid && meetsOrderMinimum && !loading;
   const effectiveDeliveryFee = orderType === 'delivery' && freeDelivery ? 0 : deliveryFee;
   const payableTotal = total + (orderType === 'delivery' ? effectiveDeliveryFee ?? 0 : 0);
+
+  useEffect(
+    () => navigation.addListener?.('focus', () => void refreshStoreStatus().catch(() => undefined)),
+    [navigation, refreshStoreStatus],
+  );
 
   useEffect(() => {
     if (!user?.id) {
@@ -163,7 +174,7 @@ export const CheckoutScreen = ({ navigation }: Props) => {
     try {
       setLoading(true);
       const currentStatus = await refreshStoreStatus();
-      if (!currentStatus.ordering_enabled) {
+      if (!(currentStatus.accepting_orders ?? currentStatus.ordering_enabled)) {
         Alert.alert(t('common.appName'), t('errors.orderingUnavailable'));
         return;
       }
@@ -275,6 +286,14 @@ export const CheckoutScreen = ({ navigation }: Props) => {
       loading={loading}
       canPlaceOrder={canPlaceOrder}
       orderingEnabled={orderingEnabled}
+      orderMinimum={orderMinimum}
+      minimumRemaining={minimumRemaining}
+      meetsOrderMinimum={meetsOrderMinimum}
+      minimumMetLabel={t(orderType === 'delivery' ? 'checkout.deliveryMinimumMet' : 'checkout.pickupMinimumMet')}
+      minimumRemainingLabel={t(
+        orderType === 'delivery' ? 'checkout.deliveryMinimumRemaining' : 'checkout.pickupMinimumRemaining',
+        { value: formatCurrency(minimumRemaining, language) },
+      )}
       orderingUnavailableMessage={t('errors.orderingUnavailable')}
       bottomInset={insets.bottom}
       onBack={() => navigation.goBack()}

@@ -1,4 +1,5 @@
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -12,7 +13,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { AdminPageSection } from '@/components/admin/AdminPageSection';
 import { DashboardPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
-import { AdminTabParamList } from '@/navigation/types';
+import { AdminTabParamList, RootStackParamList } from '@/navigation/types';
 import { adminService } from '@/services/adminService';
 import { useLanguage } from '@/state/LanguageContext';
 import { theme } from '@/theme';
@@ -132,7 +133,7 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
     void load();
   }, [load]);
 
-  const navigateToAdminStackScreen = (screen: 'AdminLoyalty' | 'AdminProfile' | 'AdminOrders') => {
+  const navigateToAdminStackScreen = (screen: 'AdminLoyalty' | 'AdminProfile' | 'AdminOrders' | 'AdminStoreSettings') => {
     navigation.getParent()?.navigate(screen as never);
   };
 
@@ -142,6 +143,10 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
 
   const openAllReviews = () => {
     navigation.getParent()?.navigate('AdminReviews' as never);
+  };
+
+  const openOrderDetails = (orderId: string) => {
+    navigation.getParent<NavigationProp<RootStackParamList>>()?.navigate('AdminOrderDetails', { orderId });
   };
 
   const quickActions = useMemo<QuickAction[]>(
@@ -194,6 +199,13 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
         icon: 'bicycle',
         value: String(orderAnalytics.deliveryOrdersToday),
         onPress: () => navigation.navigate('AdminDelivery'),
+      },
+      {
+        key: 'store-settings',
+        label: t('admin.storeSettingsTitle'),
+        icon: 'storefront-outline',
+        value: t('admin.tapToOpen'),
+        onPress: () => navigateToAdminStackScreen('AdminStoreSettings'),
       },
       {
         key: 'profile',
@@ -381,23 +393,31 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
           <View style={styles.stack}>
             <AppButton title={t('admin.viewAllOrders')} variant="secondary" onPress={openAllOrders} />
             {latestOrdersPreview.map((order) => (
-              <AppCard key={order.id} style={styles.listCard}>
-                <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
-                  <AppText variant="h3">#{order.order_number}</AppText>
-                  <BadgeChip
-                    label={t(`status.${order.status}`)}
-                    tone={isFinalDeliveredStatus(order.status) ? 'success' : order.status === 'CANCELLED' ? 'error' : 'warning'}
-                  />
-                </View>
-                <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
-                  <AppText variant="caption" color={theme.colors.textSecondary}>
-                    {formatDateTime(order.created_at, language)}
-                  </AppText>
-                  <AppText variant="caption" color={theme.colors.textSecondary}>
-                    {order.order_type}
-                  </AppText>
-                </View>
-              </AppCard>
+              <Pressable
+                key={order.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('admin.viewOrderDetails')} #${order.order_number}`}
+                onPress={() => openOrderDetails(order.id)}>
+                {({ pressed }) => (
+                  <AppCard style={[styles.listCard, pressed ? styles.listCardPressed : null]}>
+                    <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
+                      <AppText variant="h3">#{order.order_number}</AppText>
+                      <BadgeChip
+                        label={t(`status.${order.status}`)}
+                        tone={isFinalDeliveredStatus(order.status) ? 'success' : order.status === 'CANCELLED' ? 'error' : 'warning'}
+                      />
+                    </View>
+                    <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
+                      <AppText variant="caption" color={theme.colors.textSecondary}>
+                        {formatDateTime(order.created_at, language)}
+                      </AppText>
+                      <AppText variant="caption" color={theme.colors.textSecondary}>
+                        {order.order_type === 'pickup' ? t('admin.orderTypePickup') : t('admin.orderTypeDelivery')}
+                      </AppText>
+                    </View>
+                  </AppCard>
+                )}
+              </Pressable>
             ))}
           </View>
         )}
@@ -445,22 +465,30 @@ export const AdminDashboardScreen = ({ navigation }: Props) => {
           <View style={styles.stack}>
             <AppButton title={t('admin.viewAllReviews')} variant="secondary" onPress={openAllReviews} />
             {recentRatings.map((rating) => (
-              <AppCard key={`${rating.order_id}-${rating.created_at}`} style={styles.listCard}>
-                <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
-                  <AppText variant="h3" style={styles.grow}>
-                    {rating.customer_name}
-                  </AppText>
-                  <AppText variant="caption" color={theme.colors.textSecondary}>
-                    {formatDateTime(rating.created_at, language)}
-                  </AppText>
-                </View>
-                <AppText variant="bodySmall">{`${rating.stars}/5`}</AppText>
-                {rating.note ? (
-                  <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                    {rating.note}
-                  </AppText>
-                ) : null}
-              </AppCard>
+              <Pressable
+                key={`${rating.order_id}-${rating.created_at}`}
+                accessibilityRole="button"
+                accessibilityLabel={t('admin.viewRatedOrder')}
+                onPress={() => openOrderDetails(rating.order_id)}>
+                {({ pressed }) => (
+                  <AppCard style={[styles.listCard, pressed ? styles.listCardPressed : null]}>
+                    <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
+                      <AppText variant="h3" style={styles.grow}>
+                        {rating.customer_name}
+                      </AppText>
+                      <AppText variant="caption" color={theme.colors.textSecondary}>
+                        {formatDateTime(rating.created_at, language)}
+                      </AppText>
+                    </View>
+                    <AppText variant="bodySmall">{`${rating.stars}/5`}</AppText>
+                    {rating.note ? (
+                      <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                        {rating.note}
+                      </AppText>
+                    ) : null}
+                  </AppCard>
+                )}
+              </Pressable>
             ))}
           </View>
         )}
@@ -533,10 +561,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.secondaryCream,
     borderColor: theme.colors.primary200,
   },
+  listCardPressed: {
+    opacity: 0.82,
+  },
   inlineRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: theme.spacing.sm,
   },
   grow: {

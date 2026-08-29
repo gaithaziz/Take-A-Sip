@@ -22,7 +22,7 @@ export const HomeScreen = ({ navigation }: Props) => {
   const { t, language } = useAppTranslation();
   const { isRTL } = useLanguage();
   const { items: cartItems } = useCart();
-  const { orderingEnabled, refresh: refreshStoreStatus } = useStoreStatus();
+  const { status: storeStatus, orderingEnabled, refresh: refreshStoreStatus } = useStoreStatus();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
@@ -66,6 +66,11 @@ export const HomeScreen = ({ navigation }: Props) => {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(
+    () => navigation.addListener?.('focus', () => void refreshStoreStatus().catch(() => undefined)),
+    [navigation, refreshStoreStatus],
+  );
 
   const cartCount = useMemo(
     () => cartItems.reduce((sum, cartItem) => sum + cartItem.quantity, 0),
@@ -127,6 +132,8 @@ export const HomeScreen = ({ navigation }: Props) => {
       refreshing={refreshing}
       error={error}
       orderingEnabled={orderingEnabled}
+      storeStatus={storeStatus}
+      language={language}
       orderingUnavailableMessage={t('errors.orderingUnavailable')}
       cartCount={cartCount}
       isRTL={isRTL}

@@ -1,9 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { OrderRead } from '@/types/api';
 import { formatLocalizedNumber, formatLocalizedTime } from '@/utils/localeFormat';
-import { getOrderStatusLabel, getOrderTypeLabel, isPickupInProgressOrder, needsDriverAssignment } from '@/utils/orderPresentation';
-import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskLabelValueText, StatusChip } from '@/ui/frontdeskPrimitives';
+import { canMarkDeliveryDelivered, canMarkDeliveryOutForDelivery, canMarkDeliveryReady, canPrintOrder, getOrderStatusLabel, getOrderTypeLabel, isPickupInProgressOrder, needsDriverAssignment } from '@/utils/orderPresentation';
+import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskIconButton, FrontdeskLabelValueText, StatusChip } from '@/ui/frontdeskPrimitives';
 import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
 type Props = {
@@ -13,10 +14,18 @@ type Props = {
   onReject: () => void;
   onCancel: () => void;
   onComplete: () => void;
+  onReady: () => void;
+  onOutForDelivery: () => void;
+  onDelivered: () => void;
+  onPrint: () => void;
   isAccepting: boolean;
   isRejecting: boolean;
   isCancelling: boolean;
   isCompleting: boolean;
+  isMarkingReady: boolean;
+  isMarkingOutForDelivery: boolean;
+  isMarkingDelivered: boolean;
+  isPrinting: boolean;
   isRTL: boolean;
   density: 'compact' | 'comfortable';
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -31,19 +40,27 @@ type Props = {
     reject: string;
     cancel: string;
     complete: string;
+    ready: string;
+    outForDelivery: string;
+    delivered: string;
+    print: string;
     needsAssignment: string;
     assignedTo: string;
   };
 };
 
 const canCancel = (status: OrderRead['status']) =>
-  status === 'ACCEPTED' || status === 'ASSIGNED' || status === 'ASSIGNED_TO_DRIVER';
+  status === 'ACCEPTED' ||
+  status === 'ASSIGNED' ||
+  status === 'ASSIGNED_TO_DRIVER' ||
+  status === 'READY' ||
+  status === 'OUT_FOR_DELIVERY';
 
 const getStatusTone = (status: OrderRead['status']): 'new' | 'accepted' | 'cancelled' | 'neutral' => {
   if (status === 'NEW') {
     return 'new';
   }
-  if (status === 'ACCEPTED' || status === 'ASSIGNED' || status === 'ASSIGNED_TO_DRIVER') {
+  if (status === 'ACCEPTED' || status === 'ASSIGNED' || status === 'ASSIGNED_TO_DRIVER' || status === 'READY') {
     return 'accepted';
   }
   if (status === 'CANCELLED') {
@@ -59,10 +76,18 @@ export const OrderCard = ({
   onReject,
   onCancel,
   onComplete,
+  onReady,
+  onOutForDelivery,
+  onDelivered,
+  onPrint,
   isAccepting,
   isRejecting,
   isCancelling,
   isCompleting,
+  isMarkingReady,
+  isMarkingOutForDelivery,
+  isMarkingDelivered,
+  isPrinting,
   isRTL,
   density,
   t,
@@ -72,7 +97,15 @@ export const OrderCard = ({
   const itemsSummary = order.items
     .map((item) => `${formatLocalizedNumber(item.quantity, language)}x ${item.item_name_snapshot}`)
     .join(', ');
-  const isBusy = isAccepting || isRejecting || isCancelling || isCompleting;
+  const isBusy =
+    isAccepting ||
+    isRejecting ||
+    isCancelling ||
+    isCompleting ||
+    isMarkingReady ||
+    isMarkingOutForDelivery ||
+    isMarkingDelivered ||
+    isPrinting;
   const localizedOrderNumber = Number.isFinite(Number(order.order_number))
     ? formatLocalizedNumber(Number(order.order_number), language)
     : order.order_number;
@@ -143,7 +176,7 @@ export const OrderCard = ({
         ) : null}
       </Pressable>
 
-      {(order.status === 'NEW' || canCancel(order.status) || isPickupInProgressOrder(order)) && (
+      {(order.status === 'NEW' || canCancel(order.status) || isPickupInProgressOrder(order) || canMarkDeliveryReady(order) || canMarkDeliveryOutForDelivery(order) || canMarkDeliveryDelivered(order) || canPrintOrder(order)) && (
         <View style={[styles.actionsRow, isCompact ? styles.actionsRowCompact : styles.actionsRowComfortable, isRTL ? styles.actionsRowRtl : null]}>
           {order.status === 'NEW' ? (
             <>
@@ -163,6 +196,69 @@ export const OrderCard = ({
                 variant="danger"
                 isRTL={isRTL}
                 minHeight={isCompact ? frontdeskTheme.touch.medium : frontdeskTheme.touch.large}
+                style={styles.flexButton}
+              />
+            </>
+          ) : canMarkDeliveryReady(order) ? (
+            <>
+              <FrontdeskButton
+                label={isMarkingReady ? t('orders.markingReady') : labels.ready}
+                onPress={onReady}
+                disabled={isBusy}
+                variant="primary"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
+                style={styles.flexButton}
+              />
+              <FrontdeskButton
+                label={isCancelling ? t('orders.cancelling') : labels.cancel}
+                onPress={onCancel}
+                disabled={isBusy}
+                variant="danger"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
+                style={styles.flexButton}
+              />
+            </>
+          ) : canMarkDeliveryOutForDelivery(order) ? (
+            <>
+              <FrontdeskButton
+                label={isMarkingOutForDelivery ? t('orders.markingOutForDelivery') : labels.outForDelivery}
+                onPress={onOutForDelivery}
+                disabled={isBusy}
+                variant="primary"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
+                style={styles.flexButton}
+              />
+              <FrontdeskButton
+                label={isCancelling ? t('orders.cancelling') : labels.cancel}
+                onPress={onCancel}
+                disabled={isBusy}
+                variant="danger"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
+                style={styles.flexButton}
+              />
+            </>
+          ) : canMarkDeliveryDelivered(order) ? (
+            <>
+              <FrontdeskButton
+                label={isMarkingDelivered ? t('orders.markingDelivered') : labels.delivered}
+                onPress={onDelivered}
+                disabled={isBusy}
+                variant="primary"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
+                style={styles.flexButton}
+              />
+              <FrontdeskButton
+                label={isCancelling ? t('orders.cancelling') : labels.cancel}
+                onPress={onCancel}
+                disabled={isBusy}
+                variant="danger"
+                isRTL={isRTL}
+                minHeight={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
                 style={styles.flexButton}
               />
             </>
@@ -198,6 +294,21 @@ export const OrderCard = ({
               style={styles.flexButton}
             />
           )}
+          {canPrintOrder(order) ? (
+            <FrontdeskIconButton
+              accessibilityLabel={labels.print}
+              onPress={onPrint}
+              disabled={isBusy}
+              minSize={isCompact ? frontdeskTheme.touch.min : frontdeskTheme.touch.medium}
+              icon={
+                <Ionicons
+                  name={isPrinting ? 'hourglass-outline' : 'print-outline'}
+                  size={isCompact ? 20 : 22}
+                  color={frontdeskTheme.colors.primary}
+                />
+              }
+            />
+          ) : null}
         </View>
       )}
     </FrontdeskCard>

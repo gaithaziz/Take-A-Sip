@@ -21,6 +21,7 @@ const statusToneMap = {
   NEW: 'warning',
   ACCEPTED: 'info',
   ASSIGNED: 'info',
+  READY: 'info',
   OUT_FOR_DELIVERY: 'info',
   DELIVERED: 'success',
   COMPLETED: 'success',

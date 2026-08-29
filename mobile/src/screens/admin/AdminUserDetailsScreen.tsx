@@ -39,6 +39,7 @@ const toneByStatus: Record<OrderRead['status'], 'info' | 'success' | 'warning' |
   NEW: 'warning',
   ACCEPTED: 'info',
   ASSIGNED: 'info',
+  READY: 'info',
   OUT_FOR_DELIVERY: 'info',
   DELIVERED: 'success',
   COMPLETED: 'success',

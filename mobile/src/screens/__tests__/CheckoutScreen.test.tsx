@@ -2,8 +2,14 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { CheckoutScreen } from '@/screens/CheckoutScreen';
 
+let mockStoreStatus = {
+  minimum_delivery_order_amount: '0.00',
+  minimum_pickup_order_amount: '0.00',
+};
+
 jest.mock('@/state/StoreStatusContext', () => ({
   useStoreStatus: () => ({
+    status: mockStoreStatus,
     orderingEnabled: true,
     refresh: jest.fn().mockResolvedValue({ ordering_enabled: true }),
   }),
@@ -27,6 +33,10 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'checkout.savedAddressHint': 'You can save this delivery address for next time.',
         'checkout.noSavedAddresses': 'Saved delivery addresses will appear here after you save one.',
         'checkout.placeOrder': 'Place order',
+        'checkout.deliveryMinimumMet': 'Delivery minimum reached',
+        'checkout.deliveryMinimumRemaining': 'Add more for delivery',
+        'checkout.pickupMinimumMet': 'Pickup minimum reached',
+        'checkout.pickupMinimumRemaining': 'Add more for pickup',
         'checkout.paymentMethod': 'Payment method',
         'checkout.cash': 'Cash',
         'checkout.card': 'Card',
@@ -94,17 +104,19 @@ jest.mock('@/services/addressBook', () => ({
 describe('CheckoutScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockStoreStatus = {
+      minimum_delivery_order_amount: '0.00',
+      minimum_pickup_order_amount: '0.00',
+    };
     (addressBook.list as jest.Mock).mockResolvedValue([]);
   });
 
-  it('shows inline delivery address error and keeps submit disabled until valid', () => {
-    const { getByText, getByTestId } = render(
+  it('defaults to delivery and keeps submit disabled until delivery details are valid', () => {
+    const { getByLabelText, getByTestId } = render(
       <CheckoutScreen navigation={{ navigate: jest.fn(), goBack: jest.fn() } as never} route={{} as never} />,
     );
 
-    fireEvent.press(getByText('Delivery'));
-
-    expect(getByText('Delivery address is required')).toBeTruthy();
+    expect(getByLabelText('Delivery').props.accessibilityState).toEqual({ selected: true });
     expect(getByTestId('checkout-place-order')).toBeDisabled();
     expect(orderService.create).not.toHaveBeenCalled();
   });
@@ -117,6 +129,7 @@ describe('CheckoutScreen', () => {
     );
 
     fireEvent.press(getByText('Card'));
+    fireEvent.press(getByText('Pickup'));
     fireEvent.press(getByText('Place order'));
 
     await waitFor(() => {
@@ -124,5 +137,35 @@ describe('CheckoutScreen', () => {
         expect.objectContaining({ payment_method: 'CARD', order_type: 'pickup' }),
       );
     });
+  });
+
+  it('switches between separate delivery and pickup minimums', () => {
+    mockStoreStatus = {
+      minimum_delivery_order_amount: '15.00',
+      minimum_pickup_order_amount: '12.00',
+    };
+    const { getByText, getByTestId } = render(
+      <CheckoutScreen navigation={{ navigate: jest.fn(), goBack: jest.fn() } as never} route={{} as never} />,
+    );
+
+    expect(getByTestId('checkout-place-order')).toBeDisabled();
+    expect(getByText('Add more for delivery')).toBeTruthy();
+    fireEvent.press(getByText('Pickup'));
+    expect(getByTestId('checkout-place-order')).toBeDisabled();
+    expect(getByText('Add more for pickup')).toBeTruthy();
+  });
+
+  it('allows pickup when its selected minimum is met', () => {
+    mockStoreStatus = {
+      minimum_delivery_order_amount: '15.00',
+      minimum_pickup_order_amount: '10.00',
+    };
+    const { getByText, getByTestId } = render(
+      <CheckoutScreen navigation={{ navigate: jest.fn(), goBack: jest.fn() } as never} route={{} as never} />,
+    );
+
+    fireEvent.press(getByText('Pickup'));
+    expect(getByTestId('checkout-place-order')).toBeEnabled();
+    expect(getByText(/Pickup minimum reached/)).toBeTruthy();
   });
 });

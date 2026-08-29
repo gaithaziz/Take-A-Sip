@@ -135,6 +135,7 @@ export type OrderRead = {
     | 'ACCEPTED'
     | 'ASSIGNED'
     | 'ASSIGNED_TO_DRIVER'
+    | 'READY'
     | 'OUT_FOR_DELIVERY'
     | 'DELIVERED'
     | 'COMPLETED'
@@ -159,7 +160,7 @@ export type FrontdeskSocketMessage = {
   event: 'order.created' | 'order.accepted' | 'order.assigned' | 'order.status_changed';
   order_id: string;
   order_number: number;
-  status: string;
+  status: OrderRead['status'];
 };
 
 export type UserSummary = {

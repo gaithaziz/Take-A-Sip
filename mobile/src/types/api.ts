@@ -2,8 +2,31 @@ export type LanguageCode = 'en' | 'ar';
 
 export type StoreStatus = {
   ordering_enabled: boolean;
+  accepting_orders: boolean;
+  unavailable_reason?: 'MANUAL_PAUSE' | 'OUTSIDE_WORKING_HOURS' | null;
+  timezone: string;
+  working_hours?: WorkingHoursDay[] | null;
+  current_open_at?: string | null;
+  next_open_at?: string | null;
+  next_status_change_at?: string | null;
+  minimum_delivery_order_amount: string;
+  minimum_pickup_order_amount: string;
   updated_at?: string | null;
   updated_by_user_id?: string | null;
+};
+
+export type WorkingHoursDay = {
+  day_of_week: number;
+  is_open: boolean;
+  opens_at?: string | null;
+  closes_at?: string | null;
+};
+
+export type StoreSettingsUpdate = {
+  ordering_enabled?: boolean;
+  working_hours?: WorkingHoursDay[] | null;
+  minimum_delivery_order_amount?: string;
+  minimum_pickup_order_amount?: string;
 };
 
 export type AuthUser = {
@@ -201,6 +224,7 @@ export type OrderItemAddonRead = {
   id: string;
   addon_id_snapshot?: string | null;
   addon_name_snapshot: string;
+  addon_name_ar_snapshot?: string | null;
   price_snapshot: string;
 };
 
@@ -209,7 +233,12 @@ export type OrderItemRead = {
   item_id_snapshot?: string | null;
   size_id_snapshot?: string | null;
   item_name_snapshot: string;
+  item_name_ar_snapshot?: string | null;
+  item_type_id_snapshot?: string | null;
+  item_type_name_snapshot?: string | null;
+  item_type_name_ar_snapshot?: string | null;
   size_snapshot: string;
+  size_name_ar_snapshot?: string | null;
   price_snapshot: string;
   quantity: number;
   addons: OrderItemAddonRead[];
@@ -249,7 +278,7 @@ export type OrderRead = {
   assigned_at?: string | null;
   completed_at?: string | null;
   google_maps_url?: string | null;
-  status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+  status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
   order_type: 'pickup' | 'delivery';
   payment_method: 'CASH' | 'CARD';
   created_at: string;

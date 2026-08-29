@@ -35,19 +35,23 @@ export const orderService = {
     const { data } = await http.get(`/orders/${orderId}`);
     return data;
   },
+  async accept(orderId: string): Promise<{ id: string; status: string }> {
+    const { data } = await http.post(`/orders/${orderId}/accept`);
+    return data;
+  },
   async assignDriver(orderId: string, driverUserId: string): Promise<OrderRead> {
     const { data } = await http.post(`/orders/${orderId}/assign-driver`, { driver_user_id: driverUserId });
     return data;
   },
   async updateStatus(
     orderId: string,
-    status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
+    status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
   ): Promise<{ id: string; status: string }> {
     const { data } = await http.post(`/orders/${orderId}/status`, { status });
     return data;
   },
   async getDriverAssigned(
-    status?: 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
+    status?: 'ASSIGNED' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
     limit = 20,
     offset = 0,
   ): Promise<OrderListResponse> {

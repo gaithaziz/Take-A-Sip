@@ -36,7 +36,7 @@ export const orderService = {
   },
   updateStatus: async (
     orderId: string,
-    status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'ASSIGNED_TO_DRIVER' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
+    status: 'NEW' | 'ACCEPTED' | 'ASSIGNED' | 'ASSIGNED_TO_DRIVER' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED',
   ) => {
     const { data } = await http.post<{ id: string; status: string }>(`/orders/${orderId}/status`, { status });
     return data;

@@ -58,7 +58,9 @@ export const DriverOrdersScreen = ({ navigation }: Props) => {
     return <EmptyState title={t('common.error')} subtitle={error} actionLabel={t('common.retry')} onAction={load} />;
   }
 
-  const activeOrders = orders.filter((order) => order.status === 'ASSIGNED' || order.status === 'OUT_FOR_DELIVERY');
+  const activeOrders = orders.filter(
+    (order) => order.status === 'ASSIGNED' || order.status === 'READY' || order.status === 'OUT_FOR_DELIVERY',
+  );
   const completedOrders = orders.filter(
     (order) => order.status === 'DELIVERED' || order.status === 'COMPLETED' || order.status === 'CANCELLED',
   );

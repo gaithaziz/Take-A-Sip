@@ -107,6 +107,39 @@ export const FrontdeskLabelValueText = ({
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
+type FrontdeskIconButtonProps = {
+  icon: ReactNode;
+  accessibilityLabel: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  minSize?: number;
+  style?: StyleProp<ViewStyle>;
+};
+
+export const FrontdeskIconButton = ({
+  icon,
+  accessibilityLabel,
+  onPress,
+  disabled = false,
+  minSize = frontdeskTheme.touch.medium,
+  style,
+}: FrontdeskIconButtonProps) => (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={accessibilityLabel}
+    disabled={disabled}
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.iconButton,
+      { width: minSize, minWidth: minSize, height: minSize, opacity: disabled ? 0.55 : 1 },
+      pressed && !disabled ? styles.iconButtonPressed : null,
+      style,
+    ]}
+  >
+    {icon}
+  </Pressable>
+);
+
 type FrontdeskButtonProps = {
   label: string;
   onPress?: () => void;
@@ -200,6 +233,18 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.96,
     transform: [{ scale: 0.985 }],
+  },
+  iconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: frontdeskTheme.radius.md,
+    backgroundColor: '#F6EFE5',
+    borderWidth: 1,
+    borderColor: frontdeskTheme.colors.border,
+  },
+  iconButtonPressed: {
+    backgroundColor: '#EFE4D6',
+    transform: [{ scale: 0.97 }],
   },
   primaryButton: {
     backgroundColor: frontdeskTheme.colors.primary,

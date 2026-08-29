@@ -1,10 +1,20 @@
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from uuid import UUID
+
 from sqlalchemy import select
 
+from app.core.phone import phone_identity_fingerprint
+from app.models.first_time_offer_claim import FirstTimeOfferClaim
+from app.models.menu import Item, ItemType, Section, Size
+from app.models.order import Order, OrderStatus, OrderType
+from app.models.promotion import Promotion, PromotionType
 from app.models.user import User
 from app.models.user_event import UserEvent
 from app.models.user_push_token import UserPushToken
 from app.models.user_refresh_token import UserRefreshToken
 from app.services.otp_service import otp_service
+from app.services.offer_identity_service import claim_first_time_identity
 
 
 async def test_auth_send_and_verify_otp(client):
@@ -191,3 +201,100 @@ async def test_auth_delete_account_anonymizes_and_allows_new_signup(client, db_s
     assert recreate_response.status_code == 200
     recreated_user = recreate_response.json()['user']
     assert recreated_user['phone_number'] == phone
+
+
+async def test_deleted_customer_cannot_reclaim_first_offer_with_equivalent_phone_format(client, db_session):
+    international_phone = '+962791234567'
+    local_phone = '0791234567'
+
+    await client.post(
+        '/auth/send-otp',
+        json={'first_name': 'Repeat', 'last_name': 'Customer', 'phone_number': international_phone},
+    )
+    first_code = otp_service.peek_code_for_tests(international_phone)
+    first_login = await client.post(
+        '/auth/verify-otp',
+        json={
+            'phone_number': international_phone,
+            'otp_code': first_code,
+            'first_name': 'Repeat',
+            'last_name': 'Customer',
+        },
+    )
+    assert first_login.status_code == 200
+    first_user_id = UUID(first_login.json()['user']['id'])
+    first_token = first_login.json()['access_token']
+
+    db_session.add(
+        Order(
+            order_number=8801,
+            user_id=first_user_id,
+            status=OrderStatus.COMPLETED,
+            order_type=OrderType.PICKUP,
+            completed_at=datetime.now(timezone.utc),
+        )
+    )
+    await db_session.commit()
+
+    deleted = await client.delete('/auth/me', headers={'Authorization': f'Bearer {first_token}'})
+    assert deleted.status_code == 200
+    claim = await db_session.get(FirstTimeOfferClaim, phone_identity_fingerprint(international_phone))
+    assert claim is not None
+    assert claim.reason == 'account_deletion'
+
+    await client.post(
+        '/auth/send-otp',
+        json={'first_name': 'Repeat', 'last_name': 'Customer', 'phone_number': local_phone},
+    )
+    replacement_code = otp_service.peek_code_for_tests(local_phone)
+    replacement_login = await client.post(
+        '/auth/verify-otp',
+        json={
+            'phone_number': local_phone,
+            'otp_code': replacement_code,
+            'first_name': 'Repeat',
+            'last_name': 'Customer',
+        },
+    )
+    assert replacement_login.status_code == 200
+
+    section = Section(name_en='Coffee', name_ar='قهوة', sort_order=1, is_active=True)
+    item = Item(section=section, name_en='Latte', name_ar='لاتيه', is_active=True)
+    item_type = ItemType(item=item, name_en='Hot', name_ar='ساخن', is_active=True)
+    size = Size(item_type=item_type, name_en='Regular', name_ar='عادي', price=Decimal('3.00'), is_active=True)
+    promotion = Promotion(
+        title_en='Welcome',
+        title_ar='ترحيب',
+        type=PromotionType.FIRST_TIME,
+        value=Decimal('20.00'),
+        starts_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        ends_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        is_active=True,
+    )
+    db_session.add_all([section, item, item_type, size, promotion])
+    await db_session.commit()
+
+    evaluation = await client.post(
+        '/promotions/evaluate',
+        headers={'Authorization': f"Bearer {replacement_login.json()['access_token']}"},
+        json={'items': [{'size_id': str(size.id), 'quantity': 1, 'addon_ids': []}]},
+    )
+    assert evaluation.status_code == 200
+    assert evaluation.json()['applied_promotion'] is None
+    assert evaluation.json()['ineligible_promotions'][0]['reason_code'] == 'FIRST_TIME_ONLY'
+
+
+async def test_equivalent_phone_formats_cannot_create_two_first_offer_claims(db_session):
+    first_claim = await claim_first_time_identity(
+        db_session,
+        '+962791112222',
+        reason='welcome_offer',
+    )
+    duplicate_claim = await claim_first_time_identity(
+        db_session,
+        '0791112222',
+        reason='welcome_offer',
+    )
+
+    assert first_claim is not None
+    assert duplicate_claim is None

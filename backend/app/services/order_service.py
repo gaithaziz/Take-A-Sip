@@ -17,14 +17,16 @@ from app.core.logging import log_structured
 from app.models.delivery import DeliveryDistanceBand
 from app.models.menu import Item, ItemType, Size
 from app.models.order import Order, OrderEvent, OrderItem, OrderItemAddon, OrderRating, OrderStatus, OrderType, PaymentMethod
+from app.models.promotion import PromotionType
 from app.models.store_settings import StoreSettings
 from app.models.user import User, UserRole
 from app.schemas.order import AssignDriverRequest, OrderCreateRequest
 from app.schemas.promotion import PromotionEvaluationItem
 from app.services.menu_service import current_store_datetime, get_schedules_index, is_entity_available
 from app.services.notification_service import emit_post_commit_order_notifications
+from app.services.offer_identity_service import attach_claim_to_order, claim_first_time_identity
 from app.services.promotion_service import evaluate_promotions_for_user
-from app.services.store_service import ensure_ordering_enabled
+from app.services.store_service import ensure_order_minimum, ensure_ordering_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +142,7 @@ _ACTIVE_CUSTOMER_ORDER_STATUSES = {
     OrderStatus.NEW,
     OrderStatus.ACCEPTED,
     OrderStatus.ASSIGNED,
+    OrderStatus.READY,
     OrderStatus.OUT_FOR_DELIVERY,
 }
 
@@ -297,7 +300,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
     created_order: Order | None = None
     for attempt in range(max_retries):
         try:
-            await ensure_ordering_enabled(db)
+            store_settings = await ensure_ordering_enabled(db)
             now = current_store_datetime()
             schedules_index = await get_schedules_index(db)
             sizes_by_id = await _load_sizes(db, size_ids)
@@ -350,21 +353,48 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
 
             await _lock_user_for_order_creation(db, user_id)
             await _ensure_no_active_customer_order(db, user_id)
+            subtotal_amount = _calculate_order_subtotal(payload, sizes_by_id)
+            ensure_order_minimum(
+                store_settings,
+                order_type=order_type.value,
+                subtotal=subtotal_amount,
+            )
+            evaluation_items = [
+                PromotionEvaluationItem(
+                    size_id=line.size_id,
+                    quantity=line.quantity,
+                    addon_ids=line.addon_ids,
+                )
+                for line in payload.items
+            ]
             promotion_evaluation = await evaluate_promotions_for_user(
                 db,
                 user_id,
-                [
-                    PromotionEvaluationItem(
-                        size_id=line.size_id,
-                        quantity=line.quantity,
-                        addon_ids=line.addon_ids,
-                    )
-                    for line in payload.items
-                ],
+                evaluation_items,
                 order_type=order_type.value,
                 sizes_by_id=sizes_by_id,
             )
-            subtotal_amount = _calculate_order_subtotal(payload, sizes_by_id)
+            first_time_claim = None
+            candidate = promotion_evaluation.applied_promotion
+            if (
+                candidate is not None
+                and candidate.type in {PromotionType.FIRST_TIME.value, PromotionType.FIRST_TIME_FREE_ITEM.value}
+                and Decimal(promotion_evaluation.discount) > 0
+            ):
+                first_time_claim = await claim_first_time_identity(
+                    db,
+                    user.phone_number,
+                    reason='welcome_offer',
+                )
+                if first_time_claim is None:
+                    promotion_evaluation = await evaluate_promotions_for_user(
+                        db,
+                        user_id,
+                        evaluation_items,
+                        order_type=order_type.value,
+                        sizes_by_id=sizes_by_id,
+                        first_time_offer_blocked=True,
+                    )
             discount_amount = _quantize(
                 min(subtotal_amount, max(Decimal('0.00'), Decimal(promotion_evaluation.discount))),
                 '0.01',
@@ -405,6 +435,8 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
             )
             db.add(order)
             await db.flush()
+            if first_time_claim is not None:
+                attach_claim_to_order(first_time_claim, order.id)
 
             created_items: list[OrderItem] = []
             for line in payload.items:
@@ -432,7 +464,12 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                     item_id_snapshot=item.id,
                     size_id_snapshot=size.id,
                     item_name_snapshot=item.name_en,
+                    item_name_ar_snapshot=item.name_ar,
+                    item_type_id_snapshot=item_type.id,
+                    item_type_name_snapshot=item_type.name_en,
+                    item_type_name_ar_snapshot=item_type.name_ar,
                     size_snapshot=size.name_en,
+                    size_name_ar_snapshot=size.name_ar,
                     price_snapshot=Decimal(size.price),
                     quantity=line.quantity,
                 )
@@ -457,6 +494,7 @@ async def create_order(db: AsyncSession, user: User, payload: OrderCreateRequest
                         order_item_id=order_item.id,
                         addon_id_snapshot=addon.id,
                         addon_name_snapshot=addon.name_en,
+                        addon_name_ar_snapshot=addon.name_ar,
                         price_snapshot=Decimal(addon.price),
                     )
                     db.add(order_item_addon)
@@ -767,7 +805,7 @@ async def assign_driver(
     order = await get_order_by_id_or_404(db, order_id)
     if order.order_type != OrderType.DELIVERY:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Only delivery orders can be assigned')
-    if order.status not in {OrderStatus.ACCEPTED, OrderStatus.ASSIGNED}:
+    if order.status not in {OrderStatus.ACCEPTED, OrderStatus.ASSIGNED, OrderStatus.READY}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Order is not assignable in current status')
 
     driver_result = await db.execute(select(User).where(User.id == payload.driver_user_id))
@@ -777,7 +815,8 @@ async def assign_driver(
 
     order.assigned_driver_id = driver.id
     order.assigned_at = datetime.now(timezone.utc)
-    order.status = OrderStatus.ASSIGNED
+    if order.status != OrderStatus.READY:
+        order.status = OrderStatus.ASSIGNED
     await _log_event(
         db,
         order.id,
@@ -812,7 +851,8 @@ _SUCCESSFUL_FINAL_STATUSES = {OrderStatus.DELIVERED, OrderStatus.COMPLETED}
 _ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.NEW: {OrderStatus.ACCEPTED, OrderStatus.CANCELLED},
     OrderStatus.ACCEPTED: {OrderStatus.ASSIGNED, OrderStatus.COMPLETED, OrderStatus.CANCELLED},
-    OrderStatus.ASSIGNED: {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED},
+    OrderStatus.ASSIGNED: {OrderStatus.READY, OrderStatus.CANCELLED},
+    OrderStatus.READY: {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED},
     OrderStatus.OUT_FOR_DELIVERY: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
     OrderStatus.DELIVERED: set(),
     OrderStatus.COMPLETED: set(),
@@ -828,9 +868,11 @@ def _role_can_set_status(role: UserRole, target: OrderStatus) -> bool:
             OrderStatus.NEW,
             OrderStatus.ACCEPTED,
             OrderStatus.ASSIGNED,
+            OrderStatus.READY,
             OrderStatus.DELIVERED,
             OrderStatus.CANCELLED,
             OrderStatus.COMPLETED,
+            OrderStatus.OUT_FOR_DELIVERY,
         }
     if role == UserRole.DRIVER:
         return target in {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED}
@@ -868,6 +910,16 @@ async def update_order_status(db: AsyncSession, order_id: UUID, target_status: s
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Only delivery orders can be handled by driver')
     if order.order_type == OrderType.DELIVERY and next_status == OrderStatus.COMPLETED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Delivery orders finish at DELIVERED')
+    if next_status == OrderStatus.ASSIGNED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Assign a driver using the driver assignment endpoint',
+        )
+    if next_status == OrderStatus.READY:
+        if order.order_type != OrderType.DELIVERY:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Only delivery orders can be marked ready')
+        if order.assigned_driver_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Assign a driver before marking the order ready')
 
     allowed_next = _ALLOWED_TRANSITIONS.get(order.status, set())
     if next_status not in allowed_next:
@@ -879,6 +931,14 @@ async def update_order_status(db: AsyncSession, order_id: UUID, target_status: s
         order.order_type == OrderType.DELIVERY and next_status == OrderStatus.DELIVERED
     ):
         order.completed_at = datetime.now(timezone.utc)
+        if order.user is not None:
+            history_claim = await claim_first_time_identity(
+                db,
+                order.user.phone_number,
+                reason='order_history',
+            )
+            if history_claim is not None:
+                attach_claim_to_order(history_claim, order.id)
     await _log_event(db, order.id, 'order.status_changed', actor.id, metadata={'status': next_status.value})
     await db.commit()
     log_structured(
@@ -934,6 +994,7 @@ async def list_driver_latest_orders(db: AsyncSession, driver_id: UUID, limit: in
             Order.status.in_(
                 [
                     OrderStatus.ASSIGNED,
+                    OrderStatus.READY,
                     OrderStatus.OUT_FOR_DELIVERY,
                     OrderStatus.DELIVERED,
                     OrderStatus.COMPLETED,

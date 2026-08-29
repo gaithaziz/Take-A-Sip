@@ -48,13 +48,14 @@ class AssignDriverRequest(AppBaseModel):
 
 
 class UpdateOrderStatusRequest(AppBaseModel):
-    status: str = Field(pattern='^(NEW|ACCEPTED|ASSIGNED|OUT_FOR_DELIVERY|DELIVERED|COMPLETED|CANCELLED)$')
+    status: str = Field(pattern='^(NEW|ACCEPTED|ASSIGNED|READY|OUT_FOR_DELIVERY|DELIVERED|COMPLETED|CANCELLED)$')
 
 
 class OrderItemAddonRead(AppBaseModel):
     id: UUID
     addon_id_snapshot: UUID | None = None
     addon_name_snapshot: str
+    addon_name_ar_snapshot: str | None = None
     price_snapshot: Decimal
 
 
@@ -63,7 +64,12 @@ class OrderItemRead(AppBaseModel):
     item_id_snapshot: UUID | None = None
     size_id_snapshot: UUID | None = None
     item_name_snapshot: str
+    item_name_ar_snapshot: str | None = None
+    item_type_id_snapshot: UUID | None = None
+    item_type_name_snapshot: str | None = None
+    item_type_name_ar_snapshot: str | None = None
     size_snapshot: str
+    size_name_ar_snapshot: str | None = None
     price_snapshot: Decimal
     quantity: int
     addons: list[OrderItemAddonRead] = Field(default_factory=list)

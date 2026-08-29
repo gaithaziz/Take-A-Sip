@@ -1,4 +1,5 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import { AdminOrderDetailsScreen } from '@/screens/admin/AdminOrderDetailsScreen';
 import { orderService } from '@/services/orderService';
@@ -6,6 +7,20 @@ import { orderService } from '@/services/orderService';
 const mockT = (key: string) => {
   const map: Record<string, string> = {
     'admin.orderDetailsTitle': 'Order details',
+    'admin.manageOrderStatus': 'Manage order status',
+    'admin.currentOrderStatus': 'Current status',
+    'admin.acceptOrder': 'Accept order',
+    'admin.completeOrder': 'Complete order',
+    'admin.markOrderReady': 'Mark order ready',
+    'admin.markOutForDelivery': 'Mark out for delivery',
+    'admin.markDelivered': 'Mark delivered',
+    'admin.cancelOrder': 'Cancel order',
+    'admin.confirmOrderActionTitle': 'Confirm order action',
+    'admin.confirmOrderActionMessage': 'Confirm action?',
+    'admin.noStatusActionsAvailable': 'No actions available',
+    'admin.noActiveDrivers': 'No active drivers',
+    'admin.assignDriverPrompt': 'Choose a driver for this order.',
+    'admin.assignDriverAction': 'Assign driver',
     'admin.customerDetails': 'Customer details',
     'admin.customerName': 'Customer name',
     'admin.userId': 'User ID',
@@ -39,6 +54,8 @@ const mockT = (key: string) => {
     'common.goBack': 'Go back',
     'common.error': 'Error',
     'common.retry': 'Retry',
+    'common.cancel': 'Cancel',
+    'common.confirm': 'Confirm',
     'errors.generic': 'Something went wrong',
     'orders.summaryTitle': 'Order summary',
     'orders.itemsTitle': 'Items',
@@ -51,6 +68,13 @@ const mockT = (key: string) => {
     'checkout.delivery': 'Delivery',
     'checkout.deliveryFee': 'Delivery fee',
     'status.NEW': 'New',
+    'status.ACCEPTED': 'Accepted',
+    'status.ASSIGNED': 'Assigned',
+    'status.READY': 'Ready',
+    'status.OUT_FOR_DELIVERY': 'Out for delivery',
+    'status.DELIVERED': 'Delivered',
+    'status.COMPLETED': 'Completed',
+    'status.CANCELLED': 'Cancelled',
     'profile.phone': 'Phone',
   };
   return map[key] ?? key;
@@ -149,8 +173,8 @@ jest.mock('@/components/TopAppBar', () => {
 jest.mock('@/components/AppButton', () => {
   const { Pressable, Text } = require('react-native');
   return {
-    AppButton: ({ title, onPress }: { title: string; onPress: () => void }) => (
-      <Pressable onPress={onPress}>
+    AppButton: ({ title, onPress, disabled, loading, testID }: { title: string; onPress: () => void; disabled?: boolean; loading?: boolean; testID?: string }) => (
+      <Pressable testID={testID} onPress={onPress} disabled={disabled || loading} accessibilityState={{ disabled: disabled || loading }}>
         <Text>{title}</Text>
       </Pressable>
     ),
@@ -160,6 +184,18 @@ jest.mock('@/components/AppButton', () => {
 jest.mock('@/services/orderService', () => ({
   orderService: {
     getById: jest.fn(),
+    accept: jest.fn(),
+    updateStatus: jest.fn(),
+  },
+}));
+
+const mockListDrivers = jest.fn();
+const mockAssignDriverToOrder = jest.fn();
+
+jest.mock('@/services/adminService', () => ({
+  adminService: {
+    listDrivers: (...args: unknown[]) => mockListDrivers(...args),
+    assignDriverToOrder: (...args: unknown[]) => mockAssignDriverToOrder(...args),
   },
 }));
 
@@ -231,6 +267,22 @@ jest.mock('@/services/menuService', () => ({
 describe('AdminOrderDetailsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockListDrivers.mockResolvedValue({
+      users: [
+        {
+          id: 'driver-2',
+          first_name: 'Driver',
+          last_name: 'Two',
+          phone_number: '+962790000002',
+          role: 'DRIVER',
+          is_active: true,
+          is_banned: false,
+        },
+      ],
+    });
+    mockAssignDriverToOrder.mockResolvedValue({ id: 'order-1', status: 'ASSIGNED' });
+    (orderService.accept as jest.Mock).mockResolvedValue({ id: 'order-1', status: 'ACCEPTED' });
+    (orderService.updateStatus as jest.Mock).mockResolvedValue({ id: 'order-1', status: 'READY' });
   });
 
   it('renders full admin order details', async () => {
@@ -264,5 +316,142 @@ describe('AdminOrderDetailsScreen', () => {
     expect(queryByText('31.9500, 35.9200')).toBeNull();
     expect(queryByText('https://maps.example/order-1')).toBeNull();
     expect(orderService.getById).toHaveBeenCalledWith('order-1');
+  });
+
+  it('assigns an active driver from an accepted delivery order', async () => {
+    const acceptedOrder = {
+      ...mockOrder,
+      status: 'ACCEPTED',
+      assigned_driver_id: null,
+      assigned_driver_name: null,
+      assigned_driver_phone: null,
+    };
+    const assignedOrder = {
+      ...acceptedOrder,
+      status: 'ASSIGNED',
+      assigned_driver_id: 'driver-2',
+      assigned_driver_name: 'Driver Two',
+    };
+    (orderService.getById as jest.Mock)
+      .mockResolvedValueOnce(acceptedOrder)
+      .mockResolvedValueOnce(assignedOrder);
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.find((button) => button.text === 'Confirm')?.onPress?.();
+    });
+
+    const { findByText } = render(
+      <AdminOrderDetailsScreen
+        navigation={{ goBack: jest.fn() } as never}
+        route={{ key: 'AdminOrderDetails', name: 'AdminOrderDetails', params: { orderId: 'order-1' } } as never}
+      />,
+    );
+
+    fireEvent.press(await findByText('Driver Two'));
+
+    await waitFor(() => {
+      expect(mockAssignDriverToOrder).toHaveBeenCalledWith('order-1', 'driver-2');
+      expect(orderService.getById).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('allows the admin to move a ready delivery out for delivery', async () => {
+    (orderService.getById as jest.Mock)
+      .mockResolvedValueOnce({ ...mockOrder, status: 'READY' })
+      .mockResolvedValueOnce({ ...mockOrder, status: 'OUT_FOR_DELIVERY' });
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.find((button) => button.text === 'Confirm')?.onPress?.();
+    });
+
+    const { findByText } = render(
+      <AdminOrderDetailsScreen
+        navigation={{ goBack: jest.fn() } as never}
+        route={{ key: 'AdminOrderDetails', name: 'AdminOrderDetails', params: { orderId: 'order-1' } } as never}
+      />,
+    );
+
+    fireEvent.press(await findByText('Mark out for delivery'));
+
+    await waitFor(() => {
+      expect(orderService.updateStatus).toHaveBeenCalledWith('order-1', 'OUT_FOR_DELIVERY');
+      expect(orderService.getById).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('shows only pickup completion and cancellation after acceptance', async () => {
+    (orderService.getById as jest.Mock).mockResolvedValue({
+      ...mockOrder,
+      status: 'ACCEPTED',
+      order_type: 'pickup',
+      assigned_driver_id: null,
+      assigned_driver_name: null,
+      assigned_driver_phone: null,
+    });
+
+    const { findByText, queryByText } = render(
+      <AdminOrderDetailsScreen
+        navigation={{ goBack: jest.fn() } as never}
+        route={{ key: 'AdminOrderDetails', name: 'AdminOrderDetails', params: { orderId: 'order-1' } } as never}
+      />,
+    );
+
+    await findByText('Complete order');
+    expect(queryByText('Mark order ready')).toBeNull();
+    expect(queryByText('Mark out for delivery')).toBeNull();
+    expect(queryByText('Driver Two')).toBeNull();
+    expect(await findByText('Cancel order')).toBeTruthy();
+  });
+
+  it('locks status controls while an update is running', async () => {
+    let resolveUpdate: ((value: { id: string; status: string }) => void) | undefined;
+    const pendingUpdate = new Promise<{ id: string; status: string }>((resolve) => {
+      resolveUpdate = resolve;
+    });
+    (orderService.getById as jest.Mock).mockResolvedValue({ ...mockOrder, status: 'READY' });
+    (orderService.updateStatus as jest.Mock).mockReturnValue(pendingUpdate);
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.find((button) => button.text === 'Confirm')?.onPress?.();
+    });
+
+    const { findByTestId } = render(
+      <AdminOrderDetailsScreen
+        navigation={{ goBack: jest.fn() } as never}
+        route={{ key: 'AdminOrderDetails', name: 'AdminOrderDetails', params: { orderId: 'order-1' } } as never}
+      />,
+    );
+
+    fireEvent.press(await findByTestId('admin-forward-status'));
+
+    await waitFor(async () => {
+      expect(await findByTestId('admin-forward-status')).toBeDisabled();
+      expect(await findByTestId('admin-cancel-order')).toBeDisabled();
+    });
+
+    resolveUpdate?.({ id: 'order-1', status: 'OUT_FOR_DELIVERY' });
+    await waitFor(() => expect(orderService.getById).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps the order visible and reports a failed status update', async () => {
+    (orderService.getById as jest.Mock).mockResolvedValue({ ...mockOrder, status: 'READY' });
+    (orderService.updateStatus as jest.Mock).mockRejectedValue(new Error('Network issue'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((title, _message, buttons) => {
+      if (title === 'Confirm order action') {
+        buttons?.find((button) => button.text === 'Confirm')?.onPress?.();
+      }
+    });
+
+    const { findByText } = render(
+      <AdminOrderDetailsScreen
+        navigation={{ goBack: jest.fn() } as never}
+        route={{ key: 'AdminOrderDetails', name: 'AdminOrderDetails', params: { orderId: 'order-1' } } as never}
+      />,
+    );
+
+    fireEvent.press(await findByText('Mark out for delivery'));
+
+    await waitFor(() => {
+      expect(alert).toHaveBeenCalledWith('Error', 'Something went wrong');
+      expect(orderService.getById).toHaveBeenCalledTimes(1);
+    });
+    expect(await findByText('#202')).toBeTruthy();
   });
 });

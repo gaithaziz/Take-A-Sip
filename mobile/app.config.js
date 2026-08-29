@@ -1,4 +1,4 @@
-const baseConfig = require('./app.json');
+const baseConfig = require('./app.base.json');
 
 module.exports = () => {
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();

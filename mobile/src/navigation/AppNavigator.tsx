@@ -34,6 +34,7 @@ import { AdminWholeMenuPreviewScreen } from '@/screens/admin/AdminWholeMenuPrevi
 import { AdminStaffScreen } from '@/screens/admin/AdminStaffScreen';
 import { AdminUsersScreen } from '@/screens/admin/AdminUsersScreen';
 import { AdminProfileScreen } from '@/screens/admin/AdminProfileScreen';
+import { AdminStoreSettingsScreen } from '@/screens/admin/AdminStoreSettingsScreen';
 import { AdminOrdersScreen } from '@/screens/admin/AdminOrdersScreen';
 import { AdminOrderDetailsScreen } from '@/screens/admin/AdminOrderDetailsScreen';
 import { AdminReviewsScreen } from '@/screens/admin/AdminReviewsScreen';
@@ -235,6 +236,7 @@ export const AppNavigator = () => {
             <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
             <Stack.Screen name="AdminLoyalty" component={AdminLoyaltyRulesScreen} />
             <Stack.Screen name="AdminProfile" component={AdminProfileScreen} />
+            <Stack.Screen name="AdminStoreSettings" component={AdminStoreSettingsScreen} />
             <Stack.Screen name="AdminMenuCategoryEditor" component={AdminMenuCategoryEditorScreen} />
             <Stack.Screen name="AdminMenuProductEditor" component={AdminMenuProductEditorScreen} />
             <Stack.Screen name="AdminMenuCustomerPreview" component={AdminMenuCustomerPreviewScreen} />

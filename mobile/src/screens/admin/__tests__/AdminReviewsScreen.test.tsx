@@ -13,6 +13,7 @@ const translationMap: Record<string, string> = {
   'admin.noReviewsTitle': 'No reviews yet',
   'admin.noReviewsSubtitle': 'Completed order reviews will appear here.',
   'admin.showMore': 'Show more',
+  'admin.viewRatedOrder': 'View the rated order',
 };
 const mockTranslate = (key: string) => translationMap[key] ?? key;
 
@@ -48,6 +49,7 @@ describe('AdminReviewsScreen', () => {
   });
 
   it('loads recent reviews and appends more results', async () => {
+    const navigate = jest.fn();
     mockListRatings.mockImplementation((limit: number, offset: number) => {
       if (offset === 0) {
         return Promise.resolve({
@@ -75,7 +77,7 @@ describe('AdminReviewsScreen', () => {
     });
 
     const { getByText, queryByText } = render(
-      <AdminReviewsScreen navigation={{} as never} route={{} as never} />,
+      <AdminReviewsScreen navigation={{ navigate } as never} route={{} as never} />,
     );
 
     await waitFor(() => {
@@ -86,6 +88,9 @@ describe('AdminReviewsScreen', () => {
     });
 
     expect(queryByText('undefined')).toBeNull();
+
+    fireEvent.press(getByText('Client 1'));
+    expect(navigate).toHaveBeenCalledWith('AdminOrderDetails', { orderId: 'order-1' });
 
     fireEvent.press(getByText('Show more'));
 

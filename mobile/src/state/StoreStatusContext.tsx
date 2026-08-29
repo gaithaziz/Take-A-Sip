@@ -10,7 +10,14 @@ type StoreStatusContextValue = {
   refresh: () => Promise<StoreStatus>;
 };
 
-const DEFAULT_STATUS: StoreStatus = { ordering_enabled: true };
+const DEFAULT_STATUS: StoreStatus = {
+  ordering_enabled: true,
+  accepting_orders: true,
+  timezone: 'Asia/Amman',
+  working_hours: null,
+  minimum_delivery_order_amount: '0.00',
+  minimum_pickup_order_amount: '0.00',
+};
 const StoreStatusContext = createContext<StoreStatusContextValue | null>(null);
 
 export const StoreStatusProvider = ({ children }: PropsWithChildren) => {
@@ -32,8 +39,19 @@ export const StoreStatusProvider = ({ children }: PropsWithChildren) => {
     return () => subscription.remove();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!status.next_status_change_at) return;
+    const delay = new Date(status.next_status_change_at).getTime() - Date.now() + 1000;
+    if (delay <= 0) {
+      void refresh().catch(() => undefined);
+      return;
+    }
+    const timeout = setTimeout(() => void refresh().catch(() => undefined), Math.min(delay, 2_147_000_000));
+    return () => clearTimeout(timeout);
+  }, [refresh, status.next_status_change_at]);
+
   const value = useMemo(
-    () => ({ status, orderingEnabled: status.ordering_enabled, refresh }),
+    () => ({ status, orderingEnabled: status.accepting_orders, refresh }),
     [refresh, status],
   );
 

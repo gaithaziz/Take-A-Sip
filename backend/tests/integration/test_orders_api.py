@@ -4,6 +4,8 @@ from uuid import UUID
 
 from app.models.delivery import DeliveryDistanceBand
 from app.core.security import create_access_token
+from app.core.phone import phone_identity_fingerprint
+from app.models.first_time_offer_claim import FirstTimeOfferClaim
 from app.models.menu import Addon, Item, ItemType, Section, Size
 from app.models.order import Order, OrderItem, OrderStatus, OrderType
 from app.models.promotion import LoyaltyRule, Promotion, PromotionType
@@ -180,6 +182,10 @@ async def test_create_order_snapshots_first_time_discount_once(client, db_sessio
     assert first['applied_promotion_id'] == str(promotion.id)
     assert first['applied_promotion_title_en'] == 'Welcome offer'
 
+    claim = await db_session.get(FirstTimeOfferClaim, phone_identity_fingerprint(user.phone_number))
+    assert claim is not None
+    assert claim.source_order_id == UUID(first['id'])
+
     first_order = await db_session.get(Order, UUID(first['id']))
     first_order.status = OrderStatus.COMPLETED
     first_order.completed_at = datetime.now(timezone.utc)
@@ -190,6 +196,53 @@ async def test_create_order_snapshots_first_time_discount_once(client, db_sessio
     second = second_response.json()
     assert second['discount_amount'] == '0.00'
     assert second['applied_promotion_id'] is None
+
+
+async def test_pickup_order_enforces_configured_minimum_and_allows_equality(client, db_session):
+    user = User(
+        first_name='Pickup',
+        last_name='Customer',
+        phone_number='+962790000228',
+        role=UserRole.CLIENT,
+        is_active=True,
+        is_banned=False,
+    )
+    section = Section(name_en='Coffee', name_ar='قهوة', sort_order=1, is_active=True)
+    item = Item(section=section, name_en='Latte', name_ar='لاتيه', is_active=True)
+    item_type = ItemType(item=item, name_en='Hot', name_ar='ساخن', is_active=True)
+    size = Size(item_type=item_type, name_en='Regular', name_ar='عادي', price=Decimal('3.00'), is_active=True)
+    settings = StoreSettings(
+        store_name='Take A Sip',
+        store_latitude=Decimal('32.551347'),
+        store_longitude=Decimal('36.017005'),
+        minimum_delivery_order_amount=Decimal('0.00'),
+        minimum_pickup_order_amount=Decimal('6.00'),
+    )
+    db_session.add_all([user, section, item, item_type, size, settings])
+    await db_session.commit()
+
+    headers = {'Authorization': f"Bearer {create_access_token(str(user.id), user.role.value)}"}
+    below_minimum = await client.post(
+        '/orders',
+        headers=headers,
+        json={
+            'order_type': 'pickup',
+            'items': [{'size_id': str(size.id), 'quantity': 1, 'addon_ids': []}],
+        },
+    )
+    assert below_minimum.status_code == 409
+    assert below_minimum.json()['detail'] == 'Pickup order subtotal is below the minimum'
+
+    exact_minimum = await client.post(
+        '/orders',
+        headers=headers,
+        json={
+            'order_type': 'pickup',
+            'items': [{'size_id': str(size.id), 'quantity': 2, 'addon_ids': []}],
+        },
+    )
+    assert exact_minimum.status_code == 201
+    assert exact_minimum.json()['subtotal_amount'] == '6.00'
 
 
 async def test_loyalty_discount_applies_once_per_completed_order_cycle(client, db_session):

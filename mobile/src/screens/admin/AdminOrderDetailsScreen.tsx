@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -13,10 +13,11 @@ import { DetailPageSkeleton } from '@/components/skeleton/PageSkeletons';
 import { TopAppBar } from '@/components/TopAppBar';
 import { useAppTranslation } from '@/hooks/useAppTranslation';
 import { RootStackParamList } from '@/navigation/types';
+import { adminService } from '@/services/adminService';
 import { menuService } from '@/services/menuService';
 import { orderService } from '@/services/orderService';
 import { theme } from '@/theme';
-import { MenuResponse, OrderRead } from '@/types/api';
+import { MenuResponse, OrderRead, UserSummary } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDateTime, toNumber } from '@/utils/format';
 import { mirroredRow } from '@/utils/layout';
@@ -53,15 +54,19 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
   const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [drivers, setDrivers] = useState<UserSummary[]>([]);
+  const [driversError, setDriversError] = useState<string | null>(null);
+  const [mutatingAction, setMutatingAction] = useState<string | null>(null);
   const menuSnapshotLookup = useMemo(() => buildMenuSnapshotLookup(menu), [menu]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [orderResult, menuResult] = await Promise.allSettled([
+      const [orderResult, menuResult, driversResult] = await Promise.allSettled([
         orderService.getById(orderId),
         menuService.getMenu(),
+        adminService.listDrivers(undefined, true),
       ]);
       if (orderResult.status === 'rejected') {
         throw orderResult.reason;
@@ -69,6 +74,12 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
       setOrder(orderResult.value);
       if (menuResult.status === 'fulfilled') {
         setMenu(menuResult.value);
+      }
+      if (driversResult.status === 'fulfilled') {
+        setDrivers(driversResult.value.users.filter((driver) => driver.is_active && !driver.is_banned));
+        setDriversError(null);
+      } else {
+        setDriversError(getApiErrorMessage(driversResult.reason, t));
       }
     } catch (e) {
       setError(getApiErrorMessage(e, t));
@@ -80,6 +91,44 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const refreshOrder = useCallback(async () => {
+    setOrder(await orderService.getById(orderId));
+  }, [orderId]);
+
+  const runOrderMutation = useCallback(
+    async (key: string, mutation: () => Promise<unknown>) => {
+      try {
+        setMutatingAction(key);
+        await mutation();
+        await refreshOrder();
+      } catch (e) {
+        Alert.alert(t('common.error'), getApiErrorMessage(e, t));
+      } finally {
+        setMutatingAction(null);
+      }
+    },
+    [refreshOrder, t],
+  );
+
+  const confirmOrderMutation = useCallback(
+    (key: string, actionLabel: string, mutation: () => Promise<unknown>) => {
+      Alert.alert(
+        t('admin.confirmOrderActionTitle'),
+        t('admin.confirmOrderActionMessage', { action: actionLabel }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.confirm'),
+            onPress: () => {
+              void runOrderMutation(key, mutation);
+            },
+          },
+        ],
+      );
+    },
+    [runOrderMutation, t],
+  );
 
   if (loading) {
     return <DetailPageSkeleton isRTL={isRTL} />;
@@ -102,6 +151,47 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
   const totalAmount = toNumber(order.total_amount ?? itemsSubtotal - discountAmount + deliveryFee);
   const promotionTitle =
     language === 'ar' ? order.applied_promotion_title_ar || order.applied_promotion_title_en : order.applied_promotion_title_en || order.applied_promotion_title_ar;
+  const isMutating = mutatingAction !== null;
+  const canCancel = ['NEW', 'ACCEPTED', 'ASSIGNED', 'READY', 'OUT_FOR_DELIVERY'].includes(order.status);
+
+  const forwardAction = (() => {
+    if (order.status === 'NEW') {
+      return {
+        key: 'accept',
+        label: t('admin.acceptOrder'),
+        run: () => orderService.accept(order.id),
+      };
+    }
+    if (order.order_type === 'pickup' && order.status === 'ACCEPTED') {
+      return {
+        key: 'complete',
+        label: t('admin.completeOrder'),
+        run: () => orderService.updateStatus(order.id, 'COMPLETED'),
+      };
+    }
+    if (order.order_type === 'delivery' && order.status === 'ASSIGNED') {
+      return {
+        key: 'ready',
+        label: t('admin.markOrderReady'),
+        run: () => orderService.updateStatus(order.id, 'READY'),
+      };
+    }
+    if (order.order_type === 'delivery' && order.status === 'READY') {
+      return {
+        key: 'out-for-delivery',
+        label: t('admin.markOutForDelivery'),
+        run: () => orderService.updateStatus(order.id, 'OUT_FOR_DELIVERY'),
+      };
+    }
+    if (order.order_type === 'delivery' && order.status === 'OUT_FOR_DELIVERY') {
+      return {
+        key: 'delivered',
+        label: t('admin.markDelivered'),
+        run: () => orderService.updateStatus(order.id, 'DELIVERED'),
+      };
+    }
+    return null;
+  })();
 
   return (
     <View style={styles.screen}>
@@ -122,6 +212,77 @@ export const AdminOrderDetailsScreen = ({ route, navigation }: Props) => {
             {formatDateTime(order.created_at, language)}
           </AppText>
         </View>
+
+        <AppCard style={styles.card}>
+          <AppText variant="h3">{t('admin.manageOrderStatus')}</AppText>
+          <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+            {t('admin.currentOrderStatus', { status: t(`status.${order.status}`) })}
+          </AppText>
+
+          {order.order_type === 'delivery' && order.status === 'ACCEPTED' ? (
+            <View style={styles.actionStack}>
+              <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                {t('admin.assignDriverPrompt')}
+              </AppText>
+              {driversError ? (
+                <AppText variant="bodySmall" color={theme.colors.error}>{driversError}</AppText>
+              ) : drivers.length === 0 ? (
+                <AppText variant="bodySmall" color={theme.colors.textSecondary}>{t('admin.noActiveDrivers')}</AppText>
+              ) : (
+                drivers.map((driver) => {
+                  const driverName = `${driver.first_name} ${driver.last_name}`.trim();
+                  const actionKey = `assign-${driver.id}`;
+                  return (
+                    <AppButton
+                      key={driver.id}
+                      testID={`admin-assign-driver-${driver.id}`}
+                      title={driverName || driver.phone_number}
+                      variant="secondary"
+                      loading={mutatingAction === actionKey}
+                      disabled={isMutating}
+                      onPress={() =>
+                        confirmOrderMutation(
+                          actionKey,
+                          t('admin.assignDriverAction', { driver: driverName || driver.phone_number }),
+                          () => adminService.assignDriverToOrder(order.id, driver.id),
+                        )
+                      }
+                    />
+                  );
+                })
+              )}
+            </View>
+          ) : forwardAction ? (
+            <AppButton
+              testID="admin-forward-status"
+              title={forwardAction.label}
+              loading={mutatingAction === forwardAction.key}
+              disabled={isMutating}
+              onPress={() => confirmOrderMutation(forwardAction.key, forwardAction.label, forwardAction.run)}
+            />
+          ) : (
+            <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+              {t('admin.noStatusActionsAvailable')}
+            </AppText>
+          )}
+
+          {canCancel ? (
+            <AppButton
+              testID="admin-cancel-order"
+              title={t('admin.cancelOrder')}
+              variant="destructive"
+              loading={mutatingAction === 'cancel'}
+              disabled={isMutating}
+              onPress={() =>
+                confirmOrderMutation(
+                  'cancel',
+                  t('admin.cancelOrder'),
+                  () => orderService.updateStatus(order.id, 'CANCELLED'),
+                )
+              }
+            />
+          ) : null}
+        </AppCard>
 
         <AppCard style={styles.card}>
           <AppText variant="h3">{t('admin.customerDetails')}</AppText>
@@ -241,6 +402,9 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   card: {
+    gap: theme.spacing.sm,
+  },
+  actionStack: {
     gap: theme.spacing.sm,
   },
   summaryList: {

@@ -195,6 +195,16 @@ def _notification_spec(notification_type: str, order: Order, language: str) -> d
             ),
             'screen': 'FrontdeskOrders',
         },
+        'frontdesk_order_cancelled': {
+            'role_target': UserRole.FRONTDESK.value,
+            'title': '\u062a\u0645 \u0625\u0644\u063a\u0627\u0621 \u0637\u0644\u0628' if is_arabic else 'Order cancelled',
+            'body': (
+                f'\u062a\u0645 \u0625\u0644\u063a\u0627\u0621 \u0627\u0644\u0637\u0644\u0628 \u0631\u0642\u0645 {order.order_number}.'
+                if is_arabic
+                else f'Order #{order.order_number} has been cancelled.'
+            ),
+            'screen': 'FrontdeskOrders',
+        },
         'admin_driver_assignment_needed': {
             'role_target': UserRole.ADMIN.value,
             'title': '\u0645\u0637\u0644\u0648\u0628 \u062a\u0639\u064a\u064a\u0646 \u0633\u0627\u0626\u0642' if is_arabic else 'Driver assignment needed',
@@ -212,6 +222,16 @@ def _notification_spec(notification_type: str, order: Order, language: str) -> d
                 f'\u062a\u0645 \u062a\u0639\u064a\u064a\u0646 \u0627\u0644\u0637\u0644\u0628 \u0631\u0642\u0645 {order.order_number} \u0644\u0643.'
                 if is_arabic
                 else f'Order #{order.order_number} has been assigned to you.'
+            ),
+            'screen': 'DriverOrderDetails',
+        },
+        'driver_order_ready': {
+            'role_target': UserRole.DRIVER.value,
+            'title': '\u0627\u0644\u0637\u0644\u0628 \u062c\u0627\u0647\u0632 \u0644\u0644\u0627\u0633\u062a\u0644\u0627\u0645' if is_arabic else 'Order ready for pickup',
+            'body': (
+                f'\u0627\u0644\u0637\u0644\u0628 \u0631\u0642\u0645 {order.order_number} \u062c\u0627\u0647\u0632. \u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u062a\u0648\u062c\u0647 \u0625\u0644\u0649 \u0627\u0644\u0645\u062a\u062c\u0631 \u0644\u0627\u0633\u062a\u0644\u0627\u0645\u0647.'
+                if is_arabic
+                else f'Order #{order.order_number} is ready. You can come to the shop to collect it.'
             ),
             'screen': 'DriverOrderDetails',
         },
@@ -735,7 +755,20 @@ async def emit_post_commit_order_notifications(
             return
 
         if event == 'order.status_changed':
-            if order.status == OrderStatus.OUT_FOR_DELIVERY:
+            if order.status == OrderStatus.CANCELLED:
+                await send_order_notification_to_frontdesk(
+                    db,
+                    notification_type='frontdesk_order_cancelled',
+                    order=order,
+                )
+            elif order.status == OrderStatus.READY:
+                await send_order_notification_to_users(
+                    db,
+                    notification_type='driver_order_ready',
+                    order=order,
+                    user_ids=[order.assigned_driver_id] if order.assigned_driver_id else [],
+                )
+            elif order.status == OrderStatus.OUT_FOR_DELIVERY:
                 await send_order_notification_to_users(
                     db,
                     notification_type='client_out_for_delivery',

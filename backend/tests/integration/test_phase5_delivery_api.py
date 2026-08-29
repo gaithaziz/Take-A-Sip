@@ -132,6 +132,21 @@ async def test_delivery_order_full_lifecycle(client, db_session):
     assert driver_detail['customer_name'] == 'Lina Client'
     assert driver_detail['customer_phone'] == '+962790010001'
 
+    premature_out_response = await client.post(
+        f'/orders/{order_id}/status',
+        headers=driver_headers,
+        json={'status': 'OUT_FOR_DELIVERY'},
+    )
+    assert premature_out_response.status_code == 400
+
+    ready_response = await client.post(
+        f'/orders/{order_id}/status',
+        headers=frontdesk_headers,
+        json={'status': 'READY'},
+    )
+    assert ready_response.status_code == 200
+    assert ready_response.json()['status'] == 'READY'
+
     out_response = await client.post(
         f'/orders/{order_id}/status',
         headers=driver_headers,
@@ -154,6 +169,124 @@ async def test_delivery_order_full_lifecycle(client, db_session):
         json={'status': 'COMPLETED'},
     )
     assert complete_response.status_code == 400
+
+
+async def test_staff_delivery_override_respects_status_sequence(client, db_session):
+    seeded = await _seed_delivery_context(db_session)
+    client_headers = {'Authorization': f"Bearer {create_access_token(str(seeded['client'].id), UserRole.CLIENT.value)}"}
+    admin_headers = {'Authorization': f"Bearer {create_access_token(str(seeded['admin'].id), UserRole.ADMIN.value)}"}
+    frontdesk_headers = {
+        'Authorization': f"Bearer {create_access_token(str(seeded['frontdesk'].id), UserRole.FRONTDESK.value)}"
+    }
+
+    created = await client.post(
+        '/orders',
+        headers=client_headers,
+        json={
+            'order_type': 'delivery',
+            'delivery_address_text': 'Amman - 7th Circle',
+            'delivery_lat': NEAR_SHOP_LAT,
+            'delivery_lng': NEAR_SHOP_LNG,
+            'items': [{'size_id': str(seeded['size'].id), 'quantity': 1, 'addon_ids': []}],
+        },
+    )
+    assert created.status_code == 201
+    order_id = created.json()['id']
+
+    skipped = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
+        json={'status': 'OUT_FOR_DELIVERY'},
+    )
+    assert skipped.status_code == 400
+
+    accepted = await client.post(f'/orders/{order_id}/accept', headers=admin_headers)
+    assert accepted.status_code == 200
+
+    direct_assignment = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
+        json={'status': 'ASSIGNED'},
+    )
+    assert direct_assignment.status_code == 400
+
+    assigned = await client.post(
+        f'/orders/{order_id}/assign-driver',
+        headers=admin_headers,
+        json={'driver_user_id': str(seeded['driver'].id)},
+    )
+    assert assigned.status_code == 200
+
+    premature = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
+        json={'status': 'OUT_FOR_DELIVERY'},
+    )
+    assert premature.status_code == 400
+
+    ready = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
+        json={'status': 'READY'},
+    )
+    assert ready.status_code == 200
+
+    frontdesk_override = await client.post(
+        f'/orders/{order_id}/status',
+        headers=frontdesk_headers,
+        json={'status': 'OUT_FOR_DELIVERY'},
+    )
+    assert frontdesk_override.status_code == 200
+    assert frontdesk_override.json()['status'] == 'OUT_FOR_DELIVERY'
+
+    delivered = await client.post(
+        f'/orders/{order_id}/status',
+        headers=frontdesk_headers,
+        json={'status': 'DELIVERED'},
+    )
+    assert delivered.status_code == 200
+    assert delivered.json()['status'] == 'DELIVERED'
+
+
+async def test_admin_cannot_apply_delivery_statuses_to_pickup(client, db_session):
+    seeded = await _seed_delivery_context(db_session)
+    client_headers = {'Authorization': f"Bearer {create_access_token(str(seeded['client'].id), UserRole.CLIENT.value)}"}
+    admin_headers = {'Authorization': f"Bearer {create_access_token(str(seeded['admin'].id), UserRole.ADMIN.value)}"}
+
+    created = await client.post(
+        '/orders',
+        headers=client_headers,
+        json={
+            'order_type': 'pickup',
+            'items': [{'size_id': str(seeded['size'].id), 'quantity': 1, 'addon_ids': []}],
+        },
+    )
+    assert created.status_code == 201
+    order_id = created.json()['id']
+
+    accepted = await client.post(f'/orders/{order_id}/accept', headers=admin_headers)
+    assert accepted.status_code == 200
+
+    ready = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
+        json={'status': 'READY'},
+    )
+    assert ready.status_code == 400
+
+    out_for_delivery = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
+        json={'status': 'OUT_FOR_DELIVERY'},
+    )
+    assert out_for_delivery.status_code == 400
+
+    completed = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
+        json={'status': 'COMPLETED'},
+    )
+    assert completed.status_code == 200
 
 
 async def test_delivery_order_rejected_when_no_distance_band_match(client, db_session):

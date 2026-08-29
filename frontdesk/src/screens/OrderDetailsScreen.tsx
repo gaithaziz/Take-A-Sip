@@ -1,12 +1,14 @@
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isRtlLanguage } from '@/i18n';
 import { OrderRead, UserSummary } from '@/types/api';
 import { formatLocalizedNumber } from '@/utils/localeFormat';
-import { getDeliveryAddress, getOrderStatusLabel, getOrderTypeLabel, isDriverAssignmentStatus, isPickupInProgressOrder } from '@/utils/orderPresentation';
-import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskLabelValueText, SectionHeader } from '@/ui/frontdeskPrimitives';
+import { canMarkDeliveryDelivered, canMarkDeliveryOutForDelivery, canMarkDeliveryReady, canPrintOrder, getDeliveryAddress, getOrderStatusLabel, getOrderTypeLabel, isDriverAssignmentStatus, isPickupInProgressOrder } from '@/utils/orderPresentation';
+import { FrontdeskButton, FrontdeskCard, FrontdeskCompositeText, FrontdeskIconButton, FrontdeskLabelValueText, SectionHeader } from '@/ui/frontdeskPrimitives';
 import { frontdeskTextAlign, frontdeskTheme } from '@/ui/frontdeskTheme';
 
 type Props = {
@@ -15,12 +17,22 @@ type Props = {
   onReject: () => void;
   onCancel: () => void;
   onComplete: () => void;
+  onReady: () => void;
+  onOutForDelivery: () => void;
+  onDelivered: () => void;
+  onPrint: () => Promise<void>;
   drivers: UserSummary[];
   onAssignDriver: (driverUserId: string) => Promise<void>;
+  isAvailable?: boolean;
+  onUnavailable?: () => void;
 };
 
 const canCancel = (status: OrderRead['status']) =>
-  status === 'ACCEPTED' || status === 'ASSIGNED' || status === 'ASSIGNED_TO_DRIVER';
+  status === 'ACCEPTED' ||
+  status === 'ASSIGNED' ||
+  status === 'ASSIGNED_TO_DRIVER' ||
+  status === 'READY' ||
+  status === 'OUT_FOR_DELIVERY';
 
 const money = (value: string | number | null | undefined) => `${Number(value ?? 0).toFixed(2)} JOD`;
 
@@ -30,8 +42,9 @@ const getItemsSubtotal = (order: OrderRead) =>
     return sum + (Number(item.price_snapshot) + addons) * item.quantity;
   }, 0);
 
-export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComplete, drivers, onAssignDriver }: Props) => {
+export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComplete, onReady, onOutForDelivery, onDelivered, onPrint, drivers, onAssignDriver, isAvailable = true, onUnavailable }: Props) => {
   const { t, i18n } = useTranslation();
+  const [isPrinting, setIsPrinting] = useState(false);
   const insets = useSafeAreaInsets();
   const isRTL = isRtlLanguage(i18n.resolvedLanguage ?? i18n.language);
   const bottomPadding = Math.max(56, insets.bottom + frontdeskTheme.spacing.xxl);
@@ -41,6 +54,37 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComp
   const subtotal = Number(order.subtotal_amount ?? getItemsSubtotal(order));
   const discount = Number(order.discount_amount ?? 0);
   const total = Number(order.total_amount ?? subtotal - discount + Number(order.delivery_fee ?? 0));
+  useEffect(() => {
+    if (!isAvailable) {
+      onUnavailable?.();
+    }
+  }, [isAvailable, onUnavailable]);
+  const handlePrint = async () => {
+    if (isPrinting) {
+      return;
+    }
+    setIsPrinting(true);
+    try {
+      await onPrint();
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+  const printButton = canPrintOrder(order) ? (
+    <FrontdeskIconButton
+      accessibilityLabel={t('orders.printOrder')}
+      onPress={() => void handlePrint()}
+      disabled={isPrinting}
+      minSize={frontdeskTheme.touch.medium}
+      icon={
+        <Ionicons
+          name={isPrinting ? 'hourglass-outline' : 'print-outline'}
+          size={22}
+          color={frontdeskTheme.colors.primary}
+        />
+      }
+    />
+  ) : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}>
@@ -138,7 +182,67 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComp
       ) : null}
 
       {canCancel(order.status) ? (
-        isPickupInProgressOrder(order) ? (
+        canMarkDeliveryReady(order) ? (
+          <View style={[styles.actionsRow, isRTL ? styles.actionsRowRtl : null]}>
+            <FrontdeskButton
+              label={t('details.markReady')}
+              onPress={onReady}
+              variant="primary"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+            <FrontdeskButton
+              label={t('details.cancel')}
+              onPress={onCancel}
+              variant="danger"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+            {printButton}
+          </View>
+        ) : canMarkDeliveryOutForDelivery(order) ? (
+          <View style={[styles.actionsRow, isRTL ? styles.actionsRowRtl : null]}>
+            <FrontdeskButton
+              label={t('details.markOutForDelivery')}
+              onPress={onOutForDelivery}
+              variant="primary"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+            <FrontdeskButton
+              label={t('details.cancel')}
+              onPress={onCancel}
+              variant="danger"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+            {printButton}
+          </View>
+        ) : canMarkDeliveryDelivered(order) ? (
+          <View style={[styles.actionsRow, isRTL ? styles.actionsRowRtl : null]}>
+            <FrontdeskButton
+              label={t('details.markDelivered')}
+              onPress={onDelivered}
+              variant="primary"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+            <FrontdeskButton
+              label={t('details.cancel')}
+              onPress={onCancel}
+              variant="danger"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+            {printButton}
+          </View>
+        ) : isPickupInProgressOrder(order) ? (
           <View style={[styles.actionsRow, isRTL ? styles.actionsRowRtl : null]}>
             <FrontdeskButton
               label={t('details.complete')}
@@ -156,16 +260,20 @@ export const OrderDetailsScreen = ({ order, onAccept, onReject, onCancel, onComp
               minHeight={frontdeskTheme.touch.medium}
               style={styles.flexButton}
             />
+            {printButton}
           </View>
         ) : (
-          <FrontdeskButton
-            label={t('details.cancel')}
-            onPress={onCancel}
-            variant="danger"
-            isRTL={isRTL}
-            minHeight={frontdeskTheme.touch.medium}
-            style={styles.singleAction}
-          />
+          <View style={[styles.actionsRow, isRTL ? styles.actionsRowRtl : null]}>
+            <FrontdeskButton
+              label={t('details.cancel')}
+              onPress={onCancel}
+              variant="danger"
+              isRTL={isRTL}
+              minHeight={frontdeskTheme.touch.medium}
+              style={styles.flexButton}
+            />
+            {printButton}
+          </View>
         )
       ) : null}
 

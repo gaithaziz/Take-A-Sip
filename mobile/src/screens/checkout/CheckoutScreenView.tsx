@@ -78,6 +78,11 @@ type CheckoutScreenViewProps = {
   loading: boolean;
   canPlaceOrder: boolean;
   orderingEnabled: boolean;
+  orderMinimum: number;
+  minimumRemaining: number;
+  meetsOrderMinimum: boolean;
+  minimumMetLabel: string;
+  minimumRemainingLabel: string;
   orderingUnavailableMessage: string;
   bottomInset: number;
   onBack: () => void;
@@ -144,6 +149,11 @@ export const CheckoutScreenView = ({
   loading,
   canPlaceOrder,
   orderingEnabled,
+  orderMinimum,
+  minimumRemaining,
+  meetsOrderMinimum,
+  minimumMetLabel,
+  minimumRemainingLabel,
   orderingUnavailableMessage,
   bottomInset,
   onBack,
@@ -216,6 +226,13 @@ export const CheckoutScreenView = ({
             {deliveryFee !== null ? formatCurrency(freeDelivery ? 0 : deliveryFee, language) : calculatingDeliveryFeeLabel}
           </AppText>
         </View>
+      ) : null}
+      {orderMinimum > 0 ? (
+        <AppText variant="caption" color={meetsOrderMinimum ? theme.colors.success : theme.colors.warning}>
+          {meetsOrderMinimum
+            ? `${minimumMetLabel}: ${formatCurrency(orderMinimum, language)}`
+            : minimumRemainingLabel}
+        </AppText>
       ) : null}
       <View style={[styles.totalRow, mirroredRow(isRTL)]}>
         <AppText variant="h3">{totalLabel}</AppText>

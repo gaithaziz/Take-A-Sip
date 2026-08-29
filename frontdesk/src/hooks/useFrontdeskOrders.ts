@@ -132,7 +132,70 @@ export const useFrontdeskOrders = (token: string | null, recoverSession: () => P
     }
   }, [recoverSession]);
 
+  const printReceiptForOrder = useCallback(async (order: OrderRead) => {
+    const isArabic = i18next.language === 'ar';
+    const receipt = buildReceiptText(order, {
+      isArabic,
+      shopName: shopNameRef.current,
+      shopNameArabic: shopNameArabicRef.current,
+      arabicLookup: arabicLookupRef.current,
+    });
+    await sunmiPrinter.printReceipt(receipt, { isArabic });
+  }, []);
+
+  const printOrder = useCallback(async (order: OrderRead) => {
+    let printableOrder = order;
+    try {
+      printableOrder = await orderService.getOrder(order.id);
+    } catch {
+      // Printing must still work during a temporary network interruption.
+    }
+
+    try {
+      await printReceiptForOrder(printableOrder);
+      setFailedPrints((prev) => prev.filter((item) => item.order.id !== order.id));
+      setBanner(
+        i18next.t('banner.printSucceeded', {
+          number: formatOrderReference(printableOrder.order_number, i18next.language),
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : i18next.t('banner.unknownPrintError');
+      setFailedPrints((prev) => [
+        { order: printableOrder, reason: message, failedAt: Date.now() },
+        ...prev.filter((item) => item.order.id !== order.id),
+      ]);
+      setBanner(
+        i18next.t('banner.printFailed', {
+          number: formatOrderReference(printableOrder.order_number, i18next.language),
+          message,
+        }),
+      );
+    }
+  }, [printReceiptForOrder]);
+
   const handleSocketMessage = useCallback(async (message: FrontdeskSocketMessage) => {
+    if (message.status === 'CANCELLED') {
+      if (!isMountedRef.current) {
+        return;
+      }
+      setOrders((prev) => prev.filter((item) => item.id !== message.order_id));
+      alertedNewOrderIdsRef.current.delete(message.order_id);
+      setBanner(
+        i18next.t('banner.orderCancelledExternally', {
+          number: formatOrderReference(message.order_number, i18next.language),
+        }),
+      );
+      return;
+    }
+
+    if (message.status === 'DELIVERED' || message.status === 'COMPLETED') {
+      if (isMountedRef.current) {
+        setOrders((prev) => prev.filter((item) => item.id !== message.order_id));
+      }
+      return;
+    }
+
     if (message.event === 'order.created') {
       const fullOrder = await orderService.getOrder(message.order_id);
       if (!isMountedRef.current || fullOrder.status !== 'NEW') {
@@ -204,7 +267,13 @@ export const useFrontdeskOrders = (token: string | null, recoverSession: () => P
     const pushRegistrationTimer = setInterval(() => {
       void registerPush();
     }, 60_000);
-    const unsubscribeNotifications = notificationService.subscribe(({ orderId }) => {
+    const unsubscribeNotifications = notificationService.subscribe(({ orderId, type }) => {
+      if (type === 'frontdesk_order_cancelled') {
+        setOrders((prev) => prev.filter((item) => item.id !== orderId));
+        alertedNewOrderIdsRef.current.delete(orderId);
+        void loadNewOrders();
+        return;
+      }
       void handleSocketMessage({
         event: 'order.created',
         order_id: orderId,
@@ -254,15 +323,8 @@ export const useFrontdeskOrders = (token: string | null, recoverSession: () => P
       return;
     }
 
-    const isArabic = i18next.language === 'ar';
     try {
-      const receipt = buildReceiptText(acceptedOrder, {
-        isArabic,
-        shopName: shopNameRef.current,
-        shopNameArabic: shopNameArabicRef.current,
-        arabicLookup: arabicLookupRef.current,
-      });
-      await sunmiPrinter.printReceipt(receipt, { isArabic });
+      await printReceiptForOrder(acceptedOrder);
     } catch (error) {
       const message = error instanceof Error ? error.message : i18next.t('banner.unknownPrintError');
       setBanner(i18next.t('banner.acceptedPrintFailed', { message }));
@@ -285,39 +347,15 @@ export const useFrontdeskOrders = (token: string | null, recoverSession: () => P
         // Keep the immediate accepted state; the recovery sync will fill in any extra fields.
       }
     }
-  }, []);
+  }, [printReceiptForOrder]);
 
   const reprintFailedOrder = useCallback(async (orderId: string) => {
     const job = failedPrints.find((item) => item.order.id === orderId);
     if (!job) {
       return;
     }
-    const isArabic = i18next.language === 'ar';
-    try {
-      const receipt = buildReceiptText(job.order, {
-        isArabic,
-        shopName: shopNameRef.current,
-        shopNameArabic: shopNameArabicRef.current,
-        arabicLookup: arabicLookupRef.current,
-      });
-      await sunmiPrinter.printReceipt(receipt, { isArabic });
-      setFailedPrints((prev) => prev.filter((item) => item.order.id !== orderId));
-      setBanner(i18next.t('banner.reprintSucceeded', { number: formatOrderReference(job.order.order_number, i18next.language) }));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : i18next.t('banner.unknownPrintError');
-      setFailedPrints((prev) =>
-        prev.map((item) =>
-          item.order.id === orderId ? { ...item, reason: message, failedAt: Date.now() } : item,
-        ),
-      );
-      setBanner(
-        i18next.t('banner.reprintFailed', {
-          number: formatOrderReference(job.order.order_number, i18next.language),
-          message,
-        }),
-      );
-    }
-  }, [failedPrints]);
+    await printOrder(job.order);
+  }, [failedPrints, printOrder]);
 
   const dismissFailedOrder = useCallback((orderId: string) => {
     setFailedPrints((prev) => prev.filter((item) => item.order.id !== orderId));
@@ -347,7 +385,13 @@ export const useFrontdeskOrders = (token: string | null, recoverSession: () => P
   }, []);
 
   const cancelOrder = useCallback(async (order: OrderRead) => {
-    if (order.status !== 'ACCEPTED' && order.status !== 'ASSIGNED' && order.status !== 'ASSIGNED_TO_DRIVER') {
+    if (
+      order.status !== 'ACCEPTED' &&
+      order.status !== 'ASSIGNED' &&
+      order.status !== 'ASSIGNED_TO_DRIVER' &&
+      order.status !== 'READY' &&
+      order.status !== 'OUT_FOR_DELIVERY'
+    ) {
       return;
     }
     try {
@@ -369,6 +413,67 @@ export const useFrontdeskOrders = (token: string | null, recoverSession: () => P
       setBanner(i18next.t('banner.orderCompleted', { number: formatOrderReference(order.order_number, i18next.language) }));
     } catch {
       setBanner(i18next.t('banner.completeFailed'));
+    }
+  }, []);
+
+  const markOrderReady = useCallback(async (order: OrderRead) => {
+    if (
+      order.order_type !== 'delivery' ||
+      (order.status !== 'ASSIGNED' && order.status !== 'ASSIGNED_TO_DRIVER') ||
+      !order.assigned_driver_id
+    ) {
+      return;
+    }
+    try {
+      const response = await orderService.updateStatus(order.id, 'READY');
+      const updated = { ...order, status: response.status as OrderRead['status'] };
+      setOrders((prev) =>
+        [updated, ...prev.filter((item) => item.id !== order.id)].filter(isFrontdeskActionableOrder),
+      );
+      setBanner(
+        i18next.t('banner.orderReady', {
+          number: formatOrderReference(order.order_number, i18next.language),
+        }),
+      );
+    } catch {
+      setBanner(i18next.t('banner.readyFailed'));
+    }
+  }, []);
+
+  const markOrderOutForDelivery = useCallback(async (order: OrderRead) => {
+    if (order.order_type !== 'delivery' || order.status !== 'READY' || !order.assigned_driver_id) {
+      return;
+    }
+    try {
+      const response = await orderService.updateStatus(order.id, 'OUT_FOR_DELIVERY');
+      const updated = { ...order, status: response.status as OrderRead['status'] };
+      setOrders((prev) =>
+        [updated, ...prev.filter((item) => item.id !== order.id)].filter(isFrontdeskActionableOrder),
+      );
+      setBanner(
+        i18next.t('banner.orderOutForDelivery', {
+          number: formatOrderReference(order.order_number, i18next.language),
+        }),
+      );
+    } catch {
+      setBanner(i18next.t('banner.outForDeliveryFailed'));
+    }
+  }, []);
+
+  const markOrderDelivered = useCallback(async (order: OrderRead) => {
+    if (order.order_type !== 'delivery' || order.status !== 'OUT_FOR_DELIVERY') {
+      return;
+    }
+    try {
+      await orderService.updateStatus(order.id, 'DELIVERED');
+      setOrders((prev) => prev.filter((item) => item.id !== order.id));
+      setBanner(
+        i18next.t('banner.orderDelivered', {
+          number: formatOrderReference(order.order_number, i18next.language),
+        }),
+      );
+    } catch {
+      setBanner(i18next.t('banner.deliveredFailed'));
     }
   }, []);
 
@@ -409,6 +514,10 @@ export const useFrontdeskOrders = (token: string | null, recoverSession: () => P
       rejectOrder,
       cancelOrder,
       completeOrder,
+      markOrderReady,
+      markOrderOutForDelivery,
+      markOrderDelivered,
+      printOrder,
       printTestReceipt,
       reprintFailedOrder,
       dismissFailedOrder,
@@ -421,6 +530,10 @@ export const useFrontdeskOrders = (token: string | null, recoverSession: () => P
       rejectOrder,
       cancelOrder,
       completeOrder,
+      markOrderReady,
+      markOrderOutForDelivery,
+      markOrderDelivered,
+      printOrder,
       banner,
       connectionState,
       dismissFailedOrder,

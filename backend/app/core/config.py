@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     rate_limit_admin_mutation_per_minute: int = 120
 
     jwt_secret_key: str = 'change-me'
+    offer_identity_secret: str | None = None
     jwt_algorithm: str = 'HS256'
     access_token_expire_minutes: int = 60 * 12
     refresh_token_expire_days: int = 90

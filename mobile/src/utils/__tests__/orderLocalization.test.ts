@@ -5,6 +5,7 @@ import {
   getLocalizedOrderItemName,
   getLocalizedOrderLineLabel,
   getLocalizedOrderSizeName,
+  getLocalizedOrderTypeName,
 } from '../orderLocalization';
 
 const menu: MenuResponse = {
@@ -62,7 +63,11 @@ const orderItem: OrderItemRead = {
   item_id_snapshot: 'item-1',
   size_id_snapshot: 'size-1',
   item_name_snapshot: 'Latte',
+  item_name_ar_snapshot: 'لاتيه محفوظ',
+  item_type_name_snapshot: 'Hot',
+  item_type_name_ar_snapshot: 'ساخن محفوظ',
   size_snapshot: 'Large',
+  size_name_ar_snapshot: 'كبير محفوظ',
   price_snapshot: '3.50',
   quantity: 2,
   addons: [],
@@ -80,6 +85,7 @@ describe('orderLocalization', () => {
   it('falls back to stored snapshots when menu entities are unavailable', () => {
     const lookup = buildMenuSnapshotLookup(null);
 
-    expect(getLocalizedOrderLineLabel(orderItem, lookup, 'ar')).toBe('2x Latte (Large)');
+    expect(getLocalizedOrderLineLabel(orderItem, lookup, 'ar')).toBe('2x لاتيه محفوظ (كبير محفوظ)');
+    expect(getLocalizedOrderTypeName(orderItem, 'ar')).toBe('ساخن محفوظ');
   });
 });

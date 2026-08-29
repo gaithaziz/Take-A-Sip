@@ -1,4 +1,4 @@
-const baseConfig = require('./app.json');
+const baseConfig = require('./app.base.json');
 
 module.exports = () => ({
   expo: {

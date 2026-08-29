@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.logging import log_structured
 from app.core.phone import mask_phone_number, normalize_phone_number
 from app.core.security import create_access_token
+from app.models.order import Order, OrderStatus
 from app.models.user import User, UserRole
 from app.models.user_event import UserEvent
 from app.models.user_push_token import UserPushToken
@@ -26,6 +27,7 @@ from app.schemas.auth import (
     VerifyOTPRequest,
 )
 from app.services.otp_service import OTPRateLimitError, OTPVerifyResult, otp_service
+from app.services.offer_identity_service import claim_first_time_identity
 from app.services.sms_service import SMSProviderError, build_sms_provider
 
 logger = logging.getLogger(__name__)
@@ -448,6 +450,21 @@ def _deleted_phone_number(user_id: str) -> str:
 async def delete_account(current_user: User, db: AsyncSession) -> AccountDeletionResponse:
     now = datetime.now(timezone.utc)
     original_role = current_user.role.value
+
+    successful_orders = await db.execute(
+        select(Order.id)
+        .where(
+            Order.user_id == current_user.id,
+            Order.status.in_([OrderStatus.DELIVERED, OrderStatus.COMPLETED]),
+        )
+        .limit(1)
+    )
+    if successful_orders.scalar_one_or_none() is not None:
+        await claim_first_time_identity(
+            db,
+            current_user.phone_number,
+            reason='account_deletion',
+        )
 
     await db.execute(delete(UserPushToken).where(UserPushToken.user_id == current_user.id))
     await db.execute(delete(UserRefreshToken).where(UserRefreshToken.user_id == current_user.id))

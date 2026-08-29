@@ -64,6 +64,41 @@ async def test_admin_can_pause_ordering_while_menu_stays_visible(client, db_sess
     assert order_response.json()['detail'] == 'Ordering is currently unavailable'
 
 
+async def test_admin_store_settings_are_authorized_and_validated_atomically(client, db_session):
+    admin, customer, *_ = await _seed_menu_and_users(db_session)
+
+    forbidden = await client.get('/admin/store/settings', headers=_headers(customer))
+    assert forbidden.status_code == 403
+
+    updated = await client.patch(
+        '/admin/store/settings',
+        headers=_headers(admin),
+        json={
+            'minimum_delivery_order_amount': '7.50',
+            'minimum_pickup_order_amount': '3.25',
+            'working_hours': None,
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()['minimum_delivery_order_amount'] == '7.50'
+    assert updated.json()['minimum_pickup_order_amount'] == '3.25'
+
+    invalid_hours = [
+        {'day_of_week': day, 'is_open': False, 'opens_at': None, 'closes_at': None}
+        for day in range(7)
+    ]
+    invalid_hours[0] = {'day_of_week': 0, 'is_open': True, 'opens_at': '09:00', 'closes_at': '09:00'}
+    invalid = await client.patch(
+        '/admin/store/settings',
+        headers=_headers(admin),
+        json={'minimum_delivery_order_amount': '99.00', 'working_hours': invalid_hours},
+    )
+    assert invalid.status_code == 422
+
+    unchanged = await client.get('/admin/store/settings', headers=_headers(admin))
+    assert unchanged.json()['minimum_delivery_order_amount'] == '7.50'
+
+
 async def test_bulk_availability_is_atomic_and_idempotent(client, db_session):
     admin, _, section_a, _, item, _ = await _seed_menu_and_users(db_session)
     payload = {

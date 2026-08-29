@@ -33,6 +33,7 @@ export type RootStackParamList = {
   DriverTabs: NavigatorScreenParams<DriverTabParamList>;
   AdminLoyalty: undefined;
   AdminProfile: undefined;
+  AdminStoreSettings: undefined;
   AdminMenuCategoryEditor: { section?: Section } | undefined;
   AdminMenuProductEditor: { item?: Item; sectionId?: string } | undefined;
   AdminMenuCustomerPreview: { item: Item; initialLanguage?: LanguageCode };

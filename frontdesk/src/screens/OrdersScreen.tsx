@@ -29,6 +29,10 @@ type Props = {
   rejectOrder: (order: OrderRead) => Promise<void>;
   cancelOrder: (order: OrderRead) => Promise<void>;
   completeOrder: (order: OrderRead) => Promise<void>;
+  markOrderReady: (order: OrderRead) => Promise<void>;
+  markOrderOutForDelivery: (order: OrderRead) => Promise<void>;
+  markOrderDelivered: (order: OrderRead) => Promise<void>;
+  printOrder: (order: OrderRead) => Promise<void>;
 };
 
 export const OrdersScreen = ({
@@ -48,6 +52,10 @@ export const OrdersScreen = ({
   rejectOrder,
   cancelOrder,
   completeOrder,
+  markOrderReady,
+  markOrderOutForDelivery,
+  markOrderDelivered,
+  printOrder,
 }: Props) => {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -59,6 +67,10 @@ export const OrdersScreen = ({
   const [activeRejectOrderId, setActiveRejectOrderId] = useState<string | null>(null);
   const [activeCancelOrderId, setActiveCancelOrderId] = useState<string | null>(null);
   const [activeCompleteOrderId, setActiveCompleteOrderId] = useState<string | null>(null);
+  const [activeReadyOrderId, setActiveReadyOrderId] = useState<string | null>(null);
+  const [activeOutForDeliveryOrderId, setActiveOutForDeliveryOrderId] = useState<string | null>(null);
+  const [activeDeliveredOrderId, setActiveDeliveredOrderId] = useState<string | null>(null);
+  const [activePrintOrderId, setActivePrintOrderId] = useState<string | null>(null);
   const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const topPadding = Math.max(24, insets.top + frontdeskTheme.spacing.sm);
@@ -138,6 +150,45 @@ export const OrdersScreen = ({
       await completeOrder(order);
     } finally {
       setActiveCompleteOrderId((current) => (current === order.id ? null : current));
+    }
+  };
+
+  const handleReady = async (order: OrderRead) => {
+    setActiveReadyOrderId(order.id);
+    try {
+      await markOrderReady(order);
+    } finally {
+      setActiveReadyOrderId((current) => (current === order.id ? null : current));
+    }
+  };
+
+  const handleOutForDelivery = async (order: OrderRead) => {
+    setActiveOutForDeliveryOrderId(order.id);
+    try {
+      await markOrderOutForDelivery(order);
+    } finally {
+      setActiveOutForDeliveryOrderId((current) => (current === order.id ? null : current));
+    }
+  };
+
+  const handleDelivered = async (order: OrderRead) => {
+    setActiveDeliveredOrderId(order.id);
+    try {
+      await markOrderDelivered(order);
+    } finally {
+      setActiveDeliveredOrderId((current) => (current === order.id ? null : current));
+    }
+  };
+
+  const handlePrint = async (order: OrderRead) => {
+    if (activePrintOrderId) {
+      return;
+    }
+    setActivePrintOrderId(order.id);
+    try {
+      await printOrder(order);
+    } finally {
+      setActivePrintOrderId((current) => (current === order.id ? null : current));
     }
   };
 
@@ -313,10 +364,18 @@ export const OrdersScreen = ({
             onReject={() => void handleReject(item)}
             onCancel={() => void handleCancel(item)}
             onComplete={() => void handleComplete(item)}
+            onReady={() => void handleReady(item)}
+            onOutForDelivery={() => void handleOutForDelivery(item)}
+            onDelivered={() => void handleDelivered(item)}
+            onPrint={() => void handlePrint(item)}
             isAccepting={activeAcceptOrderId === item.id}
             isRejecting={activeRejectOrderId === item.id}
             isCancelling={activeCancelOrderId === item.id}
             isCompleting={activeCompleteOrderId === item.id}
+            isMarkingReady={activeReadyOrderId === item.id}
+            isMarkingOutForDelivery={activeOutForDeliveryOrderId === item.id}
+            isMarkingDelivered={activeDeliveredOrderId === item.id}
+            isPrinting={activePrintOrderId === item.id}
             isRTL={isRTL}
             density={density}
             t={t}
@@ -331,6 +390,10 @@ export const OrdersScreen = ({
               reject: t('orders.reject'),
               cancel: t('orders.cancel'),
               complete: t('orders.complete'),
+              ready: t('details.markReady'),
+              outForDelivery: t('details.markOutForDelivery'),
+              delivered: t('details.markDelivered'),
+              print: t('orders.printOrder'),
               needsAssignment: t('orders.needsAssignment'),
               assignedTo: t('details.assignedTo'),
             }}

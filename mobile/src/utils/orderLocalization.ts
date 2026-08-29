@@ -36,8 +36,14 @@ export const getLocalizedOrderItemName = (
   language: LanguageCode,
 ) => {
   const menuItem = item.item_id_snapshot ? lookup.itemNames.get(item.item_id_snapshot) : undefined;
-  return menuItem ? getLocalizedValue(menuItem, language, 'name') || item.item_name_snapshot : item.item_name_snapshot;
+  const snapshot = language === 'ar' ? item.item_name_ar_snapshot || item.item_name_snapshot : item.item_name_snapshot;
+  return menuItem ? getLocalizedValue(menuItem, language, 'name') || snapshot : snapshot;
 };
+
+export const getLocalizedOrderTypeName = (item: OrderItemRead, language: LanguageCode) =>
+  language === 'ar'
+    ? item.item_type_name_ar_snapshot || item.item_type_name_snapshot || ''
+    : item.item_type_name_snapshot || item.item_type_name_ar_snapshot || '';
 
 export const getLocalizedOrderSizeName = (
   item: OrderItemRead,
@@ -45,7 +51,8 @@ export const getLocalizedOrderSizeName = (
   language: LanguageCode,
 ) => {
   const menuSize = item.size_id_snapshot ? lookup.sizeNames.get(item.size_id_snapshot) : undefined;
-  return menuSize ? getLocalizedValue(menuSize, language, 'name') || item.size_snapshot : item.size_snapshot;
+  const snapshot = language === 'ar' ? item.size_name_ar_snapshot || item.size_snapshot : item.size_snapshot;
+  return menuSize ? getLocalizedValue(menuSize, language, 'name') || snapshot : snapshot;
 };
 
 export const getLocalizedOrderAddonName = (
@@ -54,7 +61,8 @@ export const getLocalizedOrderAddonName = (
   language: LanguageCode,
 ) => {
   const menuAddon = addon.addon_id_snapshot ? lookup.addonNames.get(addon.addon_id_snapshot) : undefined;
-  return menuAddon ? getLocalizedValue(menuAddon, language, 'name') || addon.addon_name_snapshot : addon.addon_name_snapshot;
+  const snapshot = language === 'ar' ? addon.addon_name_ar_snapshot || addon.addon_name_snapshot : addon.addon_name_snapshot;
+  return menuAddon ? getLocalizedValue(menuAddon, language, 'name') || snapshot : snapshot;
 };
 
 export const getLocalizedOrderLineLabel = (

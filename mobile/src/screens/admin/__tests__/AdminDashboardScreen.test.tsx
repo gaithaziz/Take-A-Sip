@@ -38,6 +38,10 @@ const translationMap: Record<string, string> = {
   'admin.noDriverDeliveries': 'No completed deliveries yet today.',
   'admin.latestOrdersTitle': 'Latest Orders',
   'admin.noLatestOrders': 'No recent orders found.',
+  'admin.viewAllOrders': 'View all orders',
+  'admin.viewOrderDetails': 'View details',
+  'admin.orderTypeDelivery': 'Delivery',
+  'admin.orderTypePickup': 'Pickup',
   'admin.ratingsOverviewTitle': 'Ratings Overview',
   'admin.averageRating': 'Average rating',
   'admin.totalRatings': 'Total ratings',
@@ -187,7 +191,38 @@ describe('AdminDashboardScreen', () => {
 
     expect(queryByText('Fourth Client')).toBeNull();
 
+    fireEvent.press(getByText('Maya Client'));
+    expect(parentNavigate).toHaveBeenCalledWith('AdminOrderDetails', { orderId: 'o1' });
+
     fireEvent.press(getByText('View all reviews'));
     expect(parentNavigate).toHaveBeenCalledWith('AdminReviews');
+  });
+
+  it('opens a recent order directly from the dashboard', async () => {
+    const parentNavigate = jest.fn();
+    mockListLatestOrders.mockResolvedValue({
+      orders: [
+        {
+          id: 'order-401',
+          order_number: 401,
+          status: 'NEW',
+          order_type: 'delivery',
+          created_at: '2026-03-10T10:00:00Z',
+          items: [],
+        },
+      ],
+    });
+
+    const { getByText } = render(
+      <AdminDashboardScreen
+        navigation={{ navigate: jest.fn(), getParent: () => ({ navigate: parentNavigate }) } as never}
+        route={{} as never}
+      />,
+    );
+
+    await waitFor(() => expect(getByText('#401')).toBeTruthy());
+    fireEvent.press(getByText('#401'));
+
+    expect(parentNavigate).toHaveBeenCalledWith('AdminOrderDetails', { orderId: 'order-401' });
   });
 });

@@ -33,6 +33,7 @@ const STATUS_FILTERS: OrderStatusFilter[] = [
   'NEW',
   'ACCEPTED',
   'ASSIGNED',
+  'READY',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
   'COMPLETED',

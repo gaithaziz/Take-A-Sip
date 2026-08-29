@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { AppCard } from '@/components/AppCard';
@@ -15,13 +15,14 @@ import { theme } from '@/theme';
 import { AdminRatingReview } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
+import { mirroredRow } from '@/utils/layout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminReviews'>;
 
 const PAGE_SIZE = 20;
 
 export const AdminReviewsScreen = ({ navigation }: Props) => {
-  const { t, language } = useAppTranslation();
+  const { t, language, isRTL } = useAppTranslation();
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,22 +97,30 @@ export const AdminReviewsScreen = ({ navigation }: Props) => {
       ) : (
         <View style={styles.stack}>
           {reviews.map((review) => (
-            <AppCard key={`${review.order_id}-${review.created_at}`} style={styles.listCard}>
-              <View style={styles.inlineRow}>
-                <AppText variant="h3" style={styles.grow}>
-                  {review.customer_name}
-                </AppText>
-                <AppText variant="caption" color={theme.colors.textSecondary}>
-                  {formatDateTime(review.created_at, language)}
-                </AppText>
-              </View>
-              <AppText variant="bodySmall">{`${review.stars}/5`}</AppText>
-              {review.note ? (
-                <AppText variant="bodySmall" color={theme.colors.textSecondary}>
-                  {review.note}
-                </AppText>
-              ) : null}
-            </AppCard>
+            <Pressable
+              key={`${review.order_id}-${review.created_at}`}
+              accessibilityRole="button"
+              accessibilityLabel={t('admin.viewRatedOrder')}
+              onPress={() => navigation.navigate('AdminOrderDetails', { orderId: review.order_id })}>
+              {({ pressed }) => (
+                <AppCard style={[styles.listCard, pressed ? styles.listCardPressed : null]}>
+                  <View style={[styles.inlineRow, mirroredRow(isRTL)]}>
+                    <AppText variant="h3" style={styles.grow}>
+                      {review.customer_name}
+                    </AppText>
+                    <AppText variant="caption" color={theme.colors.textSecondary}>
+                      {formatDateTime(review.created_at, language)}
+                    </AppText>
+                  </View>
+                  <AppText variant="bodySmall">{`${review.stars}/5`}</AppText>
+                  {review.note ? (
+                    <AppText variant="bodySmall" color={theme.colors.textSecondary}>
+                      {review.note}
+                    </AppText>
+                  ) : null}
+                </AppCard>
+              )}
+            </Pressable>
           ))}
           {hasMore ? (
             <AppButton
@@ -140,10 +149,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.secondaryCream,
     borderColor: theme.colors.primary200,
   },
+  listCardPressed: {
+    opacity: 0.82,
+  },
   inlineRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: theme.spacing.sm,
   },
   grow: {

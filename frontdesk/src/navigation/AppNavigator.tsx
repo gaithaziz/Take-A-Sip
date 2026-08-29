@@ -48,6 +48,10 @@ export const AppNavigator = () => {
               rejectOrder={realtime.rejectOrder}
               cancelOrder={realtime.cancelOrder}
               completeOrder={realtime.completeOrder}
+              markOrderReady={realtime.markOrderReady}
+              markOrderOutForDelivery={realtime.markOrderOutForDelivery}
+              markOrderDelivered={realtime.markOrderDelivered}
+              printOrder={realtime.printOrder}
               onPrinterTest={realtime.printTestReceipt}
               onReprint={realtime.reprintFailedOrder}
               onDismissFailed={realtime.dismissFailedOrder}
@@ -69,6 +73,8 @@ export const AppNavigator = () => {
           {({ route, navigation }) => (
             <OrderDetailsScreen
               order={realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order}
+              isAvailable={realtime.orders.some((item) => item.id === route.params.order.id)}
+              onUnavailable={() => navigation.goBack()}
               drivers={realtime.availableDrivers}
               onAssignDriver={async (driverUserId) => {
                 const current =
@@ -86,19 +92,36 @@ export const AppNavigator = () => {
                 const current =
                   realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
                 await realtime.rejectOrder(current);
-                navigation.goBack();
               }}
               onCancel={async () => {
                 const current =
                   realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
                 await realtime.cancelOrder(current);
-                navigation.goBack();
               }}
               onComplete={async () => {
                 const current =
                   realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
                 await realtime.completeOrder(current);
-                navigation.goBack();
+              }}
+              onReady={async () => {
+                const current =
+                  realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
+                await realtime.markOrderReady(current);
+              }}
+              onOutForDelivery={async () => {
+                const current =
+                  realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
+                await realtime.markOrderOutForDelivery(current);
+              }}
+              onDelivered={async () => {
+                const current =
+                  realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
+                await realtime.markOrderDelivered(current);
+              }}
+              onPrint={async () => {
+                const current =
+                  realtime.orders.find((item) => item.id === route.params.order.id) ?? route.params.order;
+                await realtime.printOrder(current);
               }}
             />
           )}

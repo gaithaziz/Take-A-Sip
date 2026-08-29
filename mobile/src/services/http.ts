@@ -52,6 +52,9 @@ let authExpiredHandler: (() => void) | null = null;
 export const http = axios.create({
   baseURL,
   timeout: 20000,
+  headers: {
+    'X-App-Capabilities': 'ready-status',
+  },
 });
 
 export const setAuthExpiredHandler = (handler: (() => void) | null) => {

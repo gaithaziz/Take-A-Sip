@@ -342,6 +342,11 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
         )
         await client.post(
             f'/orders/{order_id}/status',
+            headers=_auth_headers(admin),
+            json={'status': 'READY'},
+        )
+        await client.post(
+            f'/orders/{order_id}/status',
             headers=_auth_headers(driver),
             json={'status': 'OUT_FOR_DELIVERY'},
         )
@@ -360,6 +365,7 @@ async def test_order_notifications_fire_and_invalid_tokens_are_deactivated(clien
     assert ('client-token', 'client_order_accepted') in deliveries
     assert ('client-token-invalid', 'client_order_accepted') in deliveries
     assert ('driver-token', 'driver_order_assigned') in deliveries
+    assert ('driver-token', 'driver_order_ready') in deliveries
     assert ('client-token', 'client_driver_assigned') in deliveries
     assert ('client-token', 'client_out_for_delivery') in deliveries
     assert ('client-token', 'client_order_delivered') in deliveries
@@ -388,12 +394,20 @@ async def test_pickup_completed_sends_completion_notification(client, db_session
         is_active=True,
         is_banned=False,
     )
+    frontdesk = User(
+        first_name='Rana',
+        last_name='Frontdesk',
+        phone_number='+962790001133',
+        role=UserRole.FRONTDESK,
+        is_active=True,
+        is_banned=False,
+    )
     section = Section(name_en='Coffee', name_ar='Coffee', sort_order=1, is_active=True)
     item = Item(section=section, name_en='Latte', name_ar='Latte', is_active=True)
     item_type = ItemType(item=item, name_en='Hot', name_ar='Hot', is_active=True)
     size = Size(item_type=item_type, name_en='Regular', name_ar='Regular', price=Decimal('3.50'), is_active=True)
 
-    db_session.add_all([admin, customer, section, item, item_type, size])
+    db_session.add_all([admin, customer, frontdesk, section, item, item_type, size])
     await db_session.flush()
     db_session.add(
         UserPushToken(
@@ -402,6 +416,17 @@ async def test_pickup_completed_sends_completion_notification(client, db_session
             push_provider='fcm',
             push_token='pickup-client-token',
             device_id='pickup-client-device',
+            language='ar',
+            is_active=True,
+        )
+    )
+    db_session.add(
+        UserPushToken(
+            user_id=frontdesk.id,
+            platform='android',
+            push_provider='fcm',
+            push_token='pickup-frontdesk-token',
+            device_id='pickup-frontdesk-device',
             language='ar',
             is_active=True,
         )
@@ -434,8 +459,20 @@ async def test_pickup_completed_sends_completion_notification(client, db_session
             headers=_auth_headers(admin),
             json={'status': 'COMPLETED'},
         )
+        cancelled_order_response = await client.post(
+            '/orders',
+            headers=_auth_headers(customer),
+            json={'order_type': 'pickup', 'items': [{'size_id': str(size.id), 'quantity': 1, 'addon_ids': []}]},
+        )
+        cancelled_order_id = cancelled_order_response.json()['id']
+        await client.post(
+            f'/orders/{cancelled_order_id}/status',
+            headers=_auth_headers(customer),
+            json={'status': 'CANCELLED'},
+        )
     finally:
         notification_service.set_notification_sender_override(None)
         monkeypatch.setattr(notification_service.settings, 'push_enabled', False)
 
     assert ('pickup-client-token', 'client_order_completed') in deliveries
+    assert ('pickup-frontdesk-token', 'frontdesk_order_cancelled') in deliveries

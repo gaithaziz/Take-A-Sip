@@ -7,7 +7,7 @@ import { notificationApi } from './notificationApi';
 const DEVICE_ID_KEY = 'take_a_sip_frontdesk_device_id';
 
 export type FrontdeskPushPayload = {
-  type: 'frontdesk_new_order' | 'admin_new_order';
+  type: 'frontdesk_new_order' | 'admin_new_order' | 'frontdesk_order_cancelled';
   orderId: string;
 };
 
@@ -33,7 +33,12 @@ const getOrCreateDeviceId = async () => {
 const parsePayload = (data: Record<string, unknown>): FrontdeskPushPayload | null => {
   const type = data.type;
   const orderId = data.order_id;
-  if ((type !== 'frontdesk_new_order' && type !== 'admin_new_order') || typeof orderId !== 'string') {
+  if (
+    (type !== 'frontdesk_new_order' &&
+      type !== 'admin_new_order' &&
+      type !== 'frontdesk_order_cancelled') ||
+    typeof orderId !== 'string'
+  ) {
     return null;
   }
   return { type, orderId };

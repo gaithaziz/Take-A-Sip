@@ -114,6 +114,12 @@ async def test_admin_dashboard_analytics_and_security_guards(client, db_session)
         json={'driver_user_id': str(seeded['driver'].id)},
     )
     assert assign_response.status_code == 200
+    ready_response = await client.post(
+        f'/orders/{order_id}/status',
+        headers=admin_headers,
+        json={'status': 'READY'},
+    )
+    assert ready_response.status_code == 200
     out_response = await client.post(
         f'/orders/{order_id}/status',
         headers=driver_headers,

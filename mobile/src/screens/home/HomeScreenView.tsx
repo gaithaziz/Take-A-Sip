@@ -19,10 +19,11 @@ import { AppText } from '@/components/AppText';
 import { EmptyState } from '@/components/EmptyState';
 import { OfferRibbon } from '@/components/OfferRibbon';
 import { OrderingUnavailableNotice } from '@/components/OrderingUnavailableNotice';
+import { StoreHoursPanel } from '@/components/StoreHoursPanel';
 import { ProductCard } from '@/components/ProductCard';
 import { HomeProductListSkeleton } from '@/components/skeleton/HomeProductListSkeleton';
 import { theme } from '@/theme';
-import { Item, LanguageCode, Promotion } from '@/types/api';
+import { Item, LanguageCode, Promotion, StoreStatus } from '@/types/api';
 import { mirroredRow } from '@/utils/layout';
 
 import { HomeMenuSection } from './types';
@@ -34,12 +35,14 @@ type HomeScreenViewProps = {
   refreshing: boolean;
   error: string | null;
   orderingEnabled: boolean;
+  storeStatus?: StoreStatus;
+  language?: LanguageCode;
   orderingUnavailableMessage: string;
   cartCount: number;
   isRTL: boolean;
   topInset: number;
   bottomInset: number;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
   onReload: () => void;
   onOpenCart: () => void;
   onOpenProduct: (item: Item) => void;
@@ -54,6 +57,8 @@ export const HomeScreenView = ({
   refreshing,
   error,
   orderingEnabled,
+  storeStatus,
+  language,
   orderingUnavailableMessage,
   cartCount,
   isRTL,
@@ -159,6 +164,10 @@ export const HomeScreenView = ({
               </Pressable>
             </View>
           </AppCard>
+
+          {storeStatus && language ? (
+            <StoreHoursPanel status={storeStatus} language={language} isRTL={isRTL} t={t} />
+          ) : null}
 
           {!orderingEnabled ? (
             <OrderingUnavailableNotice message={orderingUnavailableMessage} isRTL={isRTL} />

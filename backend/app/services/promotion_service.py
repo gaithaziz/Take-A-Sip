@@ -24,6 +24,7 @@ from app.services.promotion_rules_service import (
     eligible_for_free_delivery,
     eligible_for_loyalty_offer,
 )
+from app.services.offer_identity_service import has_first_time_offer_claim
 
 MENU_MODEL_BY_TYPE = {
     'section': Section,
@@ -812,6 +813,7 @@ async def evaluate_promotions_for_user(
     items: list[PromotionEvaluationItem],
     order_type: str | None = None,
     sizes_by_id: dict[UUID, Size] | None = None,
+    first_time_offer_blocked: bool | None = None,
 ) -> PromotionEvaluationResponse:
     promotions = await list_promotions(db)
     target_lookup = await _load_target_lookup(db, promotions)
@@ -822,6 +824,12 @@ async def evaluate_promotions_for_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Size not found')
 
     completed_orders = await _completed_orders_count(db, user_id)
+    if first_time_offer_blocked is None:
+        phone_result = await db.execute(select(User.phone_number).where(User.id == user_id))
+        phone_number = phone_result.scalar_one_or_none()
+        first_time_offer_blocked = bool(
+            phone_number and await has_first_time_offer_claim(db, phone_number)
+        )
     now = datetime.now(timezone.utc)
     cart_total = Decimal('0.00')
     line_rows: list[tuple[Size, list[UUID], int, Decimal]] = []
@@ -844,7 +852,9 @@ async def evaluate_promotions_for_user(
             reason_code = 'INACTIVE'
         elif promotion.starts_at > now or promotion.ends_at < now:
             reason_code = 'OUTSIDE_WINDOW'
-        elif promotion.type in {PromotionType.FIRST_TIME, PromotionType.FIRST_TIME_FREE_ITEM} and not eligible_for_first_time_offer(completed_orders):
+        elif promotion.type in {PromotionType.FIRST_TIME, PromotionType.FIRST_TIME_FREE_ITEM} and (
+            first_time_offer_blocked or not eligible_for_first_time_offer(completed_orders)
+        ):
             reason_code = 'FIRST_TIME_ONLY'
         else:
             required_orders = _resolved_required_orders(promotion)

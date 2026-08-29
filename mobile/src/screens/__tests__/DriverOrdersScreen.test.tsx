@@ -28,6 +28,7 @@ jest.mock('@/hooks/useAppTranslation', () => ({
         'driver.noOrdersTitle': 'No orders',
         'driver.noOrdersSubtitle': 'No assigned',
         'status.DELIVERED': 'Delivered',
+        'status.READY': 'Ready for driver',
       };
       return map[key] ?? key;
     },
@@ -84,5 +85,30 @@ describe('DriverOrdersScreen', () => {
     await waitFor(() => {
       expect(orderService.getDriverLatest).toHaveBeenCalled();
     });
+  });
+
+  it('keeps READY orders in active deliveries', async () => {
+    (orderService.getDriverLatest as jest.Mock).mockResolvedValue({
+      orders: [
+        {
+          id: 'order-ready',
+          order_number: 112,
+          status: 'READY',
+          customer_name: 'Lina Client',
+          customer_phone: '+962790000001',
+          delivery_address_text: 'Amman',
+        },
+      ],
+    });
+
+    const { findByText } = render(
+      <DriverOrdersScreen
+        navigation={{ getParent: () => ({ navigate: jest.fn() }) } as never}
+        route={{ key: 'DriverOrders', name: 'DriverOrders' } as never}
+      />,
+    );
+
+    await findByText('Active Deliveries', undefined, { timeout: 3000 });
+    await findByText('Ready for driver', undefined, { timeout: 3000 });
   });
 });
